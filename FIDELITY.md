@@ -158,7 +158,13 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   centers. A complete 16-menu regression pass worsened no capture: Game falls
   from 0.00521 to 0.00480, Hybrid from 0.00720 to 0.00691, Audio from 0.00375
   to 0.00366, and Joypad from 0.00423 to 0.00399; unaffected pages remain
-  byte-identical to the preceding Swift catalog.
+  byte-identical to the preceding Swift catalog. The rotating target cursor
+  also preserves Max2D `DrawLine`'s historical shared-start transform instead
+  of drawing centered spokes. Its isolated bounds now match the original
+  23×23 pixels; all 16 menus improve again, including Dual Analog to 0.00870,
+  Joypad to 0.00391, and Options to 0.00147. Capture-time Joypad placement uses
+  the original raw `(0,0)` mouse position while live selection placement is
+  unchanged.
   The Video Settings preview now uses `DrawGrid(..., True)`'s exact 48×36
   source window at the `SCREENW/8`, `SCREENH/8` inset, hides the stars and arena
   border that the original page never draws, exposes the original 35 screen
@@ -242,7 +248,7 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   archived legacy `Language/Data types.bbdoc` documents the implicit numeric
   conversions used by the original. Swift random ranges and intentional
   integer truncations follow those references.
-- Build evidence (2026-08-24): the macOS unit-test action (77 tests) and generic
+- Build evidence (2026-08-25): the macOS unit-test action (78 tests) and generic
   iOS Simulator Debug build both pass. The rule suite
   covers initial difficulty, motion, weapons, scoring, upgrades, spawn timing,
   triangle bonds, snake following, black-hole integer conversions,

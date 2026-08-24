@@ -22,6 +22,30 @@ enum OriginalLineRasterRule {
     }
 }
 
+enum OriginalTargetRule {
+    static func scenePivot(position: CGPoint, size: CGFloat) -> CGPoint {
+        CGPoint(x: position.x - size, y: position.y + size)
+    }
+
+    static func sceneEndpoints(
+        position: CGPoint,
+        frame: Int,
+        size: CGFloat
+    ) -> [CGPoint] {
+        let pivot = scenePivot(position: position, size: size)
+        let diameter = size * 2
+        return stride(from: 0, to: 360, by: 45).map { angleOffset in
+            let angle = CGFloat(frame * 8 + angleOffset) * .pi / 180
+            let cosine = cos(angle)
+            let sine = sin(angle)
+            return CGPoint(
+                x: pivot.x + diameter * (cosine - sine),
+                y: pivot.y - diameter * (sine + cosine)
+            )
+        }
+    }
+}
+
 enum OriginalBlendRule {
     static func spriteKitAdditiveNodeAlpha(sourceAlpha: CGFloat) -> CGFloat {
         min(1, max(0, sourceAlpha)).squareRoot()

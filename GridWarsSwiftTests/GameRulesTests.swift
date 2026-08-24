@@ -1393,6 +1393,23 @@ final class GameRulesTests: XCTestCase {
         )
     }
 
+    func testMenuTargetRotatesMax2DDeltaAroundSharedStartPoint() {
+        let position = CGPoint(x: 100, y: 200)
+        let pivot = OriginalTargetRule.scenePivot(position: position, size: 4)
+        let endpoints = OriginalTargetRule.sceneEndpoints(
+            position: position,
+            frame: 0,
+            size: 4
+        )
+
+        XCTAssertEqual(pivot, CGPoint(x: 96, y: 204))
+        XCTAssertEqual(endpoints.count, 8)
+        XCTAssertEqual(endpoints[0], CGPoint(x: 104, y: 196))
+        XCTAssertEqual(endpoints[2], CGPoint(x: 88, y: 196))
+        XCTAssertEqual(endpoints[4], CGPoint(x: 88, y: 212))
+        XCTAssertEqual(endpoints[6], CGPoint(x: 104, y: 212))
+    }
+
     func testMax2DLightBlendCompensatesSpriteKitPremultiplication() {
         XCTAssertEqual(
             OriginalBlendRule.spriteKitAdditiveNodeAlpha(sourceAlpha: 0.85),

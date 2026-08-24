@@ -104,7 +104,7 @@ branch. Each major fidelity milestone has its own commit:
 - [x] Official BlitzMax/BlitzBasic language references archived in `docs/bb`
 - [x] macOS Debug build
 - [x] Generic iOS Simulator Debug build
-- [x] 77 gameplay, input, persistence, audio, and rendering-rule unit tests
+- [x] 78 gameplay, input, persistence, audio, and rendering-rule unit tests
 - [x] macOS launch and rendering smoke test
 - [x] Deterministic 87-state Swift capture catalog at 1024×768
 - [x] Source-ordered Grid simulation and style-specific rendering pass for all
@@ -148,6 +148,8 @@ branch. Each major fidelity milestone has its own commit:
       wide particle line styles 1 and 3
 - [x] Hard, pixel-centered BlitzMax `Rect(...,0)` outlines across all classic
       settings and controller menus
+- [x] Max2D's shared-start rotation quirk and hard line raster for animated
+      menu target cursors, including capture-time mouse placement
 
 `FIDELITY.md` is the acceptance ledger. The isolated BlitzMax harness and the
 Swift port now each capture the same 87 attract, transition, gameplay, HUD,

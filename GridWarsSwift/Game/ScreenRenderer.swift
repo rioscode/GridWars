@@ -303,7 +303,13 @@ final class OriginalScreenRenderer {
 
         menuHitFrames = []
         if menu.page == .joypad {
-            renderJoypadMenu(menu, frame: frame, lineYs: layout.lineYs, size: size)
+            renderJoypadMenu(
+                menu,
+                frame: frame,
+                lineYs: layout.lineYs,
+                size: size,
+                capturePointerYFromTop: capturePointerYFromTop
+            )
             return
         }
 
@@ -701,7 +707,8 @@ final class OriginalScreenRenderer {
         _ menu: OriginalMenuModel,
         frame: Int,
         lineYs: [CGFloat],
-        size: CGSize
+        size: CGSize,
+        capturePointerYFromTop: CGFloat?
     ) {
         for index in 0...2 {
             addText(
@@ -766,13 +773,17 @@ final class OriginalScreenRenderer {
         } + [menuRowHitFrame(yFromTop: lineYs[7], size: size)]
 
         let targetPosition: CGPoint
-        switch menu.selection {
-        case 3...6:
-            let box = buttonFrames[menu.selection - 3]
-            targetPosition = CGPoint(x: box.minX - 20, y: size.height - box.minY - 20)
-        default:
-            let y = lineYs[menu.selection] + 20
-            targetPosition = CGPoint(x: size.width / 2 - 300, y: size.height - y)
+        if let capturePointerYFromTop {
+            targetPosition = CGPoint(x: 0, y: size.height - capturePointerYFromTop)
+        } else {
+            switch menu.selection {
+            case 3...6:
+                let box = buttonFrames[menu.selection - 3]
+                targetPosition = CGPoint(x: box.minX - 20, y: size.height - box.minY - 20)
+            default:
+                let y = lineYs[menu.selection] + 20
+                targetPosition = CGPoint(x: size.width / 2 - 300, y: size.height - y)
+            }
         }
         addTarget(at: targetPosition, frame: frame, size: 4)
     }
@@ -1104,19 +1115,22 @@ final class OriginalScreenRenderer {
 
     private func addTarget(at position: CGPoint, frame: Int, size targetSize: CGFloat) {
         let path = CGMutablePath()
-        let radius = targetSize * sqrt(2)
-        for angleOffset in stride(from: 0, to: 180, by: 45) {
-            let angle = CGFloat(frame * 8 + angleOffset + 45) * .pi / 180
-            let dx = cos(angle) * radius
-            let dy = sin(angle) * radius
-            path.move(to: CGPoint(x: position.x - dx, y: position.y - dy))
-            path.addLine(to: CGPoint(x: position.x + dx, y: position.y + dy))
+        let pivot = OriginalTargetRule.scenePivot(position: position, size: targetSize)
+        for endpoint in OriginalTargetRule.sceneEndpoints(
+            position: position,
+            frame: frame,
+            size: targetSize
+        ) {
+            path.move(to: pivot)
+            path.addLine(to: endpoint)
         }
         let target = SKShapeNode(path: path)
         target.strokeColor = frame % 30 > 14
             ? SKColor(red: 1, green: 1, blue: 32 / 255, alpha: 1)
             : SKColor(red: 1, green: 32 / 255, blue: 32 / 255, alpha: 1)
         target.lineWidth = 2
+        target.isAntialiased = false
+        target.lineCap = .butt
         content.addChild(target)
     }
 
