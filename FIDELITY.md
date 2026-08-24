@@ -39,13 +39,24 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   damping plus particle lifetime, wrap, colour fade, palette and black-hole
   parity. Style-by-style captures are still required before checking the broad
   rendering entries.
+- Screens and runtime controls: `gridwars.bmx:3622-4319, 5383-5439` and
+  `control.bmx:889-2570` map to `OriginalScreenFlow`, `OriginalMenuModel`,
+  `OriginalVectorFont`, `OriginalScreenRenderer`, and the presentation/input
+  paths in `GameScene`. The four attract pages use the original 900/750/900/900
+  frame durations, Game Over uses 179 display frames, and every original menu
+  branch is represented. F3-F7, F1/F2, the 1-4/X/Z/S cheat actions and the
+  P-held/O-single-step loop are wired to the original macOS key positions.
+  Rule tests cover timing, hierarchy, 0...10,000 star wrap, 119-step grid
+  brightness, invalid-score state, 450-frame cheat grants, caps, and the
+  original debug weapon patterns. Matching visual captures are still required
+  before checking the broad screen and menu entries.
 - Language semantics: `docs/bb/blitzmax-ng/brl/random.mod/random.bmx` confirms
   inclusive integer `Rand` and upper-exclusive floating-point `Rnd`; the
   archived legacy `Language/Data types.bbdoc` documents the implicit numeric
   conversions used by the original. Swift random ranges and intentional
   integer truncations follow those references.
-- Build evidence (2026-08-24): the macOS unit-test action and generic iOS
-  device Debug build both pass with code signing disabled. The rule suite
+- Build evidence (2026-08-24): the macOS unit-test action (37 tests) and generic
+  iOS device Debug build both pass with code signing disabled. The rule suite
   covers initial difficulty, motion, weapons, scoring, upgrades, spawn timing,
   triangle bonds, snake following, black-hole integer conversions,
   interceptor geometry, generator non-kill scoring, grid deformation and the
@@ -122,7 +133,7 @@ the corresponding Swift implementation, and a test or visual/runtime check.
 - [ ] Get Ready, death, Game Over, pause/step, and exit flows.
 - [ ] Options, Configure, Video, Game, Audio, Controller, Hybrid, Mouse,
       Keyboard, Joypad, and Dual Analog screens (`control.bmx`).
-- [ ] Runtime F3–F7 controls and F1/F2 cheat mode with keys 1–4, X, Z, S, P,
+- [x] Runtime F3–F7 controls and F1/F2 cheat mode with keys 1–4, X, Z, S, P,
       and O.
 - [ ] Screenshot capture.
 

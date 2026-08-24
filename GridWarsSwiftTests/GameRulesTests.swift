@@ -535,6 +535,78 @@ final class GameRulesTests: XCTestCase {
         XCTAssertEqual(GameDifficulty.hard.extraBombThreshold, 250_000)
     }
 
+    func testRuntimeVideoControlsUseOriginalBoundsAndBrightnessMath() {
+        var settings = OriginalRuntimeSettings()
+        settings.starCount = 10_000
+        settings.cycleStars()
+        XCTAssertEqual(settings.starCount, 0)
+        settings.cycleStars(by: -1)
+        XCTAssertEqual(settings.starCount, 10_000)
+
+        var menu = OriginalMenuModel()
+        menu.open(duringGame: false)
+        menu.select(1)
+        _ = menu.activate()
+        menu.select(1)
+        _ = menu.activate()
+        menu.select(8)
+        _ = menu.adjust(by: -1)
+        XCTAssertEqual(menu.settings.gridColorPosition, 0)
+        menu.select(9)
+        _ = menu.adjust(by: 1)
+        XCTAssertEqual(menu.settings.gridBrightness, 103)
+        XCTAssertEqual(menu.settings.gridOpacity, 103.0 / 119.0, accuracy: 0.0001)
+    }
+
+    func testCheatKeysGrantOriginalFramesAndCapsAndInvalidateScore() {
+        var session = GameSession()
+        session.invalidateScore()
+        session.grantCheatUpgrade(.reverseShooter)
+        session.grantCheatUpgrade(.sideShooters)
+        session.grantCheatUpgrade(.superShots)
+        session.grantCheatUpgrade(.bouncyShots)
+        for _ in 0..<5 {
+            session.grantCheatCannon()
+            session.grantCheatShotSpeed()
+        }
+
+        XCTAssertFalse(session.isScoreValid)
+        XCTAssertEqual(session.reverseShooterFrames, 450)
+        XCTAssertEqual(session.sideShooterFrames, 450)
+        XCTAssertEqual(session.superShotFrames, 450)
+        XCTAssertEqual(session.bouncyShotFrames, 450)
+        XCTAssertEqual(session.cannons, 4)
+        XCTAssertEqual(session.shotSpeed, 5)
+    }
+
+    func testDebugWeaponPatternMatchesOriginalDeveloperMode() {
+        XCTAssertEqual(PlayerWeaponRule.debugTimerFrames(cannons: 1), 4)
+        XCTAssertEqual(PlayerWeaponRule.debugTimerFrames(cannons: 2), 8)
+        XCTAssertEqual(PlayerWeaponRule.debugTimerFrames(cannons: 3), 10)
+        XCTAssertEqual(PlayerWeaponRule.debugTimerFrames(cannons: 4), 8)
+
+        let two = PlayerWeaponRule.debugLaunches(
+            aim: CGVector(dx: 0, dy: 1),
+            cannons: 2,
+            shotSpeed: 3,
+            reverseShooter: false,
+            sideShooters: false
+        )
+        XCTAssertEqual(two.count, 2)
+        XCTAssertEqual(two[0].speed, 6, accuracy: 0.0001)
+        XCTAssertEqual(two[0].offset.length, 150, accuracy: 0.0001)
+
+        let three = PlayerWeaponRule.debugLaunches(
+            aim: CGVector(dx: 1, dy: 0),
+            cannons: 3,
+            shotSpeed: 4,
+            reverseShooter: true,
+            sideShooters: true
+        )
+        XCTAssertEqual(three.count, 8)
+        XCTAssertEqual(three[2].speed, 8.2, accuracy: 0.0001)
+    }
+
     func testVectorFontParserReadsOriginalDefDataLayout() {
         let source = """
         ignored

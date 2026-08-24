@@ -169,11 +169,26 @@ struct PlayerMotionState: Equatable {
 struct ProjectileLaunch: Equatable {
     let direction: CGVector
     let speed: CGFloat
+    let offset: CGVector
+
+    init(direction: CGVector, speed: CGFloat, offset: CGVector = .zero) {
+        self.direction = direction
+        self.speed = speed
+        self.offset = offset
+    }
 }
 
 enum PlayerWeaponRule {
     static func timerFrames(cannons: Int) -> Int {
         4 + cannons / 2
+    }
+
+    static func debugTimerFrames(cannons: Int) -> Int {
+        switch cannons {
+        case 2, 4: 8
+        case 3: 10
+        default: 4
+        }
     }
 
     static func launches(
@@ -230,6 +245,52 @@ enum PlayerWeaponRule {
         return launches
     }
 
+    static func debugLaunches(
+        aim: CGVector,
+        cannons: Int,
+        shotSpeed: Int,
+        reverseShooter: Bool,
+        sideShooters: Bool
+    ) -> [ProjectileLaunch] {
+        let direction = aim.normalized
+        guard direction.length > 0 else { return [] }
+        let speed = CGFloat(shotSpeed)
+        var launches: [ProjectileLaunch] = []
+
+        switch cannons {
+        case 1:
+            launches.append(.init(direction: direction, speed: speed * 2))
+        case 2:
+            for angle: CGFloat in [12, -12] {
+                let rotated = rotate(direction, degrees: angle)
+                let launchSpeed = speed * 2
+                launches.append(.init(
+                    direction: rotated,
+                    speed: launchSpeed,
+                    offset: rotated * launchSpeed * 25
+                ))
+            }
+        case 3:
+            launches.append(.init(direction: rotate(direction, degrees: 3), speed: speed * 2))
+            for angle: CGFloat in [2.5, 0, -2.5] {
+                launches.append(.init(direction: rotate(direction, degrees: angle), speed: speed * 2.05))
+            }
+            launches.append(.init(direction: rotate(direction, degrees: -3), speed: speed * 2))
+        default:
+            launches.append(.init(direction: rotate(direction, degrees: -2), speed: speed * 2))
+            launches.append(.init(direction: direction, speed: speed * 2.25))
+            launches.append(.init(direction: rotate(direction, degrees: 2), speed: speed * 2))
+        }
+        if reverseShooter {
+            launches.append(.init(direction: rotate(direction, degrees: 180), speed: speed * 2))
+        }
+        if sideShooters {
+            launches.append(.init(direction: rotate(direction, degrees: 90), speed: speed * 2))
+            launches.append(.init(direction: rotate(direction, degrees: -90), speed: speed * 2))
+        }
+        return launches
+    }
+
     private static func rotate(_ vector: CGVector, degrees: CGFloat) -> CGVector {
         let angle = degrees * .pi / 180
         return CGVector(
@@ -260,6 +321,7 @@ struct GameSession: Equatable {
     private(set) var superShotFrames = 0
     private(set) var bouncyShotFrames = 0
     private(set) var enemySpeeds: EnemySpeeds
+    private(set) var isScoreValid = true
 
     var isGameOver: Bool { lives == 0 }
 
@@ -398,6 +460,28 @@ struct GameSession: Equatable {
 
     mutating func increaseEnemySpeeds() {
         enemySpeeds.increaseAll(by: difficulty.speedIncreasePerMinute)
+    }
+
+    mutating func invalidateScore() {
+        isScoreValid = false
+    }
+
+    mutating func grantCheatUpgrade(_ kind: PowerUpKind, frames: Int = 15 * 30) {
+        switch kind {
+        case .reverseShooter: reverseShooterFrames += frames
+        case .sideShooters: sideShooterFrames += frames
+        case .superShots: superShotFrames += frames
+        case .bouncyShots: bouncyShotFrames += frames
+        default: break
+        }
+    }
+
+    mutating func grantCheatCannon() {
+        cannons = min(4, cannons + 1)
+    }
+
+    mutating func grantCheatShotSpeed() {
+        shotSpeed = min(5, shotSpeed + 1)
     }
 
     mutating func restart(difficulty: GameDifficulty? = nil) {

@@ -1,4 +1,5 @@
 @preconcurrency import SpriteKit
+@preconcurrency import ImageIO
 
 #if os(iOS)
 import UIKit
@@ -103,6 +104,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private let statusLabel = SKLabelNode(fontNamed: "Menlo-Bold")
     private let helpLabel = SKLabelNode(fontNamed: "Menlo")
     private let messageLabel = SKLabelNode(fontNamed: "Menlo-Bold")
+    private let debugLabel = SKLabelNode(fontNamed: "Menlo")
     private let bombButton = SKShapeNode(circleOfRadius: 38)
     private let optionsButton = SKShapeNode(circleOfRadius: 30)
     private let movementStick = VirtualStickNode()
@@ -130,6 +132,12 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private var screenFlow = OriginalScreenFlow()
     private var menuModel = OriginalMenuModel()
     private var gameplayPaused = false
+    private var cheatMode = false
+    private var godMode = false
+    private var particleGravityEnabled = true
+    private var debugEnabled = false
+    private var starNodes: [SKShapeNode] = []
+    private var appliedGridColorPosition = 0
 
     private var lastUpdateTime: TimeInterval = 0
     private var shotTimerFrames = 0
@@ -208,21 +216,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
     private func setupArena() {
         renderGrid()
-
-        for index in 0...300 {
-            let depth = 2 + CGFloat(index % 8) / 4
-            let brightness = min(1, (480 / depth) / 255)
-            let star = SKShapeNode(rectOf: CGSize(width: 2, height: 2))
-            star.fillColor = SKColor(white: brightness, alpha: 1)
-            star.strokeColor = .clear
-            star.alpha = 0.8
-            star.name = "star"
-            star.position = CGPoint(
-                x: CGFloat(Int.random(in: -100...Int(size.width + 100))),
-                y: CGFloat(Int.random(in: -100...Int(size.height + 100)))
-            )
-            gridLayer.addChild(star)
-        }
+        ensureStarCapacity(through: 300)
 
         let border = SKShapeNode(rect: CGRect(origin: .zero, size: size))
         border.strokeColor = SKColor(red: 0.15, green: 0.45, blue: 1, alpha: 0.75)
@@ -302,6 +296,14 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         messageLabel.isHidden = true
         hudLayer.addChild(messageLabel)
 
+        debugLabel.fontSize = 16
+        debugLabel.horizontalAlignmentMode = .left
+        debugLabel.verticalAlignmentMode = .top
+        debugLabel.position = CGPoint(x: 300, y: size.height - 10)
+        debugLabel.fontColor = .white
+        debugLabel.isHidden = true
+        hudLayer.addChild(debugLabel)
+
         bombButton.position = CGPoint(x: size.width - 62, y: 72)
         bombButton.fillColor = SKColor(red: 0.1, green: 0.2, blue: 0.55, alpha: 0.65)
         bombButton.strokeColor = SKColor(red: 0.35, green: 0.75, blue: 1, alpha: 1)
@@ -345,6 +347,11 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         effectLayer.removeAllChildren()
 
         session.restart(difficulty: menuModel.settings.difficulty)
+        if cheatMode {
+            session.invalidateScore()
+        } else {
+            godMode = false
+        }
         spawnDirector.reset()
         destroyedEnemyCount = 0
         lastUpdateTime = 0
@@ -354,6 +361,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         fixedTimeAccumulator = 0
         simulationFrame = session.difficulty.initialFrame
         bombCooldownFrames = 20
+        gameplayPaused = false
         player.removeAllActions()
         player.alpha = 1
         player.position = CGPoint(x: size.width / 2, y: size.height / 2)
@@ -494,9 +502,10 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             particleRenderer.render(particleSimulation, style: menuModel.settings.particleStyle)
         case .playing:
             particleRenderer.node.zPosition = 5
+            debugLabel.isHidden = !debugEnabled
+            debugLabel.text = "Frame: \(simulationFrame)"
             if gameplayPaused {
-                menuModel.open(duringGame: true)
-                screenRenderer.renderMenu(menuModel, size: size)
+                screenRenderer.renderPause(size: size)
             } else {
                 screenRenderer.hide()
             }
@@ -622,7 +631,12 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         gridRenderer.render(
             simulation: gridSimulation,
             style: gridStyle,
-            solidColor: SKColor(red: 32 / 255, green: 80 / 255, blue: 200 / 255, alpha: 1),
+            solidColor: SKColor(
+                red: CGFloat(menuModel.settings.gridRed) / 255,
+                green: CGFloat(menuModel.settings.gridGreen) / 255,
+                blue: CGFloat(menuModel.settings.gridBlue) / 255,
+                alpha: 1
+            ),
             cyclingColor: SKColor(
                 red: CGFloat(cyclingRed) / 255,
                 green: CGFloat(cyclingGreen) / 255,
@@ -635,15 +649,152 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
     private func applyRuntimeSettings() {
         gridStyle = GridStyle(rawValue: menuModel.settings.gridStyle) ?? .pointsSolid
-        let stars = gridLayer.children.filter { $0.name == "star" }
-        for (index, star) in stars.enumerated() {
-            star.isHidden = index > menuModel.settings.starCount
+        ensureStarCapacity(through: menuModel.settings.starCount)
+        for (index, star) in starNodes.enumerated() {
+            star.isHidden = menuModel.settings.starCount == 0 || index > menuModel.settings.starCount
         }
+        if appliedGridColorPosition != menuModel.settings.gridColorPosition {
+            appliedGridColorPosition = menuModel.settings.gridColorPosition
+            if let color = originalGridColor(at: appliedGridColorPosition) {
+                menuModel.settings.gridRed = color.red
+                menuModel.settings.gridGreen = color.green
+                menuModel.settings.gridBlue = color.blue
+            }
+        }
+    }
+
+    private func ensureStarCapacity(through requestedIndex: Int) {
+        let finalIndex = min(OriginalRuntimeSettings.maximumStars, max(0, requestedIndex))
+        guard starNodes.count <= finalIndex else { return }
+        for index in starNodes.count...finalIndex {
+            let depth = 2 + CGFloat(index % 8) / 4
+            let brightness = min(1, (480 / depth) / 255)
+            let star = SKShapeNode(rectOf: CGSize(width: 2, height: 2))
+            star.fillColor = SKColor(white: brightness, alpha: 1)
+            star.strokeColor = .clear
+            star.alpha = 0.8
+            star.name = "star"
+            star.position = CGPoint(
+                x: CGFloat(Int.random(in: -100...Int(size.width + 100))),
+                y: CGFloat(Int.random(in: -100...Int(size.height + 100)))
+            )
+            starNodes.append(star)
+            gridLayer.addChild(star)
+        }
+    }
+
+    private func originalGridColor(at position: Int) -> (red: Int, green: Int, blue: Int)? {
+        guard let url = Bundle.main.url(forResource: "colourpick", withExtension: "png"),
+              let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+              let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else { return nil }
+
+        let bytesPerPixel = 4
+        let bytesPerRow = image.width * bytesPerPixel
+        var pixels = [UInt8](repeating: 0, count: bytesPerRow * image.height)
+        let bitmapInfo = CGBitmapInfo.byteOrder32Big.rawValue
+            | CGImageAlphaInfo.noneSkipLast.rawValue
+        let rendered = pixels.withUnsafeMutableBytes { bytes -> Bool in
+            guard let context = CGContext(
+                data: bytes.baseAddress,
+                width: image.width,
+                height: image.height,
+                bitsPerComponent: 8,
+                bytesPerRow: bytesPerRow,
+                space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: bitmapInfo
+            ) else { return false }
+            context.interpolationQuality = .none
+            context.draw(
+                image,
+                in: CGRect(x: 0, y: 0, width: image.width, height: image.height)
+            )
+            return true
+        }
+        guard rendered else { return nil }
+
+        // colourpick.png contains three 122x9 frames. SetGridColours locks frame 1
+        // and samples (1 + index, 2), using Max2D's top-left pixmap origin.
+        let x = min(120, max(1, 1 + position))
+        let topY = 9 + 2
+        let row = image.height - 1 - topY
+        let offset = row * bytesPerRow + x * bytesPerPixel
+        guard pixels.indices.contains(offset + 2) else { return nil }
+        return (Int(pixels[offset]), Int(pixels[offset + 1]), Int(pixels[offset + 2]))
+    }
+
+    private func setParticleGravityEnabled(_ enabled: Bool) {
+        particleGravityEnabled = enabled
+        showStatusMessage("Particle Gravity \(enabled ? "ON" : "OFF")")
+    }
+
+    private func showStatusMessage(_ message: String) {
+        messageLabel.removeAllActions()
+        messageLabel.position = CGPoint(x: size.width / 2, y: size.height / 2)
+        messageLabel.setScale(1)
+        messageLabel.fontColor = .white
+        messageLabel.text = message
+        messageLabel.isHidden = false
+        messageLabel.run(.sequence([.wait(forDuration: 0.9), .hide()]))
+    }
+
+    private func randomPowerUpPosition() -> CGPoint {
+        CGPoint(
+            x: randomCoordinate(250...Int(size.width - 250)),
+            y: randomCoordinate(150...Int(size.height - 150))
+        )
+    }
+
+    private func handleRuntimeKey(_ keyCode: UInt16) -> Bool {
+        guard screenFlow.phase == .playing else { return false }
+        switch keyCode {
+        case 99: // F3
+            menuModel.settings.cycleGridStyle()
+            applyRuntimeSettings()
+            showStatusMessage("Grid Style =\(menuModel.settings.gridStyle)")
+        case 118: // F4
+            menuModel.settings.cycleStars()
+            applyRuntimeSettings()
+            showStatusMessage("Number of Stars =\(menuModel.settings.starCount)")
+        case 96: // F5
+            setParticleGravityEnabled(!particleGravityEnabled)
+        case 97: // F6
+            menuModel.settings.cycleParticleStyle()
+            showStatusMessage("Particle - Style \(menuModel.settings.particleStyle)")
+        case 98: // F7
+            debugEnabled.toggle()
+            showStatusMessage("Debug \(debugEnabled ? "ON" : "OFF")")
+        case 122: // F1
+            session.invalidateScore()
+            cheatMode.toggle()
+            showStatusMessage("Cheatmode \(cheatMode ? "ON" : "OFF")")
+        case 18 where cheatMode:
+            session.grantCheatUpgrade(.reverseShooter)
+        case 19 where cheatMode:
+            session.grantCheatUpgrade(.sideShooters)
+        case 20 where cheatMode:
+            session.grantCheatUpgrade(.superShots)
+        case 21 where cheatMode:
+            session.grantCheatUpgrade(.bouncyShots)
+        case 7 where cheatMode:
+            session.grantCheatCannon()
+        case 6 where cheatMode:
+            session.grantCheatShotSpeed()
+        case 1 where cheatMode:
+            spawnPowerUp(at: randomPowerUpPosition(), kind: .shield)
+        case 120 where cheatMode: // F2
+            godMode.toggle()
+            showStatusMessage("God Mode \(godMode ? "ON" : "OFF")")
+        default:
+            return false
+        }
+        updateHUD()
+        return true
     }
 
     private func updateParticleSimulation() {
         for blackHole in enemies(of: .blackHole)
-            where (blackHole.userData?["blackHoleActive"] as? NSNumber)?.boolValue ?? false {
+            where particleGravityEnabled
+            && ((blackHole.userData?["blackHoleActive"] as? NSNumber)?.boolValue ?? false) {
             let blackHoleSize = CGFloat(
                 (blackHole.userData?["blackHoleSize"] as? NSNumber)?.doubleValue ?? 20
             )
@@ -806,23 +957,43 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             || mouseAutofireArmed
             || keyboardAutofireArmed
         guard shotTimerFrames == 0 else { return }
-        shotTimerFrames = PlayerWeaponRule.timerFrames(cannons: session.cannons)
+        shotTimerFrames = debugEnabled
+            ? PlayerWeaponRule.debugTimerFrames(cannons: session.cannons)
+            : PlayerWeaponRule.timerFrames(cannons: session.cannons)
         guard shouldFire else { return }
 
-        let launches = PlayerWeaponRule.launches(
-            aim: currentAim,
-            cannons: session.cannons,
-            shotSpeed: session.shotSpeed,
-            reverseShooter: session.reverseShooterFrames > 0,
-            sideShooters: session.sideShooterFrames > 0
-        )
+        let launches = if debugEnabled {
+            PlayerWeaponRule.debugLaunches(
+                aim: currentAim,
+                cannons: session.cannons,
+                shotSpeed: session.shotSpeed,
+                reverseShooter: session.reverseShooterFrames > 0,
+                sideShooters: session.sideShooterFrames > 0
+            )
+        } else {
+            PlayerWeaponRule.launches(
+                aim: currentAim,
+                cannons: session.cannons,
+                shotSpeed: session.shotSpeed,
+                reverseShooter: session.reverseShooterFrames > 0,
+                sideShooters: session.sideShooterFrames > 0
+            )
+        }
         for launch in launches {
-            spawnProjectile(direction: launch.direction, speed: launch.speed)
+            spawnProjectile(
+                direction: launch.direction,
+                speed: launch.speed,
+                offset: launch.offset
+            )
         }
         run(.playSoundFileNamed("shotborn.wav", waitForCompletion: false))
     }
 
-    private func spawnProjectile(direction: CGVector, speed: CGFloat) {
+    private func spawnProjectile(
+        direction: CGVector,
+        speed: CGFloat,
+        offset: CGVector = .zero
+    ) {
         guard projectileLayer.children.count < 500 else { return }
         let projectile = SKSpriteNode(imageNamed: "yellowshot")
         projectile.name = "projectile"
@@ -830,7 +1001,10 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         projectile.blendMode = .add
         projectile.color = projectileColor
         projectile.colorBlendFactor = 1
-        projectile.position = player.position
+        projectile.position = CGPoint(
+            x: player.position.x + offset.dx,
+            y: player.position.y + offset.dy
+        )
         projectile.zRotation = atan2(direction.dy, direction.dx)
         let velocity = direction * speed
         projectile.userData = NSMutableDictionary(dictionary: [
@@ -3113,7 +3287,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
     @discardableResult
     private func hitPlayer(killer: SKNode? = nil) -> Bool {
-        guard session.shieldFrames == 0,
+        guard !godMode,
+              session.shieldFrames == 0,
               deathFramesRemaining == 0,
               getReadyFrame < 0 else { return false }
 
@@ -3166,7 +3341,20 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             pressedKeys.remove(keyCode)
         }
 
+        if keyCode == 35, cheatMode, screenFlow.phase == .playing { // P
+            gameplayPaused = pressed
+            renderPresentation()
+            return
+        }
+
         guard pressed, !isRepeat else { return }
+        if gameplayPaused {
+            if keyCode == 31, cheatMode { // O
+                simulateFrame()
+                renderPresentation()
+            }
+            return
+        }
         if menuModel.isOpen {
             switch keyCode {
             case 126: menuModel.moveSelection(by: -1)
@@ -3178,6 +3366,11 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             default: break
             }
             applyRuntimeSettings()
+            renderPresentation()
+            return
+        }
+
+        if handleRuntimeKey(keyCode) {
             renderPresentation()
             return
         }

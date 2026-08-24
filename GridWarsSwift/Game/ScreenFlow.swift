@@ -99,6 +99,7 @@ enum OriginalControllerType: Int, CaseIterable, Codable {
 }
 
 struct OriginalRuntimeSettings: Equatable, Codable {
+    static let maximumStars = 10_000
     static let playfieldSizes: [CGSize] = [
         CGSize(width: 1_024, height: 768),
         CGSize(width: 512, height: 384),
@@ -146,6 +147,10 @@ struct OriginalRuntimeSettings: Equatable, Codable {
     var starCount = 300
     var particleStyle = 0
     var gridColorPosition = 0
+    var gridRed = 32
+    var gridGreen = 80
+    var gridBlue = 200
+    var gridBrightness = 102
     var gridOpacity: CGFloat = 0.85
 
     var difficulty = GameDifficulty.medium
@@ -175,6 +180,27 @@ struct OriginalRuntimeSettings: Equatable, Codable {
     var dualAnalogDeadZone: [CGFloat] = [0.05, 0.05, 0.05, 0.05]
     var dualAnalogOptionButton = 1
     var dualAnalogBombButton = 2
+
+    mutating func cycleGridStyle(by direction: Int = 1) {
+        gridStyle = wrappedValue(gridStyle + direction, count: 21)
+    }
+
+    mutating func cycleStars(by direction: Int = 1) {
+        starCount += direction * 100
+        if starCount > Self.maximumStars {
+            starCount = 0
+        } else if starCount < 0 {
+            starCount = Self.maximumStars
+        }
+    }
+
+    mutating func cycleParticleStyle(by direction: Int = 1) {
+        particleStyle = wrappedValue(particleStyle + direction, count: 4)
+    }
+
+    private func wrappedValue(_ value: Int, count: Int) -> Int {
+        (value % count + count) % count
+    }
 }
 
 enum OriginalMenuPage: Equatable {
@@ -494,11 +520,13 @@ struct OriginalMenuModel: Equatable {
             )
         case 3: settings.graphicsSetIndex = wrapped(settings.graphicsSetIndex + direction, count: 5)
         case 4: settings.windowed.toggle()
-        case 5: settings.gridStyle = wrapped(settings.gridStyle + direction, count: 21)
-        case 6: settings.starCount = wrapped(settings.starCount + direction * 100, count: 1_100)
-        case 7: settings.particleStyle = wrapped(settings.particleStyle + direction, count: 4)
-        case 8: settings.gridColorPosition = wrapped(settings.gridColorPosition + direction, count: 121)
-        case 9: settings.gridOpacity = clamped(settings.gridOpacity + CGFloat(direction) / 120)
+        case 5: settings.cycleGridStyle(by: direction)
+        case 6: settings.cycleStars(by: direction)
+        case 7: settings.cycleParticleStyle(by: direction)
+        case 8: settings.gridColorPosition = min(119, max(0, settings.gridColorPosition + direction))
+        case 9:
+            settings.gridBrightness = min(119, max(0, settings.gridBrightness + direction))
+            settings.gridOpacity = CGFloat(settings.gridBrightness) / 119
         default: break
         }
     }

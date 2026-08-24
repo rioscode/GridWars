@@ -72,6 +72,24 @@ final class OriginalScreenRenderer {
         )
     }
 
+    func renderPause(size: CGSize) {
+        prepare(size: size, backgroundAlpha: 0.72)
+        addText(
+            "PAUSED",
+            centeredAtY: size.height / 2 - 60,
+            scale: 10,
+            color: .yellow,
+            size: size
+        )
+        addText(
+            "Release P to continue - O steps one frame",
+            centeredAtY: size.height / 2 + 45,
+            scale: 3,
+            color: SKColor(red: 0.25, green: 0.9, blue: 0.35, alpha: 1),
+            size: size
+        )
+    }
+
     func renderMenu(_ menu: OriginalMenuModel, size: CGSize) {
         prepare(size: size, backgroundAlpha: menu.openedDuringGame ? 0.82 : 1)
         addText(
