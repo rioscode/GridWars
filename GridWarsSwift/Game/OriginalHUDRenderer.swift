@@ -144,8 +144,8 @@ final class OriginalHUDRenderer {
         let texture = OriginalGraphics.frameTexture(
             sheet: "icons",
             frame: frame,
-            columns: 2,
-            rows: 1,
+            columns: 1,
+            rows: 2,
             setIndex: graphicsSetIndex
         )
         let sprite = SKSpriteNode(texture: texture)

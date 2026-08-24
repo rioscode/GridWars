@@ -123,6 +123,8 @@ branch. Each major fidelity milestone has its own commit:
 - [x] Source-sized Video Settings preview grid, original 35-entry screen-mode
       table, capture-mode window state, and menu counter/pointer phase
 - [x] SpriteKit-Y-transformed BlitzMax particle boundary response
+- [x] BRL-seeded capture stars and initial entity transforms, vertical HUD
+      icon frames, and cycling-colour power-up star
 
 `FIDELITY.md` is the acceptance ledger. The isolated BlitzMax harness and the
 Swift port now each capture the same 87 attract, transition, gameplay, HUD,

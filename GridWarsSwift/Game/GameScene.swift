@@ -542,6 +542,20 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         spawnRandom = GameRandomNumberGenerator(seed: 1)
         captureRandom = BlitzMaxRandomNumberGenerator(seed: 1)
 
+        let preparesOriginalState: Bool = switch captureRequest.scenario.subject {
+        case .gameplay, .enemy, .generator, .powerUp, .grid, .particleStyle,
+             .graphicsSet, .getReady, .death, .gameOver, .highScoreEntry,
+             .hudDefault, .hudUpgraded:
+            true
+        case let .menu(menu):
+            menu == .optionsGame || menu == .confirmEndGame
+        case .attract:
+            false
+        }
+        if preparesOriginalState {
+            prepareOriginalCaptureStars()
+        }
+
         switch captureRequest.scenario.subject {
         case let .attract(page, frame):
             screenFlow.configureCapture(
@@ -720,6 +734,24 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             }
             spawnPowerUp(at: CGPoint(x: 360, y: 260), kind: .shield)
         }
+    }
+
+    private func prepareOriginalCaptureStars() {
+        guard var random = captureRandom else { return }
+        ensureStarCapacity(through: menuModel.settings.starCount)
+        let maximumX = Int(max(playfieldSize.width, size.width)) + 100
+        let maximumY = Int(max(playfieldSize.height, size.height)) + 100
+        for index in 0...OriginalRuntimeSettings.maximumStars {
+            let sourceX = random.rand(-100, maximumX)
+            let sourceY = random.rand(-100, maximumY)
+            guard index < starNodes.count else { continue }
+            let position = CGPoint(x: sourceX, y: Int(size.height) - sourceY)
+            let star = starNodes[index]
+            star.position = position
+            star.userData?["baseX"] = position.x
+            star.userData?["baseY"] = position.y
+        }
+        captureRandom = random
     }
 
     private func configureEnemyCapture(_ originalKind: OriginalEnemyKind) {
@@ -2265,18 +2297,23 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         enemy.physicsBody?.collisionBitMask = 0
         enemy.physicsBody?.contactTestBitMask = Category.player | Category.projectile
         let enemyID = UUID().uuidString
+        let usesOriginalCaptureRandom = captureRandom != nil
         let initialRotation = switch kind {
         case .greenSquare, .pinwheel: 90
-        default: Int.random(in: 0...359, using: &spawnRandom)
+        default: originalRandomInt(0...359)
         }
-        let initialDirection = Int.random(in: 0...359, using: &spawnRandom)
+        let initialDirection = originalRandomInt(0...359)
+        let magnitudeRange = kind.initialMagnitude
+        let initialMagnitude = CGFloat(originalRandomDouble(
+            Double(magnitudeRange.lowerBound)..<Double(magnitudeRange.upperBound)
+        ))
         let initialAngle = kind == .snake
             ? CGFloat(initialRotation) * .pi / 180
             : CGFloat(initialDirection) * .pi / 180
-        let initialMagnitude = CGFloat.random(in: kind.initialMagnitude, using: &spawnRandom)
+        let coordinateDirection: CGFloat = usesOriginalCaptureRandom ? -1 : 1
         let initialVelocity = CGVector(
             dx: cos(initialAngle) * initialMagnitude,
-            dy: sin(initialAngle) * initialMagnitude
+            dy: sin(initialAngle) * initialMagnitude * coordinateDirection
         )
         let interceptorTurn = turnToFace(
             velocity: initialVelocity,
@@ -2327,6 +2364,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         if kind == .snake {
             spawnSnakeSegments(for: enemy, freezeFrames: freezeFrames)
         }
+        updateEnemyVisual(enemy, kind: kind, rotation: initialRotation)
         return enemy
     }
 
@@ -4426,14 +4464,17 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         powerUp.physicsBody?.categoryBitMask = Category.powerUp
         powerUp.physicsBody?.collisionBitMask = 0
         powerUp.physicsBody?.contactTestBitMask = Category.player
-        let direction = CGFloat(Int.random(in: 0...359, using: &spawnRandom)) * .pi / 180
-        let magnitude = CGFloat.random(in: 0.5..<2, using: &spawnRandom)
+        let usesOriginalCaptureRandom = captureRandom != nil
+        let rotation = originalRandomInt(0...359)
+        let direction = CGFloat(originalRandomInt(0...359)) * .pi / 180
+        let magnitude = CGFloat(originalRandomDouble(0.5..<2))
         powerUp.userData = NSMutableDictionary(dictionary: [
             "kind": kind.rawValue,
             "lifeFrames": 0,
             "freezeFrames": 2,
+            "rotation": rotation,
             "dx": cos(direction) * magnitude,
-            "dy": sin(direction) * magnitude,
+            "dy": sin(direction) * magnitude * (usesOriginalCaptureRandom ? -1 : 1),
         ])
 
         let icon = SKSpriteNode(texture: powerUpTexture(for: kind))
@@ -4449,6 +4490,13 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         star.name = "powerUpStar"
         star.size = star.texture?.size() ?? CGSize(width: 98, height: 98)
         star.blendMode = .add
+        star.color = SKColor(
+            red: CGFloat(cyclingRed) / 255,
+            green: CGFloat(cyclingGreen) / 255,
+            blue: CGFloat(cyclingBlue) / 255,
+            alpha: 1
+        )
+        star.colorBlendFactor = 1
         star.zPosition = -1
         powerUp.addChild(star)
         pickupLayer.addChild(powerUp)
@@ -4584,8 +4632,15 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 icon.colorBlendFactor = lifeFrames > 360 ? 0.55 : 0
             }
             if let star = powerUp.childNode(withName: "powerUpStar") as? SKSpriteNode {
-                star.color = lifeFrames > 300 ? .purple : .white
-                star.colorBlendFactor = lifeFrames > 300 ? 0.55 : 0
+                star.color = lifeFrames > 300
+                    ? SKColor(red: 180 / 255, green: 80 / 255, blue: 200 / 255, alpha: 1)
+                    : SKColor(
+                        red: CGFloat(cyclingRed) / 255,
+                        green: CGFloat(cyclingGreen) / 255,
+                        blue: CGFloat(cyclingBlue) / 255,
+                        alpha: 1
+                    )
+                star.colorBlendFactor = 1
             }
         }
     }

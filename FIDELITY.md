@@ -128,7 +128,14 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   are bundled without flattening, icon/snake animation sheets retain their
   set-specific frame sizes, and textures load by CGImage pixel dimensions so
   the 120-DPI metadata in Solid/Low assets cannot shrink game sprites. White
-  entity art is no longer palette-tinted, and the score, high score, multiplier,
+  entity art is no longer palette-tinted. Deterministic gameplay captures now
+  recreate all 10,001 source star coordinates with BRL.Random, consuming the
+  complete sequence before entity creation, and apply each entity's initial
+  `Draw` rotation/scale before its first update. The vertical two-frame
+  `icons.png` sheet is sliced as 1×2 rather than 2×1, and the white power-up
+  star receives the live `rcol/gcol/bcol` multiplication used by BlitzMax.
+  These common fixes lowered gameplay from 0.01838 to 0.01595 and all five
+  graphics-set captures to 0.01588–0.01620. The score, high score, multiplier,
   lives and bomb indicators use the original vector font, coordinates, alpha
   and icon frames. The isolated original
   renderer now produces 87 valid full-frame 1024×768 attract, transition,
