@@ -16,8 +16,12 @@ original BlitzMax game and a native Apple-platform port. Preserve the original
 - Treat `gridwars.bmx`, `control.bmx`, and `gridparttrail.bmx` as the behavioural
   reference. Prefer reproducing observed rules over mechanically translating
   globals or rendering calls.
-- Keep the first port milestone small and playable. Do not add speculative
-  systems or abstractions.
+- The active goal is a complete GridWars 5.4 reproduction. Implement only
+  systems evidenced by the original source or assets, but do not omit an
+  original feature because the existing port is simpler.
+- Use `FIDELITY.md` as the requirement and evidence matrix. An item is complete
+  only when its original source reference, Swift implementation, and
+  verification evidence are all recorded.
 
 ## Swift style
 
@@ -70,5 +74,6 @@ xcodebuild -project GridWars.xcodeproj -scheme GridWars-macOS \
 
 ## Planning reference
 
-Read `PLAN.md` before changing the port's scope or architecture. Update it when
-a milestone, supported platform, or definition of done changes materially.
+Read `PLAN.md` and `FIDELITY.md` before changing the port's scope or
+architecture. Update them when a milestone, supported platform, requirement,
+or verification result changes materially.

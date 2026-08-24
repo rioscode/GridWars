@@ -29,6 +29,21 @@
 		B2000000000000000000000A /* Explo1.wav in Resources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000000A /* Explo1.wav */; };
 		B2000000000000000000000B /* bonus1.wav in Resources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000000B /* bonus1.wav */; };
 		B2000000000000000000000C /* gameover.wav in Resources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000000C /* gameover.wav */; };
+		B2000000000000000000000D /* pinkpinwheel.png in Resources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000000D /* pinkpinwheel.png */; };
+		B2000000000000000000000E /* purplesquare1.png in Resources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000000E /* purplesquare1.png */; };
+		B2000000000000000000000F /* purplesquare2.png in Resources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000000F /* purplesquare2.png */; };
+		B20000000000000000000010 /* bluecircle.png in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000010 /* bluecircle.png */; };
+		B20000000000000000000011 /* orangetriangle.png in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000011 /* orangetriangle.png */; };
+		B20000000000000000000012 /* snakehead.png in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000012 /* snakehead.png */; };
+		B20000000000000000000013 /* snaketail.png in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000013 /* snaketail.png */; };
+		B20000000000000000000014 /* redclone.png in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000014 /* redclone.png */; };
+		B20000000000000000000015 /* indigotriangle.png in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000015 /* indigotriangle.png */; };
+		B20000000000000000000016 /* powerups.png in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000016 /* powerups.png */; };
+		B20000000000000000000017 /* icons.png in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000017 /* icons.png */; };
+		B20000000000000000000018 /* cat.wav in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000018 /* cat.wav */; };
+		B20000000000000000000019 /* sunhit1.wav in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000019 /* sunhit1.wav */; };
+		B2000000000000000000001A /* bonus2.wav in Resources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000001A /* bonus2.wav */; };
+		B2000000000000000000001B /* bonusborn.wav in Resources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000001B /* bonusborn.wav */; };
 		B21000000000000000000001 /* whiteplayer.png in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000001 /* whiteplayer.png */; };
 		B21000000000000000000002 /* yellowshot.png in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000002 /* yellowshot.png */; };
 		B21000000000000000000003 /* redcircle.png in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000003 /* redcircle.png */; };
@@ -41,6 +56,21 @@
 		B2100000000000000000000A /* Explo1.wav in Resources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000000A /* Explo1.wav */; };
 		B2100000000000000000000B /* bonus1.wav in Resources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000000B /* bonus1.wav */; };
 		B2100000000000000000000C /* gameover.wav in Resources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000000C /* gameover.wav */; };
+		B2100000000000000000000D /* pinkpinwheel.png in Resources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000000D /* pinkpinwheel.png */; };
+		B2100000000000000000000E /* purplesquare1.png in Resources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000000E /* purplesquare1.png */; };
+		B2100000000000000000000F /* purplesquare2.png in Resources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000000F /* purplesquare2.png */; };
+		B21000000000000000000010 /* bluecircle.png in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000010 /* bluecircle.png */; };
+		B21000000000000000000011 /* orangetriangle.png in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000011 /* orangetriangle.png */; };
+		B21000000000000000000012 /* snakehead.png in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000012 /* snakehead.png */; };
+		B21000000000000000000013 /* snaketail.png in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000013 /* snaketail.png */; };
+		B21000000000000000000014 /* redclone.png in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000014 /* redclone.png */; };
+		B21000000000000000000015 /* indigotriangle.png in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000015 /* indigotriangle.png */; };
+		B21000000000000000000016 /* powerups.png in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000016 /* powerups.png */; };
+		B21000000000000000000017 /* icons.png in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000017 /* icons.png */; };
+		B21000000000000000000018 /* cat.wav in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000018 /* cat.wav */; };
+		B21000000000000000000019 /* sunhit1.wav in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000019 /* sunhit1.wav */; };
+		B2100000000000000000001A /* bonus2.wav in Resources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000001A /* bonus2.wav */; };
+		B2100000000000000000001B /* bonusborn.wav in Resources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000001B /* bonusborn.wav */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -61,6 +91,21 @@
 		F2000000000000000000000A /* Explo1.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = Explo1.wav; sourceTree = "<group>"; };
 		F2000000000000000000000B /* bonus1.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = bonus1.wav; sourceTree = "<group>"; };
 		F2000000000000000000000C /* gameover.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = gameover.wav; sourceTree = "<group>"; };
+		F2000000000000000000000D /* pinkpinwheel.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = pinkpinwheel.png; sourceTree = "<group>"; };
+		F2000000000000000000000E /* purplesquare1.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = purplesquare1.png; sourceTree = "<group>"; };
+		F2000000000000000000000F /* purplesquare2.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = purplesquare2.png; sourceTree = "<group>"; };
+		F20000000000000000000010 /* bluecircle.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = bluecircle.png; sourceTree = "<group>"; };
+		F20000000000000000000011 /* orangetriangle.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = orangetriangle.png; sourceTree = "<group>"; };
+		F20000000000000000000012 /* snakehead.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = snakehead.png; sourceTree = "<group>"; };
+		F20000000000000000000013 /* snaketail.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = snaketail.png; sourceTree = "<group>"; };
+		F20000000000000000000014 /* redclone.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = redclone.png; sourceTree = "<group>"; };
+		F20000000000000000000015 /* indigotriangle.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = indigotriangle.png; sourceTree = "<group>"; };
+		F20000000000000000000016 /* powerups.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = powerups.png; sourceTree = "<group>"; };
+		F20000000000000000000017 /* icons.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = icons.png; sourceTree = "<group>"; };
+		F20000000000000000000018 /* cat.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = cat.wav; sourceTree = "<group>"; };
+		F20000000000000000000019 /* sunhit1.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = sunhit1.wav; sourceTree = "<group>"; };
+		F2000000000000000000001A /* bonus2.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = bonus2.wav; sourceTree = "<group>"; };
+		F2000000000000000000001B /* bonusborn.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = bonusborn.wav; sourceTree = "<group>"; };
 		F30000000000000000000001 /* GridWars.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GridWars.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F30000000000000000000002 /* GridWars iOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "GridWars iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		F30000000000000000000003 /* GridWarsSwiftTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GridWarsSwiftTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -125,6 +170,21 @@
 				F2000000000000000000000A /* Explo1.wav */,
 				F2000000000000000000000B /* bonus1.wav */,
 				F2000000000000000000000C /* gameover.wav */,
+				F2000000000000000000000D /* pinkpinwheel.png */,
+				F2000000000000000000000E /* purplesquare1.png */,
+				F2000000000000000000000F /* purplesquare2.png */,
+				F20000000000000000000010 /* bluecircle.png */,
+				F20000000000000000000011 /* orangetriangle.png */,
+				F20000000000000000000012 /* snakehead.png */,
+				F20000000000000000000013 /* snaketail.png */,
+				F20000000000000000000014 /* redclone.png */,
+				F20000000000000000000015 /* indigotriangle.png */,
+				F20000000000000000000016 /* powerups.png */,
+				F20000000000000000000017 /* icons.png */,
+				F20000000000000000000018 /* cat.wav */,
+				F20000000000000000000019 /* sunhit1.wav */,
+				F2000000000000000000001A /* bonus2.wav */,
+				F2000000000000000000001B /* bonusborn.wav */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -213,13 +273,13 @@
 		P10000000000000000000003 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
-			files = (B20000000000000000000001, B20000000000000000000002, B20000000000000000000003, B20000000000000000000004, B20000000000000000000005, B20000000000000000000006, B20000000000000000000007, B20000000000000000000008, B20000000000000000000009, B2000000000000000000000A, B2000000000000000000000B, B2000000000000000000000C);
+			files = (B20000000000000000000001, B20000000000000000000002, B20000000000000000000003, B20000000000000000000004, B20000000000000000000005, B20000000000000000000006, B20000000000000000000007, B20000000000000000000008, B20000000000000000000009, B2000000000000000000000A, B2000000000000000000000B, B2000000000000000000000C, B2000000000000000000000D, B2000000000000000000000E, B2000000000000000000000F, B20000000000000000000010, B20000000000000000000011, B20000000000000000000012, B20000000000000000000013, B20000000000000000000014, B20000000000000000000015, B20000000000000000000016, B20000000000000000000017, B20000000000000000000018, B20000000000000000000019, B2000000000000000000001A, B2000000000000000000001B);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		P11000000000000000000003 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
-			files = (B21000000000000000000001, B21000000000000000000002, B21000000000000000000003, B21000000000000000000004, B21000000000000000000005, B21000000000000000000006, B21000000000000000000007, B21000000000000000000008, B21000000000000000000009, B2100000000000000000000A, B2100000000000000000000B, B2100000000000000000000C);
+			files = (B21000000000000000000001, B21000000000000000000002, B21000000000000000000003, B21000000000000000000004, B21000000000000000000005, B21000000000000000000006, B21000000000000000000007, B21000000000000000000008, B21000000000000000000009, B2100000000000000000000A, B2100000000000000000000B, B2100000000000000000000C, B2100000000000000000000D, B2100000000000000000000E, B2100000000000000000000F, B21000000000000000000010, B21000000000000000000011, B21000000000000000000012, B21000000000000000000013, B21000000000000000000014, B21000000000000000000015, B21000000000000000000016, B21000000000000000000017, B21000000000000000000018, B21000000000000000000019, B2100000000000000000001A, B2100000000000000000001B);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		P12000000000000000000003 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };

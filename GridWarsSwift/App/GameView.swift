@@ -5,9 +5,15 @@ struct GameView: View {
     @State private var scene = GameScene(size: CGSize(width: 1_024, height: 768))
 
     var body: some View {
+        #if os(macOS)
+        PlatformGameView(scene: scene)
+            .frame(width: 1_024, height: 768)
+            .preferredColorScheme(.dark)
+        #else
         PlatformGameView(scene: scene)
             .ignoresSafeArea()
             .preferredColorScheme(.dark)
+        #endif
     }
 }
 

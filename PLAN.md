@@ -6,9 +6,11 @@ Port GridWars 5.4 from BlitzMax to a native Swift/SpriteKit application that
 runs on macOS and iOS while keeping the original source and assets available as
 the gameplay reference.
 
-The first milestone is a buildable, playable port rather than a line-for-line
-translation. Gameplay rules should be preserved where practical, while
-platform integration and rendering use native Apple frameworks.
+The final target is a behaviourally and visually faithful reproduction of
+GridWars 5.4. Platform integration and rendering use native Apple frameworks,
+but gameplay constants, progression, presentation, menus, assets, audio cues,
+and persisted data must match the original unless `FIDELITY.md` records a
+verified platform-specific equivalent.
 
 ## Supported platforms
 
@@ -63,14 +65,13 @@ they can be tested without rendering.
 - Launch the macOS application and smoke-test the primary game loop.
 - Resolve warnings that indicate correctness or portability problems.
 
-### 5. Follow-up fidelity work
-
-These are intentionally outside the first playable milestone:
+### 5. Full fidelity
 
 - Recreate every original enemy and all twenty grid styles.
 - Reproduce the complete configuration and high-score menus.
 - Match every original sound/music backend detail.
 - Tune difficulty and spawn timing against side-by-side gameplay captures.
+- Complete every item in `FIDELITY.md` and attach authoritative verification.
 
 ## Definition of done for the first milestone
 
@@ -95,4 +96,4 @@ The first playable milestone is complete on the `codex/swift-port` branch:
 - [x] Gameplay rule unit tests
 - [x] macOS launch and rendering smoke test
 
-The items under “Follow-up fidelity work” remain intentionally open.
+The items under “Full fidelity” remain open and are the active project goal.
