@@ -5,9 +5,10 @@ final class ParticleRenderer {
     let node = SKNode()
 
     private let sprites: [SKSpriteNode]
+    private var graphicsSetIndex = 0
 
     init(capacity: Int = 2_048) {
-        let texture = SKTexture(imageNamed: "particle")
+        let texture = OriginalGraphics.texture(named: "particle", setIndex: 0)
         var created: [SKSpriteNode] = []
         created.reserveCapacity(capacity)
         for _ in 0..<capacity {
@@ -19,6 +20,13 @@ final class ParticleRenderer {
             created.append(sprite)
         }
         sprites = created
+    }
+
+    func setGraphicsSet(_ setIndex: Int) {
+        guard setIndex != graphicsSetIndex else { return }
+        graphicsSetIndex = setIndex
+        let texture = OriginalGraphics.texture(named: "particle", setIndex: setIndex)
+        for sprite in sprites { sprite.texture = texture }
     }
 
     func render(_ simulation: ParticleSimulation, style: Int = 0) {

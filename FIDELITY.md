@@ -50,6 +50,17 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   brightness, invalid-score state, 450-frame cheat grants, caps, and the
   original debug weapon patterns. Matching visual captures are still required
   before checking the broad screen and menu entries.
+- Graphics and HUD: `images.bmx:34-100`, `gridwars.bmx:3266-3272, 5911-5932`,
+  and the fixed-frame original images in `docs/captures/original/` map to
+  `OriginalGraphics`, `OriginalHUDRenderer`, `OriginalScreenRenderer`, and the
+  live texture-reload path in `GameScene`. All five original graphics folders
+  are bundled without flattening, icon/snake animation sheets retain their
+  set-specific frame sizes, white entity art is no longer palette-tinted, and
+  the score, high score, multiplier, lives and bomb indicators use the original
+  vector font, coordinates, alpha and icon frames. A persistence-free macOS
+  capture catalog covers six representative states via
+  `scripts/capture-screens.sh`; image export requires an active unlocked window
+  session.
 - Persistence and legacy data: `control.bmx:218-872`,
   `gridwars.bmx:3275-3610`, and `utils.bmx:46-74` map to
   `LegacyPersistence`, the high-score presentation in `GameScene` and
@@ -86,15 +97,15 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   archived legacy `Language/Data types.bbdoc` documents the implicit numeric
   conversions used by the original. Swift random ranges and intentional
   integer truncations follow those references.
-- Build evidence (2026-08-24): the macOS unit-test action (56 tests) and generic
+- Build evidence (2026-08-24): the macOS unit-test action (58 tests) and generic
   iOS Simulator Debug build both pass. The rule suite
   covers initial difficulty, motion, weapons, scoring, upgrades, spawn timing,
   triangle bonds, snake following, black-hole integer conversions,
   interceptor geometry, generator non-kill scoring, grid deformation and the
-      original particle ring, legacy persistence, checksum handling, and
-      high-score name entry, audio manifest/spatial mixing, and readable
-      lossless tracker conversions, all five input modes, remapping,
-      calibration, and touch equivalence.
+  original particle ring, legacy persistence, checksum handling, and
+  high-score name entry, audio manifest/spatial mixing, readable lossless
+  tracker conversions, all five input modes, remapping, calibration, touch
+  equivalence, graphics-set metadata, and fixed-frame capture selection.
 
 ## Core loop and progression
 

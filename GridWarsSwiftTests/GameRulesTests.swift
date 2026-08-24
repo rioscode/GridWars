@@ -747,6 +747,26 @@ final class GameRulesTests: XCTestCase {
         XCTAssertEqual(flow.phase, .attract(.scores))
     }
 
+    func testCaptureFlowCanAddressOriginalScreensAtMatchingFrames() {
+        var flow = OriginalScreenFlow()
+        flow.configureCapture(page: .friends, frame: 600, persistentTitleFrame: 600)
+
+        XCTAssertEqual(flow.phase, .attract(.friends))
+        XCTAssertEqual(flow.frame, 600)
+        XCTAssertEqual(flow.persistentTitleFrame, 600)
+    }
+
+    func testGraphicsSetsKeepOriginalFolderAndFrameDimensions() {
+        XCTAssertEqual(OriginalGraphicsSet.allCases.map(\.folderName), [
+            "solid", "low", "med", "high", "user",
+        ])
+        XCTAssertEqual(OriginalGraphicsSet.low.iconFrameSize, CGSize(width: 24, height: 24))
+        XCTAssertEqual(OriginalGraphicsSet.medium.iconFrameSize, CGSize(width: 32, height: 32))
+        XCTAssertEqual(OriginalGraphicsSet.high.iconFrameSize, CGSize(width: 64, height: 64))
+        XCTAssertEqual(OriginalGraphicsSet.low.snakeFrameSize, CGSize(width: 32, height: 32))
+        XCTAssertEqual(OriginalGraphicsSet.solid.snakeFrameSize, CGSize(width: 56, height: 56))
+    }
+
     func testMenuMatchesOriginalHierarchyAndAdjustsSettings() {
         var menu = OriginalMenuModel()
         menu.open(duringGame: true)

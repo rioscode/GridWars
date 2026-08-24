@@ -10,6 +10,23 @@ import AppKit
 
 @MainActor
 final class GameScene: SKScene, SKPhysicsContactDelegate {
+    private struct CaptureRequest {
+        let screen: String
+        let outputPath: String
+
+        static var commandLine: CaptureRequest? {
+            let arguments = ProcessInfo.processInfo.arguments
+            guard let screenFlag = arguments.firstIndex(of: "--capture-screen"),
+                  arguments.indices.contains(screenFlag + 1),
+                  let outputFlag = arguments.firstIndex(of: "--capture-output"),
+                  arguments.indices.contains(outputFlag + 1) else { return nil }
+            return CaptureRequest(
+                screen: arguments[screenFlag + 1].lowercased(),
+                outputPath: arguments[outputFlag + 1]
+            )
+        }
+    }
+
     private struct PendingHighScore {
         let score: Int
         let playTime: String
@@ -101,18 +118,15 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private let gridRenderer = GridRenderer()
     private let particleRenderer = ParticleRenderer()
     private let screenRenderer = OriginalScreenRenderer()
+    private let hudRenderer = OriginalHUDRenderer()
     private let enemyLayer = SKNode()
     private let projectileLayer = SKNode()
     private let pickupLayer = SKNode()
     private let effectLayer = SKNode()
     private let hudLayer = SKNode()
 
-    private let player = SKSpriteNode(imageNamed: "whiteplayer")
-    private let scoreLabel = SKLabelNode(fontNamed: "Menlo-Bold")
-    private let statusLabel = SKLabelNode(fontNamed: "Menlo-Bold")
-    private let helpLabel = SKLabelNode(fontNamed: "Menlo")
+    private let player = SKSpriteNode()
     private let messageLabel = SKLabelNode(fontNamed: "Menlo-Bold")
-    private let debugLabel = SKLabelNode(fontNamed: "Menlo")
     private let bombButton = SKShapeNode(circleOfRadius: 38)
     private let optionsButton = SKShapeNode(circleOfRadius: 30)
     private let movementStick = VirtualStickNode()
@@ -153,6 +167,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private var debugEnabled = false
     private var starNodes: [SKShapeNode] = []
     private var appliedGridColorPosition = 0
+    private var appliedGraphicsSetIndex = -1
     private let persistenceStore = GridWarsPersistenceStore.applicationDefault()
     private let audio = OriginalAudioEngine()
     private var colorPalette = OriginalColorPalette()
@@ -162,6 +177,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private var scorePageDifficulty: GameDifficulty?
     private var highlightedScorePosition: Int?
     private var unrankedScoreEntry: LegacyHighScoreEntry?
+    private let captureRequest = CaptureRequest.commandLine
+    private var captureWasWritten = false
 
     private var lastUpdateTime: TimeInterval = 0
     private var shotTimerFrames = 0
@@ -209,13 +226,16 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
         physicsWorld.gravity = .zero
         physicsWorld.contactDelegate = nil
-        loadPersistentState()
+        if captureRequest == nil {
+            loadPersistentState()
+        }
         audio.configure(settings: menuModel.settings)
         setupLayers()
         setupArena()
         setupPlayer()
         setupHUD()
         prepareAttractMode()
+        configureCaptureIfRequested(in: view)
     }
 
     private func loadPersistentState() {
@@ -233,7 +253,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     func persistState() {
-        guard let persistenceStore else { return }
+        guard captureRequest == nil, let persistenceStore else { return }
         let state = GridWarsPersistentState(
             settings: menuModel.settings,
             colours: colorPalette,
@@ -285,10 +305,14 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         worldLayer.addChild(playerShield)
 
         player.name = "player"
-        player.size = CGSize(width: 64, height: 64)
+        player.texture = OriginalGraphics.texture(
+            named: "whiteplayer",
+            setIndex: menuModel.settings.graphicsSetIndex
+        )
+        player.size = player.texture?.size() ?? CGSize(width: 64, height: 64)
         player.blendMode = .add
-        player.color = skColor(colorPalette[.player])
-        player.colorBlendFactor = 1
+        player.color = .white
+        player.colorBlendFactor = 0
         player.zPosition = 5
         player.physicsBody = SKPhysicsBody(circleOfRadius: 15)
         player.physicsBody?.affectedByGravity = false
@@ -311,31 +335,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     private func setupHUD() {
-        scoreLabel.fontSize = 21
-        scoreLabel.horizontalAlignmentMode = .left
-        scoreLabel.verticalAlignmentMode = .top
-        scoreLabel.position = CGPoint(x: 22, y: size.height - 18)
-        scoreLabel.fontColor = skColor(colorPalette[.score])
-        hudLayer.addChild(scoreLabel)
-
-        statusLabel.fontSize = 19
-        statusLabel.horizontalAlignmentMode = .right
-        statusLabel.verticalAlignmentMode = .top
-        statusLabel.position = CGPoint(x: size.width - 22, y: size.height - 18)
-        statusLabel.fontColor = SKColor(red: 0.35, green: 0.8, blue: 1, alpha: 1)
-        hudLayer.addChild(statusLabel)
-
-        helpLabel.fontSize = 13
-        helpLabel.horizontalAlignmentMode = .left
-        helpLabel.verticalAlignmentMode = .bottom
-        helpLabel.position = CGPoint(x: 18, y: 14)
-        helpLabel.fontColor = SKColor(white: 0.7, alpha: 1)
-        #if os(macOS)
-        helpLabel.text = "WASD bewegen · Maus/←↑↓→ feuern · Leertaste/Rechtsklick Bombe · R Neustart"
-        #else
-        helpLabel.text = "Linker Stick bewegt · rechter Stick feuert"
-        #endif
-        hudLayer.addChild(helpLabel)
+        hudLayer.addChild(hudRenderer.node)
 
         messageLabel.fontSize = 40
         messageLabel.numberOfLines = 3
@@ -344,17 +344,10 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         messageLabel.verticalAlignmentMode = .center
         messageLabel.position = CGPoint(x: size.width / 2, y: size.height / 2)
         messageLabel.fontColor = .white
+        messageLabel.alpha = 0
         messageLabel.zPosition = 20
         messageLabel.isHidden = true
         hudLayer.addChild(messageLabel)
-
-        debugLabel.fontSize = 16
-        debugLabel.horizontalAlignmentMode = .left
-        debugLabel.verticalAlignmentMode = .top
-        debugLabel.position = CGPoint(x: 300, y: size.height - 10)
-        debugLabel.fontColor = .white
-        debugLabel.isHidden = true
-        hudLayer.addChild(debugLabel)
 
         bombButton.position = CGPoint(x: size.width - 62, y: 72)
         bombButton.fillColor = SKColor(red: 0.1, green: 0.2, blue: 0.55, alpha: 0.65)
@@ -457,6 +450,100 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         readyRings.forEach { $0.isHidden = true }
         particleRenderer.node.zPosition = 201
         renderPresentation()
+    }
+
+    private func configureCaptureIfRequested(in view: SKView) {
+        guard let captureRequest else { return }
+        audio.stopMusic()
+        particleSimulation.reset()
+
+        switch captureRequest.screen {
+        case "title":
+            screenFlow.configureCapture(page: .title, frame: 600)
+            for _ in 0..<12 { emitFirework(style: 2) }
+        case "scores":
+            screenFlow.configureCapture(page: .scores, frame: 600)
+            for _ in 0..<5 { emitFirework(style: 1) }
+        case "friends":
+            screenFlow.configureCapture(page: .friends, frame: 600)
+            for _ in 0..<4 { emitFirework(style: 0) }
+        case "enemies":
+            screenFlow.configureCapture(page: .enemies, frame: 600)
+            for _ in 0..<4 { emitFirework(style: 0) }
+        case "options":
+            menuModel.open(duringGame: false)
+        case "gameplay":
+            beginGame()
+            getReadyFrame = -1
+            player.isHidden = false
+            player.position = CGPoint(x: size.width / 2, y: size.height / 2)
+            let samples: [(EnemyKind, CGPoint)] = [
+                (.pinwheel, CGPoint(x: 180, y: 180)),
+                (.diamond, CGPoint(x: 330, y: 560)),
+                (.greenSquare, CGPoint(x: 790, y: 570)),
+                (.seeker, CGPoint(x: 840, y: 230)),
+                (.triangle, CGPoint(x: 650, y: 180)),
+            ]
+            for sample in samples {
+                _ = spawnEnemy(
+                    kind: sample.0,
+                    at: sample.1,
+                    freezeFrames: 0,
+                    playBornSound: false
+                )
+            }
+            spawnPowerUp(at: CGPoint(x: 360, y: 260), kind: .shield)
+        default:
+            return
+        }
+
+        renderPresentation()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self, weak view] in
+            guard let self, let view else { return }
+            self.writeCapture(from: view, to: captureRequest.outputPath, attempt: 0)
+        }
+    }
+
+    private func writeCapture(
+        from view: SKView,
+        to outputPath: String,
+        attempt: Int
+    ) {
+        #if os(macOS)
+        guard !captureWasWritten else { return }
+        guard let texture = view.texture(from: self) else {
+            guard attempt < 20 else {
+                fputs("GridWars capture failed: rendered texture unavailable\n", stderr)
+                NSApplication.shared.terminate(nil)
+                return
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self, weak view] in
+                guard let self, let view else { return }
+                self.writeCapture(from: view, to: outputPath, attempt: attempt + 1)
+            }
+            return
+        }
+        let image = texture.cgImage()
+        let url = URL(fileURLWithPath: outputPath)
+        try? FileManager.default.createDirectory(
+            at: url.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        let bitmap = NSBitmapImageRep(cgImage: image)
+        guard let png = bitmap.representation(using: .png, properties: [:]) else {
+            fputs("GridWars capture failed: PNG encoding unavailable\n", stderr)
+            NSApplication.shared.terminate(nil)
+            return
+        }
+        do {
+            try png.write(to: url, options: .atomic)
+            captureWasWritten = true
+            fputs("GridWars capture written: \(outputPath)\n", stderr)
+        } catch {
+            fputs("GridWars capture failed: \(error)\n", stderr)
+        }
+        NSApplication.shared.terminate(nil)
+        #endif
     }
 
     private func beginGame() {
@@ -607,6 +694,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     private func renderPresentation() {
+        applyGraphicsSetIfNeeded()
         let cyclingColor = SKColor(
             red: CGFloat(cyclingRed) / 255,
             green: CGFloat(cyclingGreen) / 255,
@@ -651,8 +739,6 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             particleRenderer.render(particleSimulation, style: menuModel.settings.particleStyle)
         case .playing:
             particleRenderer.node.zPosition = 5
-            debugLabel.isHidden = !debugEnabled
-            debugLabel.text = "Frame: \(simulationFrame)"
             if gameplayPaused {
                 screenRenderer.renderPause(size: size)
             } else {
@@ -660,6 +746,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             }
             renderGrid()
             particleRenderer.render(particleSimulation, style: menuModel.settings.particleStyle)
+            renderHUD()
         case .gameOver:
             particleRenderer.node.zPosition = 5
             renderGrid()
@@ -1004,6 +1091,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
     private func applyRuntimeSettings() {
         audio.configure(settings: menuModel.settings)
+        applyGraphicsSetIfNeeded()
         for blackHole in enemies(of: .blackHole)
             where (blackHole.userData?["blackHoleActive"] as? NSNumber)?.boolValue ?? false {
             guard let id = blackHole.userData?["enemyID"] as? String else { continue }
@@ -1033,6 +1121,52 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 menuModel.settings.gridGreen = color.green
                 menuModel.settings.gridBlue = color.blue
             }
+        }
+    }
+
+    private func applyGraphicsSetIfNeeded() {
+        let setIndex = menuModel.settings.graphicsSetIndex
+        guard setIndex != appliedGraphicsSetIndex else { return }
+        appliedGraphicsSetIndex = setIndex
+        screenRenderer.graphicsSetIndex = setIndex
+        hudRenderer.graphicsSetIndex = setIndex
+        particleRenderer.setGraphicsSet(setIndex)
+
+        player.texture = OriginalGraphics.texture(named: "whiteplayer", setIndex: setIndex)
+        player.size = player.texture?.size() ?? player.size
+
+        for case let sprite as SKSpriteNode in projectileLayer.children {
+            sprite.texture = OriginalGraphics.texture(named: "yellowshot", setIndex: setIndex)
+            sprite.size = sprite.texture?.size() ?? sprite.size
+        }
+        for case let sprite as SKSpriteNode in effectLayer.children where sprite.name == "playerTrail" {
+            sprite.texture = OriginalGraphics.texture(named: "particle", setIndex: setIndex)
+        }
+        for case let sprite as SKSpriteNode in enemyLayer.children {
+            if sprite.name == "snakeTail" {
+                let frame = (sprite.userData?["originalFrame"] as? NSNumber)?.intValue ?? 0
+                sprite.texture = snakeTailTexture(frame: frame)
+                sprite.size = OriginalGraphicsSet(index: setIndex).snakeFrameSize
+                continue
+            }
+            guard sprite.name == "enemy",
+                  let rawKind = sprite.userData?["kind"] as? String,
+                  let kind = EnemyKind(rawValue: rawKind) else { continue }
+            let cubeTier = (sprite.userData?["cubeTier"] as? NSNumber)?.intValue ?? 0
+            let textureName = kind == .cube && cubeTier > 0 ? "purplesquare2" : kind.textureName
+            sprite.texture = OriginalGraphics.texture(named: textureName, setIndex: setIndex)
+            sprite.size = sprite.texture?.size() ?? sprite.size
+            (sprite.childNode(withName: "triangleTwin") as? SKSpriteNode)?.texture =
+                OriginalGraphics.texture(named: kind.textureName, setIndex: setIndex)
+        }
+        for powerUp in pickupLayer.children where powerUp.name == "powerUp" {
+            let rawKind = (powerUp.userData?["kind"] as? NSNumber)?.intValue ?? 0
+            if let kind = PowerUpKind(rawValue: rawKind) {
+                (powerUp.childNode(withName: "powerUpIcon") as? SKSpriteNode)?.texture =
+                    powerUpTexture(for: kind)
+            }
+            (powerUp.childNode(withName: "powerUpStar") as? SKSpriteNode)?.texture =
+                OriginalGraphics.texture(named: "whitestar", setIndex: setIndex)
         }
     }
 
@@ -1207,7 +1341,10 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         let trailColor = colorPalette[.trail]
         for index in 0..<3 {
             let angle = CGFloat(simulationFrame * 12 + index * 45) * .pi / 180
-            let trail = SKSpriteNode(imageNamed: "particle")
+            let trail = SKSpriteNode(texture: OriginalGraphics.texture(
+                named: "particle",
+                setIndex: menuModel.settings.graphicsSetIndex
+            ))
             trail.name = "playerTrail"
             trail.color = SKColor(
                 red: CGFloat(trailColor.red) / 255,
@@ -1353,9 +1490,11 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         offset: CGVector = .zero
     ) {
         guard projectileLayer.children.count < 500 else { return }
-        let projectile = SKSpriteNode(imageNamed: "yellowshot")
+        let projectile = SKSpriteNode(texture: OriginalGraphics.texture(
+            named: "yellowshot",
+            setIndex: menuModel.settings.graphicsSetIndex
+        ))
         projectile.name = "projectile"
-        projectile.size = CGSize(width: 32, height: 32)
         projectile.blendMode = .add
         projectile.color = projectileColor
         projectile.colorBlendFactor = 1
@@ -1403,12 +1542,14 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             break
         }
 
-        let enemy = SKSpriteNode(imageNamed: kind.textureName)
+        let enemy = SKSpriteNode(texture: OriginalGraphics.texture(
+            named: kind.textureName,
+            setIndex: menuModel.settings.graphicsSetIndex
+        ))
         enemy.name = "enemy"
-        enemy.size = kind.size
         enemy.blendMode = .add
-        enemy.color = skColor(particleColor(for: kind))
-        enemy.colorBlendFactor = 1
+        enemy.color = .white
+        enemy.colorBlendFactor = 0
         enemy.position = safePosition(position, minimumPlayerDistance: closeToPlayer ? 40 : 160)
         enemy.physicsBody = SKPhysicsBody(circleOfRadius: min(kind.size.width, kind.size.height) * 0.38)
         enemy.physicsBody?.affectedByGravity = false
@@ -1948,9 +2089,11 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             let attached = trianglePartner(of: enemy) != nil
             var second = enemy.childNode(withName: "triangleTwin") as? SKSpriteNode
             if attached, second == nil {
-                let twin = SKSpriteNode(imageNamed: EnemyKind.triangle.textureName)
+                let twin = SKSpriteNode(texture: OriginalGraphics.texture(
+                    named: EnemyKind.triangle.textureName,
+                    setIndex: menuModel.settings.graphicsSetIndex
+                ))
                 twin.name = "triangleTwin"
-                twin.size = EnemyKind.triangle.size
                 twin.blendMode = .add
                 enemy.addChild(twin)
                 second = twin
@@ -1989,10 +2132,12 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             let originalFrame = 23 - index
             let segment = SKSpriteNode(texture: snakeTailTexture(frame: originalFrame))
             segment.name = "snakeTail"
-            segment.size = CGSize(width: 56, height: 56)
+            segment.size = OriginalGraphicsSet(
+                index: menuModel.settings.graphicsSetIndex
+            ).snakeFrameSize
             segment.blendMode = .add
-            segment.color = skColor(colorPalette[.snakeTail])
-            segment.colorBlendFactor = 1
+            segment.color = .white
+            segment.colorBlendFactor = 0
             segment.position = head.position
             segment.physicsBody = SKPhysicsBody(circleOfRadius: sqrt(CGFloat(81 + originalFrame)))
             segment.physicsBody?.affectedByGravity = false
@@ -2013,20 +2158,13 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     private func snakeTailTexture(frame: Int) -> SKTexture {
-        let sheet = SKTexture(imageNamed: "snaketail")
-        let column = frame % 8
-        let rowFromTop = frame / 8
-        let texture = SKTexture(
-            rect: CGRect(
-                x: CGFloat(column) / 8,
-                y: CGFloat(2 - rowFromTop) / 3,
-                width: 1.0 / 8.0,
-                height: 1.0 / 3.0
-            ),
-            in: sheet
+        return OriginalGraphics.frameTexture(
+            sheet: "snaketail",
+            frame: frame,
+            columns: 8,
+            rows: 3,
+            setIndex: menuModel.settings.graphicsSetIndex
         )
-        texture.filteringMode = .linear
-        return texture
     }
 
     private func updateSnakeSegments(for head: SKNode, maximumSpeed: CGFloat) {
@@ -3118,7 +3256,13 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 ) {
                     smallCube.userData?["cubeTier"] = 4
                     smallCube.userData?["score"] = 50
-                    (smallCube as? SKSpriteNode)?.texture = SKTexture(imageNamed: "purplesquare2")
+                    if let smallCube = smallCube as? SKSpriteNode {
+                        smallCube.texture = OriginalGraphics.texture(
+                            named: "purplesquare2",
+                            setIndex: menuModel.settings.graphicsSetIndex
+                        )
+                        smallCube.size = smallCube.texture?.size() ?? smallCube.size
+                    }
                 }
             }
         }
@@ -3420,7 +3564,10 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         icon.blendMode = .add
         powerUp.addChild(icon)
 
-        let star = SKSpriteNode(imageNamed: "whitestar")
+        let star = SKSpriteNode(texture: OriginalGraphics.texture(
+            named: "whitestar",
+            setIndex: menuModel.settings.graphicsSetIndex
+        ))
         star.name = "powerUpStar"
         star.size = CGSize(width: 98, height: 98)
         star.blendMode = .add
@@ -3442,20 +3589,13 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         case .superShots: 7
         case .bouncyShots: 10
         }
-        let sheet = SKTexture(imageNamed: "powerups")
-        let column = frame % 2
-        let rowFromTop = frame / 2
-        let texture = SKTexture(
-            rect: CGRect(
-                x: CGFloat(column) / 2,
-                y: CGFloat(7 - rowFromTop) / 8,
-                width: 1.0 / 2.0,
-                height: 1.0 / 8.0
-            ),
-            in: sheet
+        return OriginalGraphics.frameTexture(
+            sheet: "powerups",
+            frame: frame,
+            columns: 2,
+            rows: 8,
+            setIndex: menuModel.settings.graphicsSetIndex
         )
-        texture.filteringMode = .linear
-        return texture
     }
 
     private func updatePowerUps() {
@@ -3808,8 +3948,23 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     private func updateHUD() {
-        scoreLabel.text = String(format: "%09d   ×%d", session.score, session.multiplier)
-        statusLabel.text = "LEBEN \(session.lives)   BOMBEN \(session.bombs)"
+        renderHUD()
+    }
+
+    private func renderHUD() {
+        let highScore = highScores[session.difficulty].first?.score ?? 0
+        hudRenderer.render(
+            session: session,
+            highScore: highScore,
+            playerY: player.position.y,
+            simulationFrame: simulationFrame,
+            debugEnabled: debugEnabled,
+            message: messageLabel,
+            getReadyFrame: getReadyFrame,
+            playerColor: colorPalette[.player],
+            scoreColor: colorPalette[.score],
+            size: size
+        )
     }
 
     func setKey(

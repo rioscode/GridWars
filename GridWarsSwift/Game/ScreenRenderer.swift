@@ -3,6 +3,7 @@
 @MainActor
 final class OriginalScreenRenderer {
     let node = SKNode()
+    var graphicsSetIndex = 0
 
     private let font = OriginalVectorFont()
     private let background = SKShapeNode()
@@ -216,16 +217,6 @@ final class OriginalScreenRenderer {
         addText("Special Thanks To", centeredAtY: size.height - 160, scale: 3.2 * shrink, color: SKColor(red: 240 / 255, green: 32 / 255, blue: 200 / 255, alpha: 1), size: size)
         addText("Svrman, taumel - Gfx & Effects, Swith - Music, RiK - Mac", centeredAtY: size.height - 120, scale: 3.2 * shrink, color: SKColor(red: 200 / 255, green: 32 / 255, blue: 240 / 255, alpha: 1), size: size)
 
-        for index in 0..<2 {
-            let sprite = makeSprite("redcircle", atTopLeftPosition: CGPoint(
-                x: size.width / 2 + (index == 0 ? -72 : 68),
-                y: size.height / 2 + (index == 0 ? -30 : 34)
-            ), size: size)
-            let pulse = 0.35 + 0.18 * sin(CGFloat(frame * (index + 2)) * .pi / 180)
-            sprite.setScale(pulse)
-            sprite.alpha = 0.7
-            content.addChild(sprite)
-        }
     }
 
     private func renderScores(
@@ -338,11 +329,22 @@ final class OriginalScreenRenderer {
 
     private func addDisplaySnake(frame: Int, center: CGPoint, size: CGSize) {
         for segment in 0..<24 {
-            let name = segment == 0 ? "snakehead" : "snaketail"
             let y = center.y + sin(CGFloat(segment * 30 + frame) * .pi / 180) * 16
-            let sprite = makeSprite(name, atTopLeftPosition: CGPoint(x: center.x - CGFloat(segment * 13), y: y), size: size)
+            let texture = if segment == 0 {
+                OriginalGraphics.texture(named: "snakehead", setIndex: graphicsSetIndex)
+            } else {
+                OriginalGraphics.frameTexture(
+                    sheet: "snaketail",
+                    frame: 24 - segment,
+                    columns: 8,
+                    rows: 3,
+                    setIndex: graphicsSetIndex
+                )
+            }
+            let sprite = SKSpriteNode(texture: texture)
+            sprite.position = CGPoint(x: center.x - CGFloat(segment * 13), y: size.height - y)
+            sprite.blendMode = .add
             sprite.zRotation = (90 - cos(CGFloat(segment * 30 + frame) * .pi / 180) * 20) * .pi / 180
-            sprite.setScale(segment == 0 ? 1 : max(0.18, 1 - CGFloat(segment) / 28))
             content.addChild(sprite)
         }
     }
@@ -430,25 +432,22 @@ final class OriginalScreenRenderer {
         atTopLeftPosition position: CGPoint,
         size: CGSize
     ) -> SKSpriteNode {
-        let sprite = SKSpriteNode(imageNamed: name)
+        let sprite = SKSpriteNode(texture: OriginalGraphics.texture(
+            named: name,
+            setIndex: graphicsSetIndex
+        ))
         sprite.position = CGPoint(x: position.x, y: size.height - position.y)
-        sprite.size = name == "redcircle" ? CGSize(width: 128, height: 128) : CGSize(width: 64, height: 64)
         sprite.blendMode = .add
         return sprite
     }
 
     private func powerUpTexture(frame: Int) -> SKTexture {
-        let sheet = SKTexture(imageNamed: "powerups")
-        let column = frame % 2
-        let rowFromTop = frame / 2
-        return SKTexture(
-            rect: CGRect(
-                x: CGFloat(column) / 2,
-                y: CGFloat(7 - rowFromTop) / 8,
-                width: 0.5,
-                height: 0.125
-            ),
-            in: sheet
+        OriginalGraphics.frameTexture(
+            sheet: "powerups",
+            frame: frame,
+            columns: 2,
+            rows: 8,
+            setIndex: graphicsSetIndex
         )
     }
 

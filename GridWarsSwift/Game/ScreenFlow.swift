@@ -78,6 +78,16 @@ struct OriginalScreenFlow: Equatable {
         phase = .attract(.title)
         frame = 0
     }
+
+    mutating func configureCapture(
+        page: OriginalAttractPage,
+        frame: Int,
+        persistentTitleFrame: Int = 600
+    ) {
+        phase = .attract(page)
+        self.frame = max(0, frame)
+        self.persistentTitleFrame = min(600, max(0, persistentTitleFrame))
+    }
 }
 
 enum OriginalControllerType: Int, CaseIterable, Codable {
