@@ -121,7 +121,7 @@ enum GameDifficulty: Int, CaseIterable, Codable {
     }
 }
 
-enum PowerUpKind: Int, CaseIterable, Codable {
+enum PowerUpKind: Int, CaseIterable, Codable, Equatable {
     case reverseShooter
     case sideShooters
     case extraCannon
@@ -562,7 +562,7 @@ struct GameSession: Equatable {
     }
 }
 
-enum OriginalEnemyKind: Int, CaseIterable, Codable {
+enum OriginalEnemyKind: Int, CaseIterable, Codable, Equatable {
     case pinwheel
     case diamond
     case greenSquare
@@ -894,6 +894,28 @@ struct SeededRandomNumberGenerator: RandomNumberGenerator {
         value = (value ^ (value >> 30)) &* 0xBF58_476D_1CE4_E5B9
         value = (value ^ (value >> 27)) &* 0x94D0_49BB_1331_11EB
         return value ^ (value >> 31)
+    }
+}
+
+struct GameRandomNumberGenerator: RandomNumberGenerator {
+    private var seeded: SeededRandomNumberGenerator?
+    private var system = SystemRandomNumberGenerator()
+
+    init(seed: UInt64? = nil) {
+        if let seed {
+            seeded = SeededRandomNumberGenerator(seed: seed)
+        } else {
+            seeded = nil
+        }
+    }
+
+    mutating func next() -> UInt64 {
+        if var seeded {
+            let value = seeded.next()
+            self.seeded = seeded
+            return value
+        }
+        return system.next()
     }
 }
 

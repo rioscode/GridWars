@@ -30,6 +30,108 @@ enum OriginalRunPhase: Equatable {
     case gameOver
 }
 
+enum OriginalMenuCapture: String, CaseIterable, Equatable {
+    case options
+    case optionsGame = "options-game"
+    case confirmExit = "confirm-exit"
+    case confirmEndGame = "confirm-end-game"
+    case confirmKeepVideo = "confirm-keep-video"
+    case confirmKeepGame = "confirm-keep-game"
+    case settings
+    case video
+    case game
+    case audio
+    case controller
+    case hybrid
+    case mouse
+    case keyboard
+    case joypad
+    case dualAnalog = "dual-analog"
+}
+
+enum OriginalCaptureSubject: Equatable {
+    case attract(OriginalAttractPage, frame: Int)
+    case gameplay
+    case enemy(OriginalEnemyKind)
+    case generator(OriginalEnemyKind)
+    case powerUp(PowerUpKind)
+    case grid(Int)
+    case particleStyle(Int)
+    case graphicsSet(OriginalGraphicsSet)
+    case getReady(frame: Int)
+    case death
+    case gameOver(frame: Int)
+    case highScoreEntry
+    case hudDefault
+    case hudUpgraded
+    case menu(OriginalMenuCapture)
+}
+
+struct OriginalCaptureScenario: Equatable {
+    let name: String
+    let subject: OriginalCaptureSubject
+
+    init?(name: String) {
+        guard let scenario = Self.all.first(where: { $0.name == name.lowercased() }) else {
+            return nil
+        }
+        self = scenario
+    }
+
+    private init(_ name: String, _ subject: OriginalCaptureSubject) {
+        self.name = name
+        self.subject = subject
+    }
+
+    static let all: [OriginalCaptureScenario] = {
+        var scenarios: [OriginalCaptureScenario] = [
+            .init("title", .attract(.title, frame: 600)),
+            .init("scores", .attract(.scores, frame: 600)),
+            .init("friends", .attract(.friends, frame: 600)),
+            .init("enemies", .attract(.enemies, frame: 600)),
+            .init("gameplay", .gameplay),
+            .init("get-ready-title", .getReady(frame: 30)),
+            .init("get-ready-rings", .getReady(frame: 80)),
+            .init("death", .death),
+            .init("game-over", .gameOver(frame: 89)),
+            .init("high-score-entry", .highScoreEntry),
+            .init("hud-default", .hudDefault),
+            .init("hud-upgraded", .hudUpgraded),
+        ]
+
+        let enemies: [(String, OriginalEnemyKind)] = [
+            ("pinwheel", .pinwheel), ("diamond", .diamond),
+            ("green-square", .greenSquare), ("cube", .cube),
+            ("seeker", .seeker), ("black-hole", .blackHole),
+            ("triangle", .triangle), ("snake", .snake),
+            ("interceptor", .interceptor), ("butterfly", .butterfly),
+        ]
+        scenarios += enemies.map { .init("enemy-\($0.0)", .enemy($0.1)) }
+        scenarios += enemies.map { .init("generator-\($0.0)", .generator($0.1)) }
+
+        let powerUps: [(String, PowerUpKind)] = [
+            ("reverse", .reverseShooter), ("side", .sideShooters),
+            ("cannon", .extraCannon), ("faster", .fasterShots),
+            ("player", .extraPlayer), ("bomb", .extraBomb),
+            ("shield", .shield), ("super", .superShots),
+            ("bouncy", .bouncyShots),
+        ]
+        scenarios += powerUps.map { .init("powerup-\($0.0)", .powerUp($0.1)) }
+        scenarios += (0..<21).map {
+            .init(String(format: "grid-%02d", $0), .grid($0))
+        }
+        scenarios += (0...3).map { .init("particle-\($0)", .particleStyle($0)) }
+
+        let graphicsSets: [(String, OriginalGraphicsSet)] = [
+            ("solid", .solid), ("low", .low), ("medium", .medium),
+            ("high", .high), ("user", .user),
+        ]
+        scenarios += graphicsSets.map { .init("graphics-\($0.0)", .graphicsSet($0.1)) }
+        scenarios += OriginalMenuCapture.allCases.map { .init($0.rawValue, .menu($0)) }
+        return scenarios
+    }()
+}
+
 struct OriginalScreenFlow: Equatable {
     private(set) var phase: OriginalRunPhase = .attract(.title)
     private(set) var frame = 0

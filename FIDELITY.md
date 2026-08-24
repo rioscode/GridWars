@@ -79,7 +79,7 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   renderer now produces valid full-frame 1024×768 title, scores, friends,
   enemies and options references via `scripts/capture-original.sh`; capture
   mode bypasses all legacy configuration and high-score I/O. A persistence-free
-  Swift capture catalog covers seventeen representative and menu states via
+  Swift capture catalog covers 87 fixed states via
   `scripts/capture-screens.sh`. Enemy pages reproduce the original individual rotation, pulse and
   squash rates, while the score and friend pages retain their delayed colour
   trails instead of applying a uniform palette tint.
@@ -238,7 +238,7 @@ the corresponding Swift implementation, and a test or visual/runtime check.
       persistence, checksums, and deterministic entity transitions.
 - [x] The macOS app/test action and generic iOS Simulator build pass with
       Swift 6 strict concurrency.
-- [ ] Automated capture scenes cover each entity, grid style, power-up, HUD,
+- [x] Automated capture scenes cover each entity, grid style, power-up, HUD,
       and menu state.
 - [ ] Side-by-side captures against the BlitzMax reference have been reviewed
       at matching 1024×768 state and frame counts.

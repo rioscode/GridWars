@@ -1231,6 +1231,50 @@ final class GameRulesTests: XCTestCase {
         XCTAssertEqual(font.glyphs[33]?.last?.end, CGPoint(x: 2, y: 6))
     }
 
+    func testCaptureCatalogCoversEveryFidelityCategory() {
+        let scenarios = OriginalCaptureScenario.all
+        XCTAssertEqual(scenarios.count, 87)
+        XCTAssertEqual(Set(scenarios.map(\.name)).count, scenarios.count)
+
+        var enemies = 0
+        var generators = 0
+        var powerUps = 0
+        var grids = 0
+        var particles = 0
+        var graphicsSets = 0
+        var menus = 0
+        for scenario in scenarios {
+            XCTAssertEqual(OriginalCaptureScenario(name: scenario.name), scenario)
+            switch scenario.subject {
+            case .enemy: enemies += 1
+            case .generator: generators += 1
+            case .powerUp: powerUps += 1
+            case .grid: grids += 1
+            case .particleStyle: particles += 1
+            case .graphicsSet: graphicsSets += 1
+            case .menu: menus += 1
+            default: break
+            }
+        }
+        XCTAssertEqual(enemies, OriginalEnemyKind.allCases.count)
+        XCTAssertEqual(generators, OriginalEnemyKind.allCases.count)
+        XCTAssertEqual(powerUps, PowerUpKind.allCases.count)
+        XCTAssertEqual(grids, 21)
+        XCTAssertEqual(particles, 4)
+        XCTAssertEqual(graphicsSets, OriginalGraphicsSet.allCases.count)
+        XCTAssertEqual(menus, OriginalMenuCapture.allCases.count)
+    }
+
+    func testCaptureRandomGeneratorIsRepeatableWhenSeeded() {
+        var first = GameRandomNumberGenerator(seed: 42)
+        var second = GameRandomNumberGenerator(seed: 42)
+        let firstValues = (0..<32).map { _ in first.next() }
+        let secondValues = (0..<32).map { _ in second.next() }
+
+        XCTAssertEqual(firstValues, secondValues)
+        XCTAssertGreaterThan(Set(firstValues).count, 1)
+    }
+
     private var repositoryRoot: URL {
         URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()

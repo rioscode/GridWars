@@ -11,7 +11,7 @@ import AppKit
 @MainActor
 final class GameScene: SKScene, SKPhysicsContactDelegate {
     private struct CaptureRequest {
-        let screen: String
+        let scenario: OriginalCaptureScenario
         let outputPath: String
 
         static var commandLine: CaptureRequest? {
@@ -20,10 +20,10 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                   arguments.indices.contains(screenFlag + 1),
                   let outputFlag = arguments.firstIndex(of: "--capture-output"),
                   arguments.indices.contains(outputFlag + 1) else { return nil }
-            return CaptureRequest(
-                screen: arguments[screenFlag + 1].lowercased(),
-                outputPath: arguments[outputFlag + 1]
-            )
+            guard let scenario = OriginalCaptureScenario(
+                name: arguments[screenFlag + 1]
+            ) else { return nil }
+            return CaptureRequest(scenario: scenario, outputPath: arguments[outputFlag + 1])
         }
     }
 
@@ -192,7 +192,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private var simulationFrame = GameDifficulty.medium.initialFrame
     private var bombCooldownFrames = 20
     private var spawnDirector = SpawnDirector()
-    private var spawnRandom = SystemRandomNumberGenerator()
+    private var spawnRandom = GameRandomNumberGenerator()
     private var cyclingRed = 250
     private var cyclingGreen = 20
     private var cyclingBlue = 30
@@ -519,28 +519,138 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         guard let captureRequest else { return }
         audio.stopMusic()
         particleSimulation.reset()
+        spawnRandom = GameRandomNumberGenerator(seed: 1)
 
-        switch captureRequest.screen {
-        case "title":
-            screenFlow.configureCapture(page: .title, frame: 600)
-            for _ in 0..<12 { emitFirework(style: 2) }
-        case "scores":
+        switch captureRequest.scenario.subject {
+        case let .attract(page, frame):
+            screenFlow.configureCapture(page: page, frame: frame)
+            let firework = switch page {
+            case .title: (12, 2)
+            case .scores: (5, 1)
+            case .friends, .enemies: (4, 0)
+            }
+            for _ in 0..<firework.0 { emitFirework(style: firework.1) }
+        case .gameplay:
+            prepareGameplayCapture(includeSamples: true)
+        case let .enemy(kind):
+            prepareGameplayCapture()
+            configureEnemyCapture(kind)
+        case let .generator(kind):
+            prepareGameplayCapture()
+            player.isHidden = true
+            spawnGenerator(
+                kind: EnemyKind(kind),
+                at: CGPoint(x: playfieldSize.width / 2, y: playfieldSize.height / 2),
+                freezeFrames: 0,
+                rate: 60,
+                generatorSize: 24
+            )
+        case let .powerUp(kind):
+            prepareGameplayCapture()
+            player.isHidden = true
+            spawnPowerUp(
+                at: CGPoint(x: playfieldSize.width / 2, y: playfieldSize.height / 2),
+                kind: kind
+            )
+        case let .grid(style):
+            prepareGameplayCapture()
+            menuModel.settings.gridStyle = style
+            menuModel.settings.starCount = 0
+            applyRuntimeSettings()
+            player.isHidden = true
+            hudLayer.isHidden = true
+            gridSimulation.pull(
+                at: CGPoint(x: playfieldSize.width / 2, y: playfieldSize.height / 2),
+                radiusInPoints: 18,
+                amount: 28
+            )
+            for _ in 0..<12 { gridSimulation.update() }
+        case let .particleStyle(style):
+            prepareGameplayCapture()
+            menuModel.settings.gridStyle = GridStyle.none.rawValue
+            menuModel.settings.starCount = 0
+            menuModel.settings.particleStyle = style
+            applyRuntimeSettings()
+            player.isHidden = true
+            hudLayer.isHidden = true
+            for index in 0..<192 {
+                emitParticles(
+                    count: 1,
+                    at: CGPoint(x: playfieldSize.width / 2, y: playfieldSize.height / 2),
+                    kind: .radialBomb,
+                    color: ParticleColor(red: 255, green: 180, blue: 32),
+                    rotation: { _ in CGFloat(index) * 360 / 192 }
+                )
+            }
+            for _ in 0..<5 { particleSimulation.update() }
+        case let .graphicsSet(set):
+            menuModel.settings.graphicsSetIndex = set.rawValue
+            applyRuntimeSettings()
+            prepareGameplayCapture(includeSamples: true)
+        case let .getReady(frame):
+            prepareGameplayCapture()
+            startGetReadySequence()
+            getReadyFrame = frame
+            advanceGetReadySequence()
+        case .death:
+            prepareGameplayCapture()
+            _ = hitPlayer()
+        case let .gameOver(frame):
+            prepareGameplayCapture()
+            session.registerPlayerHit()
+            session.registerPlayerHit()
+            _ = hitPlayer()
+            deathFramesRemaining = 1
+            advanceDeathSequence()
+            for _ in 0..<frame { _ = screenFlow.advance() }
+        case .highScoreEntry:
             screenFlow.configureCapture(page: .scores, frame: 600)
-            for _ in 0..<5 { emitFirework(style: 1) }
-        case "friends":
-            screenFlow.configureCapture(page: .friends, frame: 600)
-            for _ in 0..<4 { emitFirework(style: 0) }
-        case "enemies":
-            screenFlow.configureCapture(page: .enemies, frame: 600)
-            for _ in 0..<4 { emitFirework(style: 0) }
-        case "options", "confirm-exit", "settings", "video", "game", "audio",
-             "controller", "hybrid", "mouse", "keyboard", "joypad", "dual-analog":
-            guard configureMenuCapture(named: captureRequest.screen) else { return }
-        case "gameplay":
-            beginGame()
-            getReadyFrame = -1
-            player.isHidden = false
-            player.position = CGPoint(x: playfieldSize.width / 2, y: playfieldSize.height / 2)
+            pendingHighScore = PendingHighScore(
+                score: 123_456,
+                playTime: "03:21",
+                difficulty: .medium,
+                settings: "0,0,0,0,0,0,0,0,0,0"
+            )
+            highScoreNameEntry = OriginalHighScoreNameEntry()
+        case .hudDefault:
+            prepareGameplayCapture()
+        case .hudUpgraded:
+            prepareGameplayCapture()
+            session.grantCheatCannon()
+            session.grantCheatCannon()
+            session.grantCheatShotSpeed()
+            session.grantCheatShotSpeed()
+            for kind in PowerUpKind.allCases {
+                _ = session.collectPowerUp(kind)
+            }
+            _ = session.registerScore(baseScore: 123_456, countsAsKill: true)
+            updatePlayerShield()
+            updateHUD()
+        case let .menu(menu):
+            configureMenuCapture(menu)
+        }
+
+        renderPresentation()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self, weak view] in
+            guard let self, let view else { return }
+            self.writeCapture(from: view, to: captureRequest.outputPath, attempt: 0)
+        }
+    }
+
+    private func prepareGameplayCapture(includeSamples: Bool = false) {
+        beginGame()
+        audio.stopMusic()
+        getReadyFrame = -1
+        deathFramesRemaining = 0
+        player.removeAllActions()
+        player.isHidden = false
+        player.alpha = 1
+        player.position = CGPoint(x: playfieldSize.width / 2, y: playfieldSize.height / 2)
+        playerShield.isHidden = true
+        readyRings.forEach { $0.isHidden = true }
+        messageLabel.removeAllActions()
+        messageLabel.isHidden = true
+        if includeSamples {
             let samples: [(EnemyKind, CGPoint)] = [
                 (.pinwheel, CGPoint(x: 180, y: 180)),
                 (.diamond, CGPoint(x: 330, y: 560)),
@@ -557,56 +667,122 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 )
             }
             spawnPowerUp(at: CGPoint(x: 360, y: 260), kind: .shield)
-        default:
-            return
-        }
-
-        renderPresentation()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self, weak view] in
-            guard let self, let view else { return }
-            self.writeCapture(from: view, to: captureRequest.outputPath, attempt: 0)
         }
     }
 
-    private func configureMenuCapture(named name: String) -> Bool {
-        menuModel.open(duringGame: false)
+    private func configureEnemyCapture(_ originalKind: OriginalEnemyKind) {
+        let kind = EnemyKind(originalKind)
+        player.position = CGPoint(x: playfieldSize.width / 2, y: 100)
+        let center = CGPoint(x: playfieldSize.width / 2, y: playfieldSize.height / 2)
+        if kind == .triangle {
+            let first = spawnEnemy(
+                kind: kind,
+                at: CGPoint(x: center.x - 55, y: center.y),
+                freezeFrames: 0,
+                closeToPlayer: true,
+                playBornSound: false
+            )
+            let second = spawnEnemy(
+                kind: kind,
+                at: CGPoint(x: center.x + 55, y: center.y),
+                freezeFrames: 0,
+                closeToPlayer: true,
+                playBornSound: false
+            )
+            if let first, let second {
+                attachTriangles(first, second)
+                updateTrianglePairsAndBonds()
+            }
+            return
+        }
+        guard let enemy = spawnEnemy(
+            kind: kind,
+            at: center,
+            freezeFrames: 0,
+            closeToPlayer: true,
+            playBornSound: false
+        ) else { return }
+        if kind == .blackHole {
+            enemy.userData?["blackHoleSize"] = 36.0
+            enemy.userData?["blackHoleActive"] = true
+            var velocity = CGVector.zero
+            updateBlackHole(enemy, velocity: &velocity, maximumSpeed: 1)
+        } else if kind == .snake,
+                  let headID = enemy.userData?["enemyID"] as? String {
+            let segments = enemyLayer.children.filter {
+                $0.name == "snakeTail" && $0.userData?["snakeHeadID"] as? String == headID
+            }
+            for segment in segments {
+                let index = (segment.userData?["segmentIndex"] as? NSNumber)?.intValue ?? 0
+                segment.position = CGPoint(
+                    x: center.x - CGFloat(index + 1) * 13,
+                    y: center.y + sin(CGFloat(index) * 0.35) * 22
+                )
+            }
+        }
+    }
+
+    private func configureMenuCapture(_ capture: OriginalMenuCapture) {
+        let duringGame = capture == .optionsGame || capture == .confirmEndGame
+        if duringGame {
+            prepareGameplayCapture(includeSamples: true)
+        }
+        menuModel.open(duringGame: duringGame)
         menuPresentationPage = .options
         menuPresentationFrame = 0
-        if name == "options" { return true }
-        if name == "confirm-exit" {
+        if capture == .options || capture == .optionsGame { return }
+        if capture == .confirmExit {
             menuModel.select(0)
             _ = menuModel.activate()
-            return true
+            return
+        }
+        if capture == .confirmEndGame {
+            menuModel.select(2)
+            _ = menuModel.activate()
+            return
         }
 
         menuModel.select(1)
         _ = menuModel.activate()
-        if name == "settings" { return true }
+        if capture == .settings { return }
         let settingsIndex: Int
-        switch name {
-        case "audio": settingsIndex = 0
-        case "video": settingsIndex = 1
-        case "controller", "hybrid", "mouse", "keyboard", "joypad", "dual-analog":
+        switch capture {
+        case .audio: settingsIndex = 0
+        case .video, .confirmKeepVideo: settingsIndex = 1
+        case .controller, .hybrid, .mouse, .keyboard, .joypad, .dualAnalog:
             settingsIndex = 2
-        case "game": settingsIndex = 3
-        default: return false
+        case .game, .confirmKeepGame: settingsIndex = 3
+        default: return
         }
         menuModel.select(settingsIndex)
         _ = menuModel.activate()
-        if name == "audio" || name == "video" || name == "game" || name == "controller" {
-            return true
+        if capture == .confirmKeepVideo {
+            menuModel.select(0)
+            _ = menuModel.adjust(by: 1)
+            menuModel.select(10)
+            _ = menuModel.activate()
+            return
+        }
+        if capture == .confirmKeepGame {
+            menuModel.select(0)
+            _ = menuModel.adjust(by: 1)
+            menuModel.select(5)
+            _ = menuModel.activate()
+            return
+        }
+        if capture == .audio || capture == .video || capture == .game || capture == .controller {
+            return
         }
 
-        menuModel.settings.controllerType = switch name {
-        case "hybrid": .hybrid
-        case "mouse": .mouse
-        case "keyboard": .keyboard
-        case "joypad": .joypad
+        menuModel.settings.controllerType = switch capture {
+        case .hybrid: .hybrid
+        case .mouse: .mouse
+        case .keyboard: .keyboard
+        case .joypad: .joypad
         default: .dualAnalog
         }
         menuModel.select(1)
         _ = menuModel.activate()
-        return true
     }
 
     private func writeCapture(
@@ -634,7 +810,12 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             at: url.deletingLastPathComponent(),
             withIntermediateDirectories: true
         )
-        let bitmap = NSBitmapImageRep(cgImage: image)
+        guard let normalizedImage = normalizedCaptureImage(image) else {
+            fputs("GridWars capture failed: image normalization unavailable\n", stderr)
+            NSApplication.shared.terminate(nil)
+            return
+        }
+        let bitmap = NSBitmapImageRep(cgImage: normalizedImage)
         guard let png = bitmap.representation(using: .png, properties: [:]) else {
             fputs("GridWars capture failed: PNG encoding unavailable\n", stderr)
             NSApplication.shared.terminate(nil)
@@ -650,6 +831,26 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         NSApplication.shared.terminate(nil)
         #endif
     }
+
+    #if os(macOS)
+    private func normalizedCaptureImage(_ image: CGImage) -> CGImage? {
+        let width = Int(size.width.rounded())
+        let height = Int(size.height.rounded())
+        guard width > 0, height > 0,
+              let context = CGContext(
+                  data: nil,
+                  width: width,
+                  height: height,
+                  bitsPerComponent: 8,
+                  bytesPerRow: width * 4,
+                  space: CGColorSpaceCreateDeviceRGB(),
+                  bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+              ) else { return nil }
+        context.interpolationQuality = .high
+        context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+        return context.makeImage()
+    }
+    #endif
 
     private func beginGame() {
         clearScorePresentation()
@@ -671,6 +872,10 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     override func update(_ currentTime: TimeInterval) {
+        if captureRequest != nil {
+            renderPresentation()
+            return
+        }
         pollController()
         if lastUpdateTime == 0 {
             lastUpdateTime = currentTime
@@ -684,7 +889,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         while fixedTimeAccumulator >= 0.02 {
             if highScoreNameEntry != nil {
                 cycleColors()
-                if Int.random(in: 0...100) > 90 {
+                if Int.random(in: 0...100, using: &spawnRandom) > 90 {
                     emitFirework(style: 2)
                 }
                 particleSimulation.update()
@@ -695,8 +900,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                        [5, 7, 8, 9].contains(menuModel.selection) {
                         gridSimulation.pull(
                             at: CGPoint(
-                                x: CGFloat(Int.random(in: 0...20) * 16),
-                                y: CGFloat(Int.random(in: 0...20) * 16)
+                                x: CGFloat(Int.random(in: 0...20, using: &spawnRandom) * 16),
+                                y: CGFloat(Int.random(in: 0...20, using: &spawnRandom) * 16)
                             ),
                             radiusInPoints: 8,
                             amount: 24
@@ -704,7 +909,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                     }
                     cycleColors()
                     gridSimulation.update()
-                    if menuModel.selection == 7, Int.random(in: 0...100) > 94 {
+                    if menuModel.selection == 7,
+                       Int.random(in: 0...100, using: &spawnRandom) > 94 {
                         emitFirework(style: 2)
                     }
                     particleSimulation.update()
@@ -745,7 +951,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             }
             if screenFlow.frame < cutoff,
                page != .title || screenFlow.persistentTitleFrame > 350,
-               Int.random(in: 0...100) > chance {
+               Int.random(in: 0...100, using: &spawnRandom) > chance {
                 emitFirework(style: page == .title ? 0 : 1)
             }
         }
@@ -925,29 +1131,41 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
     private func emitFirework(style: Int) {
         let color = ParticleColor(
-            red: Int.random(in: 0...3) * 64,
-            green: Int.random(in: 0...3) * 64,
-            blue: Int.random(in: 0...3) * 64
+            red: Int.random(in: 0...3, using: &spawnRandom) * 64,
+            green: Int.random(in: 0...3, using: &spawnRandom) * 64,
+            blue: Int.random(in: 0...3, using: &spawnRandom) * 64
         )
         let position: CGPoint
         if style == 1 {
-            if Bool.random() {
+            if Bool.random(using: &spawnRandom) {
                 position = CGPoint(
-                    x: CGFloat(Int.random(in: 100...max(100, Int(size.width) - 100))),
-                    y: Bool.random() ? 16 : size.height - 16
+                    x: CGFloat(Int.random(
+                        in: 100...max(100, Int(size.width) - 100),
+                        using: &spawnRandom
+                    )),
+                    y: Bool.random(using: &spawnRandom) ? 16 : size.height - 16
                 )
             } else {
                 position = CGPoint(
-                    x: Bool.random() ? 16 : size.width - 16,
-                    y: CGFloat(Int.random(in: 50...max(50, Int(size.height) - 50)))
+                    x: Bool.random(using: &spawnRandom) ? 16 : size.width - 16,
+                    y: CGFloat(Int.random(
+                        in: 50...max(50, Int(size.height) - 50),
+                        using: &spawnRandom
+                    ))
                 )
             }
         } else if style == 2 {
             position = CGPoint(x: size.width / 2, y: size.height / 2)
         } else {
             position = CGPoint(
-                x: CGFloat(Int.random(in: 100...max(100, Int(size.width) - 100))),
-                y: CGFloat(Int.random(in: 50...max(50, Int(size.height) - 50)))
+                x: CGFloat(Int.random(
+                    in: 100...max(100, Int(size.width) - 100),
+                    using: &spawnRandom
+                )),
+                y: CGFloat(Int.random(
+                    in: 50...max(50, Int(size.height) - 50),
+                    using: &spawnRandom
+                ))
             )
         }
         emitParticles(count: 64, at: position, kind: .random, color: color)
@@ -1382,8 +1600,14 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             star.alpha = 0.8
             star.name = "star"
             let basePosition = CGPoint(
-                x: CGFloat(Int.random(in: -100...Int(max(arena.width, size.width) + 100))),
-                y: CGFloat(Int.random(in: -100...Int(max(arena.height, size.height) + 100)))
+                x: CGFloat(Int.random(
+                    in: -100...Int(max(arena.width, size.width) + 100),
+                    using: &spawnRandom
+                )),
+                y: CGFloat(Int.random(
+                    in: -100...Int(max(arena.height, size.height) + 100),
+                    using: &spawnRandom
+                ))
             )
             star.position = basePosition
             star.userData = NSMutableDictionary(dictionary: [
@@ -1669,10 +1893,10 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         value = Int(CGFloat(value) + delta)
         if value < 0 {
             value = 0
-            delta = CGFloat.random(in: 1..<10)
+            delta = CGFloat.random(in: 1..<10, using: &spawnRandom)
         } else if value > 255 {
             value = 255
-            delta = -CGFloat.random(in: 1..<10)
+            delta = -CGFloat.random(in: 1..<10, using: &spawnRandom)
         }
     }
 
@@ -1768,7 +1992,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             if snakeNodeCount > 16 * 24 { return nil }
         case .interceptor:
             if matchingEnemyCount > 7
-                || (matchingEnemyCount > 3 && Int.random(in: 0...100) > 50) {
+                || (matchingEnemyCount > 3
+                    && Int.random(in: 0...100, using: &spawnRandom) > 50) {
                 return nil
             }
         default:
@@ -1793,13 +2018,13 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         let enemyID = UUID().uuidString
         let initialRotation = switch kind {
         case .greenSquare, .pinwheel: 90
-        default: Int.random(in: 0...359)
+        default: Int.random(in: 0...359, using: &spawnRandom)
         }
-        let initialDirection = Int.random(in: 0...359)
+        let initialDirection = Int.random(in: 0...359, using: &spawnRandom)
         let initialAngle = kind == .snake
             ? CGFloat(initialRotation) * .pi / 180
             : CGFloat(initialDirection) * .pi / 180
-        let initialMagnitude = CGFloat.random(in: kind.initialMagnitude)
+        let initialMagnitude = CGFloat.random(in: kind.initialMagnitude, using: &spawnRandom)
         let initialVelocity = CGVector(
             dx: cos(initialAngle) * initialMagnitude,
             dy: sin(initialAngle) * initialMagnitude
@@ -1817,7 +2042,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             "health": kind.health,
             "speed": session.enemySpeeds[kind.original],
             "score": kind.score,
-            "phase": Double.random(in: 0...(Double.pi * 2)),
+            "phase": Double.random(in: 0...(Double.pi * 2), using: &spawnRandom),
             "freezeFrames": freezeFrames,
             "rotation": initialRotation,
             "dx": initialVelocity.dx,
@@ -1827,7 +2052,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             "blackHoleActive": false,
             "absorbCount": 0,
             "snakeHeading": Double(initialRotation),
-            "snakeTurnDirection": Int.random(in: 0...1),
+            "snakeTurnDirection": Int.random(in: 0...1, using: &spawnRandom),
             "interceptorHeading": Double(initialRotation),
             "interceptorTurnRemaining": abs(interceptorTurn) < 16
                 ? 16
@@ -1880,19 +2105,20 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         let resolved: SpawnCorner
         switch corner {
         case .anyCorner:
-            resolved = [.topLeft, .topRight, .bottomRight, .bottomLeft].randomElement() ?? .topLeft
+            resolved = [.topLeft, .topRight, .bottomRight, .bottomLeft]
+                .randomElement(using: &spawnRandom) ?? .topLeft
         case .topCorners:
-            resolved = Bool.random() ? .topLeft : .topRight
+            resolved = Bool.random(using: &spawnRandom) ? .topLeft : .topRight
         case .rightCorners:
-            resolved = Bool.random() ? .topRight : .bottomRight
+            resolved = Bool.random(using: &spawnRandom) ? .topRight : .bottomRight
         case .bottomCorners:
-            resolved = Bool.random() ? .bottomRight : .bottomLeft
+            resolved = Bool.random(using: &spawnRandom) ? .bottomRight : .bottomLeft
         case .diagonalTopLeftBottomRight:
-            resolved = Bool.random() ? .topLeft : .bottomRight
+            resolved = Bool.random(using: &spawnRandom) ? .topLeft : .bottomRight
         case .leftCorners:
-            resolved = Bool.random() ? .topLeft : .bottomLeft
+            resolved = Bool.random(using: &spawnRandom) ? .topLeft : .bottomLeft
         case .diagonalTopRightBottomLeft:
-            resolved = Bool.random() ? .topRight : .bottomLeft
+            resolved = Bool.random(using: &spawnRandom) ? .topRight : .bottomLeft
         default:
             resolved = corner
         }
@@ -1907,7 +2133,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         case .bottomLeft:
             return CGPoint(x: randomCoordinate(30...80), y: randomCoordinate(30...80))
         case .nearPlayer:
-            let angle = CGFloat(Int.random(in: 0...360)) * .pi / 180
+            let angle = CGFloat(Int.random(in: 0...360, using: &spawnRandom)) * .pi / 180
             return CGPoint(x: player.position.x + cos(angle) * 240, y: player.position.y + sin(angle) * 240)
         default:
             return CGPoint(
@@ -1918,7 +2144,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     private func randomCoordinate(_ range: ClosedRange<Int>) -> CGFloat {
-        CGFloat(Int.random(in: range))
+        CGFloat(Int.random(in: range, using: &spawnRandom))
     }
 
     private func randomCoordinate(inset: Int, length: CGFloat) -> CGFloat {
@@ -1943,7 +2169,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             var distance = fromSpawnToPlayer.length + 0.001
             while distance < minimumPlayerDistance {
                 if distance < 0.001 {
-                    let angle = CGFloat(Int.random(in: 0...360)) * .pi / 180
+                    let angle = CGFloat(Int.random(in: 0...360, using: &spawnRandom)) * .pi / 180
                     result = CGPoint(
                         x: player.position.x + cos(angle) * 10,
                         y: player.position.y + sin(angle) * 10
@@ -1962,7 +2188,10 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             while fromSpawnToPlayer.dx * fromSpawnToPlayer.dx
                     + fromSpawnToPlayer.dy * fromSpawnToPlayer.dy
                     < minimumPlayerDistance * minimumPlayerDistance {
-                let angle = CGFloat(Int.random(in: 0...(360 * 8))) / 8 * .pi / 180
+                let angle = CGFloat(Int.random(
+                    in: 0...(360 * 8),
+                    using: &spawnRandom
+                )) / 8 * .pi / 180
                 result = CGPoint(
                     x: player.position.x + sin(angle) * minimumPlayerDistance,
                     y: player.position.y + cos(angle) * minimumPlayerDistance
@@ -2003,7 +2232,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             "score": 200,
             "freezeFrames": freezeFrames,
             "rate": rate,
-            "rotation": Int.random(in: 0...359),
+            "rotation": Int.random(in: 0...359, using: &spawnRandom),
             "generatorSize": generatorSize,
         ])
         let outline = SKShapeNode(path: generatorOutlinePath(kind: kind, health: generatorSize))
@@ -2289,7 +2518,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                     dy: sin(headingRadians) * maximumSpeed
                 )
                 heading += turnDirection == 0 ? 4 : -4
-                if Int.random(in: 1...100) > 90 {
+                if Int.random(in: 1...100, using: &spawnRandom) > 90 {
                     turnDirection = 1 - turnDirection
                 }
                 enemy.userData?["snakeHeading"] = heading
@@ -2298,7 +2527,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             case .interceptor:
                 var heading = CGFloat((enemy.userData?["interceptorHeading"] as? NSNumber)?.doubleValue ?? 0)
                 var turnRemaining = (enemy.userData?["interceptorTurnRemaining"] as? NSNumber)?.intValue ?? 0
-                if CGFloat(Int.random(in: 1...100)) > 95 - maximumSpeed * 8 {
+                if CGFloat(Int.random(in: 1...100, using: &spawnRandom))
+                    > 95 - maximumSpeed * 8 {
                     turnRemaining = turnToFace(
                         velocity: velocity,
                         target: CGVector(
@@ -3714,17 +3944,18 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 rotation: { _ in rotation }
             )
         case .diamond:
+            let positions = (0..<16).map { _ in
+                CGPoint(
+                    x: position.x + CGFloat(Int.random(in: -8...8, using: &spawnRandom)),
+                    y: position.y + CGFloat(Int.random(in: -8...8, using: &spawnRandom))
+                )
+            }
             emitParticles(
                 count: 16,
                 at: position,
                 kind: .fourDirections,
                 color: colorPalette[.diamond],
-                positionForIndex: { _ in
-                    CGPoint(
-                        x: position.x + CGFloat(Int.random(in: -8...8)),
-                        y: position.y + CGFloat(Int.random(in: -8...8))
-                    )
-                }
+                positionForIndex: { positions[$0] }
             )
         case .cube:
             emitParticles(
@@ -3910,20 +4141,24 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     private func choosePowerUpKind() -> PowerUpKind {
-        var kind: PowerUpKind = Bool.random() ? .reverseShooter : .sideShooters
-        if Int.random(in: 0...100) > 80 {
+        var kind: PowerUpKind = Bool.random(using: &spawnRandom)
+            ? .reverseShooter : .sideShooters
+        if Int.random(in: 0...100, using: &spawnRandom) > 80 {
             kind = .shield
-            if Int.random(in: 0...100) > 45 {
-                kind = Bool.random() ? .superShots : .bouncyShots
+            if Int.random(in: 0...100, using: &spawnRandom) > 45 {
+                kind = Bool.random(using: &spawnRandom) ? .superShots : .bouncyShots
             }
         }
-        if session.shotSpeed < 5, Int.random(in: 1...session.shotSpeed) < 2 {
+        if session.shotSpeed < 5,
+           Int.random(in: 1...session.shotSpeed, using: &spawnRandom) < 2 {
             kind = .fasterShots
         }
-        if session.cannons < 4, Int.random(in: 1...session.cannons) == 1 {
+        if session.cannons < 4,
+           Int.random(in: 1...session.cannons, using: &spawnRandom) == 1 {
             kind = .extraCannon
         }
-        if kind.rawValue < 2, Int.random(in: 0...100) > 40 {
+        if kind.rawValue < 2,
+           Int.random(in: 0...100, using: &spawnRandom) > 40 {
             if session.lives < 2 {
                 kind = .extraPlayer
             } else if session.bombs < 2 {
@@ -3942,8 +4177,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         powerUp.physicsBody?.categoryBitMask = Category.powerUp
         powerUp.physicsBody?.collisionBitMask = 0
         powerUp.physicsBody?.contactTestBitMask = Category.player
-        let direction = CGFloat(Int.random(in: 0...359)) * .pi / 180
-        let magnitude = CGFloat.random(in: 0.5..<2)
+        let direction = CGFloat(Int.random(in: 0...359, using: &spawnRandom)) * .pi / 180
+        let magnitude = CGFloat.random(in: 0.5..<2, using: &spawnRandom)
         powerUp.userData = NSMutableDictionary(dictionary: [
             "kind": kind.rawValue,
             "lifeFrames": 0,
@@ -4024,7 +4259,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 continue
             }
 
-            if Int.random(in: 0...100) > 96 {
+            if Int.random(in: 0...100, using: &spawnRandom) > 96 {
                 let differenceToPlayer = CGVector(
                     dx: player.position.x - powerUp.position.x,
                     dy: player.position.y - powerUp.position.y
@@ -4336,7 +4571,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 at: positionForIndex?(index) ?? position,
                 kind: kind,
                 color: color,
-                rotationDegrees: rotation(index)
+                rotationDegrees: rotation(index),
+                using: &spawnRandom
             )
         }
     }
@@ -4564,12 +4800,14 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 at: player.position,
                 kind: .radialBomb,
                 color: colorPalette[.bomb],
-                rotationDegrees: CGFloat(angle)
+                rotationDegrees: CGFloat(angle),
+                using: &spawnRandom
             )
             particleSimulation.emit(
                 at: player.position,
                 kind: .bombInternal,
-                color: colorPalette[.bomb]
+                color: colorPalette[.bomb],
+                using: &spawnRandom
             )
         }
         let enemies = enemyLayer.children.filter { $0.name == "enemy" || $0.name == "generator" }

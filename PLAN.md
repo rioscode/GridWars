@@ -104,12 +104,14 @@ branch. Each major fidelity milestone has its own commit:
 - [x] Official BlitzMax/BlitzBasic language references archived in `docs/bb`
 - [x] macOS Debug build
 - [x] Generic iOS Simulator Debug build
-- [x] 62 gameplay, input, persistence, audio, and rendering-rule unit tests
+- [x] 64 gameplay, input, persistence, audio, and rendering-rule unit tests
 - [x] macOS launch and rendering smoke test
+- [x] Deterministic 87-state Swift capture catalog at 1024×768
 
 `FIDELITY.md` is the acceptance ledger. Automated fixed-state capture support
-is implemented, but authoritative 1024×768 side-by-side review still requires
-an active unlocked macOS window session and a runnable BlitzMax reference
-binary. A full manual playthrough on physical iPhone/iPad hardware also remains
-verification work; these evidence gaps are not represented as completed 1:1
-proof.
+is implemented and has been generated successfully. The isolated BlitzMax
+harness currently captures the five attract/options reference states;
+authoritative entity-by-entity 1024×768 comparisons still require expanding
+that harness. A full manual playthrough on physical iPhone/iPad hardware also
+remains verification work; these evidence gaps are not represented as
+completed 1:1 proof.

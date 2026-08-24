@@ -45,9 +45,11 @@ only that copy, captures the five states, then deletes the temporary build.
 
 ## Swift renderer
 
-The macOS target supports a persistence-free capture mode for the title,
-scores, friends, enemies, representative gameplay, and every options/config
-page. Run:
+The macOS target supports a persistence-free capture mode for 87 fixed states:
+the attract screens, gameplay transitions, every enemy and generator, every
+power-up, all 21 grid styles, all particle and graphics sets, HUD variants, and
+every menu page. Captures are normalized to the original 1024×768 pixel size.
+Run:
 
 ```sh
 sh scripts/capture-screens.sh

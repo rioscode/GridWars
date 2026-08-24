@@ -6,7 +6,7 @@ import UIKit
 import AppKit
 #endif
 
-enum OriginalGraphicsSet: Int, CaseIterable, Sendable {
+enum OriginalGraphicsSet: Int, CaseIterable, Sendable, Equatable {
     case solid
     case low
     case medium
