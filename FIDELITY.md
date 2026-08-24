@@ -50,7 +50,10 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   branch is represented. Each menu now uses its fixed `control.bmx` title/row
   coordinates, 50 Hz colour/cursor animation, meter geometry, colour-picker
   sheet and captured-game scaling; Joypad and the original 640-wide Dual Stick
-  configuration have dedicated layouts. F3-F7, F1/F2, the 1-4/X/Z/S cheat actions and the
+  configuration have dedicated layouts. Video and Game settings now use the
+  original `Keep Changes?` transaction, including selective video rollback and
+  the return-code-2 game termination after accepting changes during play.
+  F3-F7, F1/F2, the 1-4/X/Z/S cheat actions and the
   P-held/O-single-step loop are wired to the original macOS key positions.
   Rule tests cover timing, hierarchy, 0...10,000 star wrap, 119-step grid
   brightness, invalid-score state, 450-frame cheat grants, caps, and the
@@ -108,7 +111,7 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   archived legacy `Language/Data types.bbdoc` documents the implicit numeric
   conversions used by the original. Swift random ranges and intentional
   integer truncations follow those references.
-- Build evidence (2026-08-24): the macOS unit-test action (60 tests) and generic
+- Build evidence (2026-08-24): the macOS unit-test action (62 tests) and generic
   iOS Simulator Debug build both pass. The rule suite
   covers initial difficulty, motion, weapons, scoring, upgrades, spawn timing,
   triangle bonds, snake following, black-hole integer conversions,

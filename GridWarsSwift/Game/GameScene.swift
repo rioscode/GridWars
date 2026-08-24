@@ -201,10 +201,15 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private var cyclingBlueDelta: CGFloat = 7
 
     private var playfieldSize: CGSize {
-        CGSize(
-            width: CGFloat(max(32, menuModel.settings.playfieldWidth)),
-            height: CGFloat(max(32, menuModel.settings.playfieldHeight))
+        let settings = menuModel.runtimeSettings
+        return CGSize(
+            width: CGFloat(max(32, settings.playfieldWidth)),
+            height: CGFloat(max(32, settings.playfieldHeight))
         )
+    }
+
+    private var activeGraphicsSetIndex: Int {
+        menuModel.runtimeSettings.graphicsSetIndex
     }
 
     private var configuredGridSpacing: CGFloat {
@@ -328,7 +333,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         player.name = "player"
         player.texture = OriginalGraphics.texture(
             named: "whiteplayer",
-            setIndex: menuModel.settings.graphicsSetIndex
+            setIndex: activeGraphicsSetIndex
         )
         player.size = player.texture?.size() ?? CGSize(width: 64, height: 64)
         player.blendMode = .add
@@ -1259,7 +1264,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         let particlesNeedRebuild = particleSimulation.arenaSize != arena
             || particleSimulation.capacity != particleCapacity
 
-        if arena.width > size.width || arena.height > size.height {
+        if !menuModel.isVideoTransactionPending,
+           arena.width > size.width || arena.height > size.height {
             menuModel.settings.scroll = true
         }
         if gridNeedsRebuild {
@@ -1282,7 +1288,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     private func applyGraphicsSetIfNeeded() {
-        let setIndex = menuModel.settings.graphicsSetIndex
+        let setIndex = activeGraphicsSetIndex
         guard setIndex != appliedGraphicsSetIndex else { return }
         appliedGraphicsSetIndex = setIndex
         screenRenderer.graphicsSetIndex = setIndex
@@ -1378,7 +1384,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             player: player.position,
             playfield: playfieldSize,
             viewport: size,
-            scrolling: menuModel.settings.scroll
+            scrolling: menuModel.runtimeSettings.scroll
         )
         updateWorldTransformAndStars()
     }
@@ -1537,7 +1543,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             let angle = CGFloat(simulationFrame * 12 + index * 45) * .pi / 180
             let trail = SKSpriteNode(texture: OriginalGraphics.texture(
                 named: "particle",
-                setIndex: menuModel.settings.graphicsSetIndex
+                setIndex: activeGraphicsSetIndex
             ))
             trail.name = "playerTrail"
             trail.color = SKColor(
@@ -1686,7 +1692,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         guard projectileLayer.children.count < 500 else { return }
         let projectile = SKSpriteNode(texture: OriginalGraphics.texture(
             named: "yellowshot",
-            setIndex: menuModel.settings.graphicsSetIndex
+            setIndex: activeGraphicsSetIndex
         ))
         projectile.name = "projectile"
         projectile.blendMode = .add
@@ -1738,7 +1744,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
         let enemy = SKSpriteNode(texture: OriginalGraphics.texture(
             named: kind.textureName,
-            setIndex: menuModel.settings.graphicsSetIndex
+            setIndex: activeGraphicsSetIndex
         ))
         enemy.name = "enemy"
         enemy.blendMode = .add
@@ -2396,7 +2402,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             if attached, second == nil {
                 let twin = SKSpriteNode(texture: OriginalGraphics.texture(
                     named: EnemyKind.triangle.textureName,
-                    setIndex: menuModel.settings.graphicsSetIndex
+                    setIndex: activeGraphicsSetIndex
                 ))
                 twin.name = "triangleTwin"
                 twin.blendMode = .add
@@ -2489,7 +2495,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             let segment = SKSpriteNode(texture: snakeTailTexture(frame: originalFrame))
             segment.name = "snakeTail"
             segment.size = OriginalGraphicsSet(
-                index: menuModel.settings.graphicsSetIndex
+                index: activeGraphicsSetIndex
             ).snakeFrameSize
             segment.blendMode = .add
             segment.color = .white
@@ -2519,7 +2525,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             frame: frame,
             columns: 8,
             rows: 3,
-            setIndex: menuModel.settings.graphicsSetIndex
+            setIndex: activeGraphicsSetIndex
         )
     }
 
@@ -3618,7 +3624,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                     if let smallCube = smallCube as? SKSpriteNode {
                         smallCube.texture = OriginalGraphics.texture(
                             named: "purplesquare2",
-                            setIndex: menuModel.settings.graphicsSetIndex
+                            setIndex: activeGraphicsSetIndex
                         )
                         smallCube.size = smallCube.texture?.size() ?? smallCube.size
                     }
@@ -3921,7 +3927,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
         let star = SKSpriteNode(texture: OriginalGraphics.texture(
             named: "whitestar",
-            setIndex: menuModel.settings.graphicsSetIndex
+            setIndex: activeGraphicsSetIndex
         ))
         star.name = "powerUpStar"
         star.size = star.texture?.size() ?? CGSize(width: 98, height: 98)
@@ -3949,7 +3955,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             frame: frame,
             columns: 2,
             rows: 8,
-            setIndex: menuModel.settings.graphicsSetIndex
+            setIndex: activeGraphicsSetIndex
         )
     }
 
@@ -4480,7 +4486,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private func handleMenuMouseButton(_ button: Int) -> OriginalMenuOutcome {
         let direction = button == 1 ? -1 : 1
         switch menuModel.page {
-        case .options, .confirmExit, .confirmEndGame, .settings, .keyboard:
+        case .options, .confirmExit, .confirmEndGame, .confirmKeepVideo,
+             .confirmKeepGame, .settings, .keyboard:
             return menuModel.activate()
         case .controller:
             return menuModel.selection == 0

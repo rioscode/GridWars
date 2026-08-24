@@ -279,6 +279,8 @@ enum OriginalMenuPage: Equatable {
     case options
     case confirmExit
     case confirmEndGame
+    case confirmKeepVideo
+    case confirmKeepGame
     case settings
     case video
     case game
@@ -305,7 +307,25 @@ struct OriginalMenuModel: Equatable {
     private(set) var isOpen = false
     private(set) var awaitingKeyboardBinding = false
     private var pageStack: [OriginalMenuPage] = []
+    private var settingsSnapshot: OriginalRuntimeSettings?
     var settings = OriginalRuntimeSettings()
+
+    var runtimeSettings: OriginalRuntimeSettings {
+        guard let snapshot = settingsSnapshot,
+              page == .video || page == .confirmKeepVideo else { return settings }
+        var result = settings
+        result.scroll = snapshot.scroll
+        result.playfieldSizeIndex = snapshot.playfieldSizeIndex
+        result.playfieldWidth = snapshot.playfieldWidth
+        result.playfieldHeight = snapshot.playfieldHeight
+        result.graphicsSetIndex = snapshot.graphicsSetIndex
+        result.windowed = snapshot.windowed
+        return result
+    }
+
+    var isVideoTransactionPending: Bool {
+        settingsSnapshot != nil && (page == .video || page == .confirmKeepVideo)
+    }
 
     mutating func open(duringGame: Bool) {
         page = .options
@@ -314,12 +334,14 @@ struct OriginalMenuModel: Equatable {
         isOpen = true
         awaitingKeyboardBinding = false
         pageStack = []
+        settingsSnapshot = nil
     }
 
     mutating func close() {
         isOpen = false
         awaitingKeyboardBinding = false
         pageStack = []
+        settingsSnapshot = nil
     }
 
     mutating func moveSelection(by delta: Int) {
@@ -339,7 +361,8 @@ struct OriginalMenuModel: Equatable {
         guard !awaitingKeyboardBinding else { return .none }
         guard direction != 0 else { return .none }
         switch page {
-        case .options, .confirmExit, .confirmEndGame, .settings:
+        case .options, .confirmExit, .confirmEndGame, .confirmKeepVideo,
+             .confirmKeepGame, .settings:
             return activate()
         case .controller:
             if selection == 0 {
@@ -382,6 +405,10 @@ struct OriginalMenuModel: Equatable {
         case .confirmEndGame:
             if selection == 0 { return .endGame }
             return navigateBack()
+        case .confirmKeepVideo:
+            return resolveVideoConfirmation(keepChanges: selection == 0)
+        case .confirmKeepGame:
+            return resolveGameConfirmation(keepChanges: selection == 0)
         case .settings:
             switch selection {
             case 0: return navigate(to: .audio)
@@ -407,10 +434,10 @@ struct OriginalMenuModel: Equatable {
             }
             return navigateBack()
         case .video:
-            if selection == 10 { return navigateBack() }
+            if selection == 10 { return finishVideoSettings() }
             return adjust(by: 1)
         case .game:
-            if selection == 5 { return navigateBack() }
+            if selection == 5 { return finishGameSettings() }
             return adjust(by: 1)
         case .audio:
             if selection == 3 { return navigateBack() }
@@ -443,6 +470,14 @@ struct OriginalMenuModel: Equatable {
             close()
             return .close
         }
+        if page == .confirmKeepVideo {
+            return resolveVideoConfirmation(keepChanges: false)
+        }
+        if page == .confirmKeepGame {
+            return resolveGameConfirmation(keepChanges: false)
+        }
+        if page == .video { return finishVideoSettings() }
+        if page == .game { return finishGameSettings() }
         return navigateBack()
     }
 
@@ -498,6 +533,7 @@ struct OriginalMenuModel: Equatable {
         case .options: "Options"
         case .confirmExit: "Sure?"
         case .confirmEndGame: "End Game?"
+        case .confirmKeepVideo, .confirmKeepGame: "Keep Changes?"
         case .settings: "Settings"
         case .video: "Video Settings"
         case .game: "Game Settings"
@@ -517,7 +553,7 @@ struct OriginalMenuModel: Equatable {
             return openedDuringGame
                 ? ["Exit Program", "Settings", "End Game", "Continue"]
                 : ["Exit Program", "Settings", "Continue"]
-        case .confirmExit, .confirmEndGame:
+        case .confirmExit, .confirmEndGame, .confirmKeepVideo, .confirmKeepGame:
             return ["Yes", "No"]
         case .settings:
             return ["Audio", "Video", "Controls", "Game", "Done"]
@@ -641,6 +677,9 @@ struct OriginalMenuModel: Equatable {
 
     private mutating func navigate(to target: OriginalMenuPage) -> OriginalMenuOutcome {
         pageStack.append(page)
+        if target == .video || target == .game {
+            settingsSnapshot = settings
+        }
         page = target
         selection = defaultSelection(for: target)
         awaitingKeyboardBinding = false
@@ -661,7 +700,7 @@ struct OriginalMenuModel: Equatable {
     private func defaultSelection(for page: OriginalMenuPage) -> Int {
         switch page {
         case .options: openedDuringGame ? 3 : 2
-        case .confirmExit, .confirmEndGame: 1
+        case .confirmExit, .confirmEndGame, .confirmKeepVideo, .confirmKeepGame: 1
         case .settings: 4
         case .video: 10
         case .game: 5
@@ -673,6 +712,71 @@ struct OriginalMenuModel: Equatable {
         case .joypad: 7
         case .dualAnalog: 23
         }
+    }
+
+    private mutating func finishVideoSettings() -> OriginalMenuOutcome {
+        guard let snapshot = settingsSnapshot else { return navigateBack() }
+        let requiresConfirmation = snapshot.scroll != settings.scroll
+            || snapshot.playfieldSizeIndex != settings.playfieldSizeIndex
+            || snapshot.playfieldWidth != settings.playfieldWidth
+            || snapshot.playfieldHeight != settings.playfieldHeight
+            || snapshot.graphicsSetIndex != settings.graphicsSetIndex
+            || snapshot.windowed != settings.windowed
+        guard requiresConfirmation else {
+            settingsSnapshot = nil
+            return navigateBack()
+        }
+        page = .confirmKeepVideo
+        selection = 1
+        awaitingKeyboardBinding = false
+        return .none
+    }
+
+    private mutating func finishGameSettings() -> OriginalMenuOutcome {
+        guard let snapshot = settingsSnapshot else { return navigateBack() }
+        let oldDifficulty = snapshot.difficulty.rawValue
+        let currentDifficulty = settings.difficulty.rawValue
+        let requiresConfirmation = snapshot.difficulty != settings.difficulty
+            || snapshot.extraLifeScores[oldDifficulty] != settings.extraLifeScores[currentDifficulty]
+            || snapshot.extraBombScores[oldDifficulty] != settings.extraBombScores[currentDifficulty]
+            || snapshot.autoFire != settings.autoFire
+            || snapshot.inertia != settings.inertia
+        guard requiresConfirmation else {
+            settingsSnapshot = nil
+            return navigateBack()
+        }
+        page = .confirmKeepGame
+        selection = 1
+        awaitingKeyboardBinding = false
+        return .none
+    }
+
+    private mutating func resolveVideoConfirmation(keepChanges: Bool) -> OriginalMenuOutcome {
+        if !keepChanges, let snapshot = settingsSnapshot {
+            settings.scroll = snapshot.scroll
+            settings.playfieldSizeIndex = snapshot.playfieldSizeIndex
+            settings.playfieldWidth = snapshot.playfieldWidth
+            settings.playfieldHeight = snapshot.playfieldHeight
+            settings.graphicsSetIndex = snapshot.graphicsSetIndex
+            settings.windowed = snapshot.windowed
+        }
+        settingsSnapshot = nil
+        if keepChanges, openedDuringGame { return .endGame }
+        return navigateBack()
+    }
+
+    private mutating func resolveGameConfirmation(keepChanges: Bool) -> OriginalMenuOutcome {
+        if !keepChanges, let snapshot = settingsSnapshot {
+            let oldDifficulty = snapshot.difficulty.rawValue
+            settings.difficulty = snapshot.difficulty
+            settings.extraLifeScores[oldDifficulty] = snapshot.extraLifeScores[oldDifficulty]
+            settings.extraBombScores[oldDifficulty] = snapshot.extraBombScores[oldDifficulty]
+            settings.autoFire = snapshot.autoFire
+            settings.inertia = snapshot.inertia
+        }
+        settingsSnapshot = nil
+        if keepChanges, openedDuringGame { return .endGame }
+        return navigateBack()
     }
 
     private mutating func adjustVideo(by direction: Int) {

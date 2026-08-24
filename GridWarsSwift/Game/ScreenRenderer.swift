@@ -236,7 +236,8 @@ final class OriginalScreenRenderer {
               let menuBackgroundTexture else { return }
         let originalScale: CGFloat = switch menu.page {
         case .options: 0.9
-        case .confirmExit, .confirmEndGame, .settings: 0.8
+        case .confirmExit, .confirmEndGame, .confirmKeepVideo, .confirmKeepGame,
+             .settings: 0.8
         case .video, .game, .audio, .controller: 0.7
         case .hybrid, .mouse, .keyboard, .joypad: 0.6
         case .dualAnalog: 1
@@ -454,7 +455,7 @@ final class OriginalScreenRenderer {
         case .options:
             titleOffset = -3
             lineMultipliers = menu.openedDuringGame ? [-1, 0, 1, 2] : [-1, 0, 1]
-        case .confirmExit, .confirmEndGame:
+        case .confirmExit, .confirmEndGame, .confirmKeepVideo, .confirmKeepGame:
             titleOffset = -2
             lineMultipliers = [0, 1]
         case .settings:

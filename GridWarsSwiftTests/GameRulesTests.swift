@@ -875,6 +875,51 @@ final class GameRulesTests: XCTestCase {
         XCTAssertEqual(Array(menu.lines.prefix(2)), ["SFX Volume:", "Music Volume:"])
     }
 
+    func testVideoSettingsUseOriginalKeepChangesAndSelectiveRollback() {
+        var menu = OriginalMenuModel()
+        menu.open(duringGame: false)
+        menu.select(1)
+        _ = menu.activate()
+        menu.select(1)
+        _ = menu.activate()
+
+        menu.select(5)
+        _ = menu.adjust(by: 1)
+        menu.select(2)
+        _ = menu.adjust(by: 1)
+        XCTAssertEqual(menu.settings.playfieldSizeIndex, 1)
+        XCTAssertEqual(menu.runtimeSettings.playfieldSizeIndex, 0)
+
+        menu.select(10)
+        XCTAssertEqual(menu.activate(), .none)
+        XCTAssertEqual(menu.page, .confirmKeepVideo)
+        XCTAssertEqual(menu.title, "Keep Changes?")
+        XCTAssertEqual(menu.selection, 1)
+
+        XCTAssertEqual(menu.activate(), .none)
+        XCTAssertEqual(menu.page, .settings)
+        XCTAssertEqual(menu.settings.playfieldSizeIndex, 0)
+        XCTAssertEqual(menu.settings.gridStyle, 1)
+    }
+
+    func testAcceptedGameSettingsEndAnActiveGameLikeOriginalReturnCodeTwo() {
+        var menu = OriginalMenuModel()
+        menu.open(duringGame: true)
+        menu.select(1)
+        _ = menu.activate()
+        menu.select(3)
+        _ = menu.activate()
+        menu.select(3)
+        _ = menu.adjust(by: 1)
+        menu.select(5)
+        XCTAssertEqual(menu.activate(), .none)
+        XCTAssertEqual(menu.page, .confirmKeepGame)
+
+        menu.select(0)
+        XCTAssertEqual(menu.activate(), .endGame)
+        XCTAssertTrue(menu.settings.autoFire)
+    }
+
     func testOriginalHardAwardThresholdsMatchControlDefaults() {
         XCTAssertEqual(GameDifficulty.hard.extraLifeThreshold, 200_000)
         XCTAssertEqual(GameDifficulty.hard.extraBombThreshold, 250_000)
