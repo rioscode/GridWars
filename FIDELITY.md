@@ -53,6 +53,9 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   configuration have dedicated layouts. Video and Game settings now use the
   original `Keep Changes?` transaction, including selective video rollback and
   the return-code-2 game termination after accepting changes during play.
+  Attract and Game Over continuation now accepts only the configured BOMB key,
+  mouse button, or controller button, while Escape/configured OPTION opens the
+  menu; iOS exposes dedicated BOMB and OPT touch targets on those screens.
   F3-F7, F1/F2, the 1-4/X/Z/S cheat actions and the
   P-held/O-single-step loop are wired to the original macOS key positions;
   pause preserves the last gameplay frame without adding a non-original

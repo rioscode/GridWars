@@ -411,6 +411,34 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         hudLayer.addChild(aimingStick)
     }
 
+    private func showAttractTouchControls() {
+        #if os(iOS)
+        let showsButtons = highScoreNameEntry == nil
+        hudLayer.isHidden = !showsButtons
+        hudLayer.zPosition = 300
+        hudRenderer.node.isHidden = true
+        messageLabel.isHidden = true
+        movementStick.isHidden = true
+        aimingStick.isHidden = true
+        bombButton.isHidden = !showsButtons
+        optionsButton.isHidden = !showsButtons
+        #else
+        hudLayer.isHidden = true
+        #endif
+    }
+
+    private func showGameplayTouchControls() {
+        hudLayer.isHidden = false
+        hudLayer.zPosition = 100
+        hudRenderer.node.isHidden = false
+        #if os(iOS)
+        movementStick.isHidden = false
+        aimingStick.isHidden = false
+        bombButton.isHidden = false
+        optionsButton.isHidden = false
+        #endif
+    }
+
     private func restartGame() {
         enemyLayer.removeAllChildren()
         projectileLayer.removeAllChildren()
@@ -479,7 +507,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         projectileLayer.isHidden = true
         pickupLayer.isHidden = true
         effectLayer.isHidden = true
-        hudLayer.isHidden = true
+        showAttractTouchControls()
         player.isHidden = true
         playerShield.isHidden = true
         readyRings.forEach { $0.isHidden = true }
@@ -637,7 +665,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         projectileLayer.isHidden = false
         pickupLayer.isHidden = false
         effectLayer.isHidden = false
-        hudLayer.isHidden = false
+        showGameplayTouchControls()
         applyRuntimeSettings()
         restartGame()
     }
@@ -788,6 +816,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         )
         highScoreNameEntry = nil
         pendingHighScore = nil
+        showAttractTouchControls()
         persistState()
     }
 
@@ -887,7 +916,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         projectileLayer.isHidden = true
         pickupLayer.isHidden = true
         effectLayer.isHidden = true
-        hudLayer.isHidden = true
+        showAttractTouchControls()
         player.isHidden = true
         playerShield.isHidden = true
         readyRings.forEach { $0.isHidden = true }
@@ -1037,33 +1066,41 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         releaseControllerNavigationLatchesIfNeeded()
 
         guard !newlyPressed.isEmpty else { return }
-        switch screenFlow.phase {
-        case .attract:
-            beginGame()
-            return
-        case .gameOver:
-            skipGameOverToScores()
-            return
-        case .playing:
-            break
-        }
-
         let settings = menuModel.settings
-        let optionButton: Int? = switch settings.controllerType {
-        case .dualAnalog: settings.dualAnalogOptionButton
-        case .joypad: settings.joypadOptionButton
-        case .mouse, .keyboard, .hybrid: nil
-        }
-        if let optionButton, newlyPressed.contains(optionButton) {
-            openOptions()
-            return
-        }
-
         let bombButton: Int? = switch settings.controllerType {
         case .dualAnalog: settings.dualAnalogBombButton
         case .joypad: settings.joypadBombButton
         case .mouse, .keyboard, .hybrid: nil
         }
+        let optionButton: Int? = switch settings.controllerType {
+        case .dualAnalog: settings.dualAnalogOptionButton
+        case .joypad: settings.joypadOptionButton
+        case .mouse, .keyboard, .hybrid: nil
+        }
+        switch screenFlow.phase {
+        case .attract:
+            if let optionButton, newlyPressed.contains(optionButton) {
+                openOptions()
+            } else if let bombButton, newlyPressed.contains(bombButton) {
+                beginGame()
+            }
+            return
+        case .gameOver:
+            if let optionButton, newlyPressed.contains(optionButton) {
+                openOptions()
+            } else if let bombButton, newlyPressed.contains(bombButton) {
+                skipGameOverToScores()
+            }
+            return
+        case .playing:
+            break
+        }
+
+        if let optionButton, newlyPressed.contains(optionButton) {
+            openOptions()
+            return
+        }
+
         if let bombButton, newlyPressed.contains(bombButton) {
             triggerBomb()
         }
@@ -4416,10 +4453,10 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         }
         switch screenFlow.phase {
         case .attract:
-            beginGame()
+            if originalKeyCode == menuModel.settings.keyBomb { beginGame() }
             return
         case .gameOver:
-            skipGameOverToScores()
+            if originalKeyCode == menuModel.settings.keyBomb { skipGameOverToScores() }
             return
         case .playing:
             break
@@ -4469,9 +4506,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
         switch screenFlow.phase {
         case .attract:
-            beginGame()
+            if button == menuModel.settings.mouseBombButton { beginGame() }
         case .gameOver:
-            skipGameOverToScores()
+            if button == menuModel.settings.mouseBombButton { skipGameOverToScores() }
         case .playing:
             if button == menuModel.settings.mouseBombButton {
                 triggerBomb()
@@ -4566,6 +4603,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             screenRenderer.clearMenuBackground()
         }
         menuModel.open(duringGame: duringGame)
+        hudLayer.isHidden = true
         menuPresentationPage = .options
         menuPresentationFrame = 0
         mouseButtons.removeAll()
@@ -4581,6 +4619,10 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         case .close:
             menuModel.close()
             particleRenderer.node.zPosition = screenFlow.phase == .playing ? 5 : 201
+            switch screenFlow.phase {
+            case .attract: showAttractTouchControls()
+            case .playing, .gameOver: showGameplayTouchControls()
+            }
             persistState()
         case .endGame:
             menuModel.close()
@@ -4645,10 +4687,30 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
         switch screenFlow.phase {
         case .attract:
-            beginGame()
+            for touch in touches {
+                let location = touch.location(in: self)
+                if optionsButton.contains(location) {
+                    openOptions()
+                    return
+                }
+                if bombButton.contains(location) {
+                    beginGame()
+                    return
+                }
+            }
             return
         case .gameOver:
-            skipGameOverToScores()
+            for touch in touches {
+                let location = touch.location(in: self)
+                if optionsButton.contains(location) {
+                    openOptions()
+                    return
+                }
+                if bombButton.contains(location) {
+                    skipGameOverToScores()
+                    return
+                }
+            }
             return
         case .playing:
             break
