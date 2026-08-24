@@ -102,6 +102,8 @@ branch. Each major fidelity milestone has its own commit:
 - [x] Original arena sizing, camera scrolling, star parallax, pause, and cheats
 - [x] Transactional Video/Game settings confirmation and rollback
 - [x] Official BlitzMax/BlitzBasic language references archived in `docs/bb`
+- [x] Reusable BlitzMax-to-Swift rewrite notes for coordinates, transforms,
+      textures, blending, timing, randomness, persistence, and verification
 - [x] macOS Debug build
 - [x] Generic iOS Simulator Debug build
 - [x] 78 gameplay, input, persistence, audio, and rendering-rule unit tests

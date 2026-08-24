@@ -74,6 +74,7 @@ xcodebuild -project GridWars.xcodeproj -scheme GridWars-macOS \
 
 ## Planning reference
 
-Read `PLAN.md` and `FIDELITY.md` before changing the port's scope or
-architecture. Update them when a milestone, supported platform, requirement,
-or verification result changes materially.
+Read `PLAN.md`, `FIDELITY.md`, and `docs/SWIFT-REWRITE.md` before changing the
+port's scope, architecture, or rendering model. Update them when a milestone,
+supported platform, requirement, reusable porting rule, or verification result
+changes materially.
