@@ -402,12 +402,17 @@ final class OriginalScreenRenderer {
             x: CGFloat,
             y: CGFloat,
             scale: CGFloat,
-            color: SKColor
+            color: SKColor,
+            pixelCentered: Bool = true
         ) {
+            // In top-left source coordinates Max2D's GL pixel center is +0.5
+            // on both axes. Keep the overdrawn logo at its measured subpixel
+            // origin; its overlapping smooth strokes raster differently.
+            let pixelCenterOffset: CGFloat = pixelCentered ? 0.5 : 0
             addText(
                 text,
-                x: x,
-                y: y,
+                x: x + pixelCenterOffset,
+                y: y + pixelCenterOffset,
                 scale: scale,
                 color: color,
                 size: size,
@@ -431,7 +436,8 @@ final class OriginalScreenRenderer {
                     x: x,
                     y: y,
                     scale: scale,
-                    color: color
+                    color: color,
+                    pixelCentered: false
                 )
             }
         }

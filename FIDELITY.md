@@ -174,7 +174,11 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   antialiasing and use the rectangular caps and miter joins of the original
   OpenGL line path. The multiply-overdrawn animated title keeps its stable
   smooth SpriteKit approximation; after the particle-line pixel correction its
-  metric is 0.02025. Across the new
+  metric was 0.02025. Correcting the scene-Y handedness of black-hole
+  tangential forces lowers it to 0.01633, and applying Max2D's line pixel
+  center only to the static title credits lowers it again to 0.01489. The
+  overdrawn logo remains unshifted because the same offset regresses its
+  isolated region. Across the new
   87-state catalog this common correction improves screens including top
   scores (0.00708 to 0.00641), options (0.00194 to 0.00151), and high-score
   entry (0.01006 to 0.00819). Two independently rendered high-score-entry

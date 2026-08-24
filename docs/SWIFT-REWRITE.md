@@ -182,7 +182,10 @@ There are two independent font systems:
 
 Normal vector strokes match OpenGL more closely with antialiasing disabled,
 butt caps, and miter joins. The title deliberately overdraws many animated
-copies; its stable SpriteKit approximation currently keeps smooth strokes.
+copies; its stable SpriteKit approximation currently keeps smooth strokes and
+its unshifted subpixel origins. The title's static credits also keep smooth
+strokes, but use the Max2D line pixel center: `(x+0.5,y+0.5)` while still in
+top-left source coordinates, equivalent to `(x+0.5,y-0.5)` in scene space.
 
 Classic `Rect(...,0)` menu outlines are hard, pixel-centered line loops. Do
 not use SpriteKit's default antialiased centered rectangle without applying the
