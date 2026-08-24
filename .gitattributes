@@ -1,0 +1,2 @@
+# Keep vendored documentation byte-for-byte compatible with its upstream archives.
+docs/bb/** -text
