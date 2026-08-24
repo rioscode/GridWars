@@ -190,7 +190,14 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   entity art is no longer palette-tinted. Deterministic gameplay captures now
   recreate all 10,001 source star coordinates with BRL.Random, consuming the
   complete sequence before entity creation, and apply each entity's initial
-  `Draw` rotation/scale before its first update. The vertical two-frame
+  `Draw` rotation/scale before its first update. Stars now also preserve
+  `SetScale(2,2); DrawRect(...,1,1)` as top-left-anchored 2×2 pixels, use
+  `LIGHTBLEND`, and compensate SpriteKit's additive node-alpha
+  premultiplication. Twelve representative captures all improve: gameplay
+  falls from 0.00584 to 0.00516, default HUD from 0.00538 to 0.00470, Get Ready
+  rings from 0.00725 to 0.00658, death from 0.00836 to 0.00769, Snake from
+  0.00821 to 0.00754, and the high graphics set from 0.00609 to 0.00542. The
+  vertical two-frame
   `icons.png` sheet is sliced as 1×2 rather than 2×1, and the white power-up
   star receives the live `rcol/gcol/bcol` multiplication used by BlitzMax.
   These common fixes lowered gameplay from 0.01838 to 0.01595 and all five

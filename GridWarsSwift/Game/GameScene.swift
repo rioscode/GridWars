@@ -1880,10 +1880,16 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         for index in starNodes.count...finalIndex {
             let depth = 2 + CGFloat(index % 8) / 4
             let brightness = min(1, (480 / depth) / 255)
-            let star = SKShapeNode(rectOf: CGSize(width: 2, height: 2))
+            let star = SKShapeNode(rect: OriginalDrawRectRule.sceneRect(
+                at: .zero,
+                width: 2,
+                height: 2
+            ))
             star.fillColor = SKColor(white: brightness, alpha: 1)
             star.strokeColor = .clear
-            star.alpha = 0.8
+            star.alpha = OriginalBlendRule.spriteKitAdditiveNodeAlpha(sourceAlpha: 0.8)
+            star.blendMode = .add
+            star.isAntialiased = false
             star.name = "star"
             let basePosition = CGPoint(
                 x: CGFloat(Int.random(

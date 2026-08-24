@@ -150,6 +150,8 @@ branch. Each major fidelity milestone has its own commit:
       settings and controller menus
 - [x] Max2D's shared-start rotation quirk and hard line raster for animated
       menu target cursors, including capture-time mouse placement
+- [x] Top-left, 2×2 `DrawRect` star pixels with `LIGHTBLEND` and additive-alpha
+      compensation
 
 `FIDELITY.md` is the acceptance ledger. The isolated BlitzMax harness and the
 Swift port now each capture the same 87 attract, transition, gameplay, HUD,
