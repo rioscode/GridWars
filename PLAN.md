@@ -108,11 +108,11 @@ branch. Each major fidelity milestone has its own commit:
 - [x] macOS launch and rendering smoke test
 - [x] Deterministic 87-state Swift capture catalog at 1024×768
 
-`FIDELITY.md` is the acceptance ledger. Automated fixed-state capture support
-is implemented and has been generated successfully. The isolated BlitzMax
-harness now captures 67 attract/options, gameplay, HUD, entity, generator,
-power-up, grid, particle, and graphics-set reference states. The matching Swift
-states are ready for 1024×768 pairwise comparison; original transition/menu
-coverage and final visual corrections remain open. A full manual playthrough
-on physical iPhone/iPad hardware also remains verification work; these evidence
-gaps are not represented as completed 1:1 proof.
+`FIDELITY.md` is the acceptance ledger. The isolated BlitzMax harness and the
+Swift port now each capture the same 87 attract, transition, gameplay, HUD,
+entity, generator, power-up, grid, particle, graphics-set, and menu states. Two
+independent complete original runs produced byte-identical PNGs, and the
+comparison tool verified all 87 1024×768 pairs. Style-by-style visual
+correction and a full manual playthrough on physical iPhone/iPad hardware
+remain verification work; these evidence gaps are not represented as completed
+1:1 proof.

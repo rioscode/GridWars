@@ -16,8 +16,9 @@ the corresponding Swift implementation, and a test or visual/runtime check.
 - Player lifecycle: `gridwars.bmx:4344-4503` maps to the frame-based death and
   Get Ready states in `GameScene`: 256 death particles, non-killer removal,
   100 death frames, 60 title frames, 40 contraction frames, delayed life loss,
-  respawn downgrade/reset, and 80 shield frames. Runtime capture and the full
-  Game Over/high-score continuation remain outstanding.
+  respawn downgrade/reset, and 80 shield frames. Matching fixed-state captures
+  now cover Get Ready, death, Game Over, and high-score entry; visual correction
+  and a full interactive continuation check remain outstanding.
 - Gameplay entity audit: `gridwars.bmx:190-3167, 4752-4977, 5691-5777` maps to
   `SpawnDirector`, `TriangleBondState`, `SnakeSegmentRule`, `BlackHoleRule`,
   `InterceptorShieldGeometry`, and the generator/enemy/power-up/projectile
@@ -67,9 +68,10 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   original debug weapon patterns. `OriginalCameraRule` and the scene now apply
   the configured arena size, forced scrolling for oversized playfields, the
   original integer 500-pixel edge acceleration, ±80 overscroll, pointer-space
-  conversion, and depth-divided star parallax. Matching original menu and
-  transition captures are still required before checking the broad screen and
-  menu entries.
+  conversion, and depth-divided star parallax. Matching original and Swift
+  captures now cover every menu and transition; their style-by-style visual
+  correction is still required before checking the broad screen and menu
+  entries.
 - Graphics and HUD: `images.bmx:34-100`, `gridwars.bmx:3266-3272, 5911-5932`,
   and the deterministic fixed-frame original images in
   `docs/captures/original/` map to
@@ -81,12 +83,13 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   entity art is no longer palette-tinted, and the score, high score, multiplier,
   lives and bomb indicators use the original vector font, coordinates, alpha
   and icon frames. The isolated original
-  renderer now produces 67 valid full-frame 1024×768 attract/options, gameplay,
-  HUD, entity, generator, power-up, grid, particle, and graphics-set references
-  via `scripts/capture-original.sh`; capture mode bypasses all legacy
-  configuration and high-score I/O. A persistence-free Swift capture catalog
-  covers 87 fixed states via `scripts/capture-screens.sh`, and
-  `scripts/compare-captures.sh` measures every available matching pair. Enemy
+  renderer now produces 87 valid full-frame 1024×768 attract, transition,
+  gameplay, HUD, entity, generator, power-up, grid, particle, graphics-set, and
+  menu references via `scripts/capture-original.sh`; capture mode bypasses all
+  legacy configuration and high-score I/O. A persistence-free Swift catalog
+  covers the same 87 states via `scripts/capture-screens.sh`, and
+  `scripts/compare-captures.sh` measures every matching pair. Two independent
+  complete original runs produced byte-identical PNGs. Enemy
   pages reproduce the original individual rotation, pulse and squash rates,
   while the score and friend pages retain their delayed colour trails instead
   of applying a uniform palette tint.

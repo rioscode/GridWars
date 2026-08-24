@@ -66,11 +66,12 @@
  
  End
  
-@@ -3625,6 +3646,11 @@
+@@ -3625,6 +3646,12 @@
  	Local done:Int,f:Int
  
  	part.CreateAll()
 +	If CaptureOriginalCatalog(captureMode, captureDir) Then Return
++	If CaptureOriginalPresentationCatalog(captureMode, captureDir) Then Return
 +	If captureMode = "scores" Then ShowScores();Return
 +	If captureMode = "friends" Then ShowFriends();Return
 +	If captureMode = "enemies" Then ShowEnemies();Return
@@ -78,6 +79,11 @@
  
  	FlushKeys()
  	done = False
+@@ -3746,0 +3773,4 @@
++		If captureMode = "game-over" And looper = 180
++			SaveScreenshot(captureDir+"/game-over.png")
++			End
++		EndIf
 @@ -3943,6 +3967,10 @@
  		If counter Mod 50 > 25
  			DrawString("Press BOMB Button to Start",SCREENW/2-250,SCREENH-32,4)
@@ -119,12 +125,43 @@
 +			SaveScreenshot(captureDir+"/title-600.png")
 +			End
 +		EndIf
- 		Flip 1
- 		tim = MilliSecs() - tim
- 		If tim < 20 And tim > 0
+		Flip 1
+		tim = MilliSecs() - tim
+		If tim < 20 And tim > 0
+@@ -4381,0 +4424,4 @@
++		If captureMode = "get-ready-title" And count = 30
++			SaveScreenshot(captureDir+"/get-ready-title.png")
++			End
++		EndIf
+@@ -4409,0 +4456,4 @@
++		If captureMode = "get-ready-rings" And count = 20
++			SaveScreenshot(captureDir+"/get-ready-rings.png")
++			End
++		EndIf
 --- control.bmx
 +++ control.bmx
-@@ -923,6 +923,10 @@
+@@ -10,0 +11,20 @@
++Function CaptureOriginalMenuFrame(counter:Int)
++	If AppArgs.length < 3 Or counter <> 20 Then Return
++	Local mode$ = AppArgs[1]
++	If mode = "options-game" Or mode = "confirm-exit" Or ..
++		mode = "confirm-end-game" Or mode = "confirm-keep-video" Or ..
++		mode = "confirm-keep-game" Or mode = "settings" Or ..
++		mode = "video" Or mode = "game" Or mode = "audio" Or ..
++		mode = "controller" Or mode = "hybrid" Or mode = "mouse" Or ..
++		mode = "keyboard" Or mode = "joypad" Or mode = "dual-analog"
++		SaveScreenshot(AppArgs[2]+"/"+mode+".png")
++		End
++	EndIf
++End Function
++
++
++
++
++
++
++
+@@ -923,6 +943,10 @@
  			DrawString("Continue",SCREENW/2-280,SCREENH/2+lsp,4)
  		EndIf
  		DrawTarget(SCREENW/2-280-20,yy,cnt,4)

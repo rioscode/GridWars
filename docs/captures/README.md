@@ -29,15 +29,18 @@ Capture mode uses the original compiled renderer, entity types, draw functions,
 and assets; fixes the random seed; installs default scores and colours; and
 skips all reads and writes under `~/.config/gridwars`. It changes only the
 selected fixed state, window mode, and PNG export after the named frame. The
-67 available references cover:
+87 available references cover:
 
 - the title, scores, friends, and enemies attract pages at frame 600;
 - the options page at frame 20;
 - gameplay plus default and upgraded HUD states;
+- Get Ready title/rings, player death, Game Over, and high-score entry;
 - all ten enemies and all ten generator variants;
 - all nine power-ups;
 - all 21 grid styles and all four particle styles; and
-- Solid, Low, Medium, High, and User graphics sets.
+- Solid, Low, Medium, High, and User graphics sets; and
+- every options, confirmation, settings, video, game, audio, and controller
+  menu page.
 
 `original/SHA256SUMS` pins the exact reference artifacts. To regenerate them:
 
@@ -45,9 +48,16 @@ selected fixed state, window mode, and PNG export after the named frame. The
 ./scripts/capture-original.sh /path/to/BlitzMax
 ```
 
+Pass an output directory as the second argument. An optional third argument
+captures just one named state, for example:
+
+```sh
+./scripts/capture-original.sh /path/to/BlitzMax /tmp/gridwars-original death
+```
+
 The script copies source and assets to a `mktemp` directory, textually includes
 `scripts/original-catalog.bmx`, patches and builds only that copy, captures the
-67 states, then deletes the temporary build.
+87 states, then deletes the temporary build.
 
 ## Swift renderer
 

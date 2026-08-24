@@ -83,21 +83,7 @@ Function CaptureOriginalCatalog:Int(mode$, directory$)
 		Default; Return False
 	End Select
 
-	SeedRnd(1)
-	RemoveAll(True)
-	StopLoopingSounds()
-	ResetGame()
-	CenterPlayer()
-	CreateStars()
-	messtime = 0
-	bombtime = 0
-	dying = False
-	player_shield = 0
-	showstars = 300
-	g_style = 0
-	particlestyle = 0
-	gridpoint.ResetAll()
-	part.CreateAll()
+	PrepareOriginalCaptureState()
 
 	If gridKind >= 0
 		showstars = 0
@@ -152,6 +138,104 @@ Function CaptureOriginalCatalog:Int(mode$, directory$)
 	SaveScreenshot(directory + "/" + mode + ".png")
 	Flip 1
 	Return True
+End Function
+
+Function CaptureOriginalPresentationCatalog:Int(mode$, directory$)
+	Select mode
+		Case "get-ready-title", "get-ready-rings"
+			PrepareOriginalCaptureState()
+			dying = True
+			GetReady()
+			Return True
+		Case "death"
+			PrepareOriginalCaptureState()
+			KillPlayer()
+			Return True
+		Case "game-over"
+			PrepareOriginalCaptureState()
+			dying = True
+			DoGameOver()
+			Return True
+		Case "high-score-entry"
+			PrepareOriginalCaptureState()
+			pscore = 123456
+			gcount = 10050
+			laststartingdifficulty = 1
+			score.GetHighScore()
+			Return True
+		Case "options-game"
+			PrepareOriginalMenuBackground()
+			Options(True)
+			Return True
+		Case "confirm-exit"
+			conf(False, "Sure?")
+			Return True
+		Case "confirm-end-game"
+			PrepareOriginalMenuBackground()
+			conf(True, "End Game?")
+			Return True
+		Case "confirm-keep-video", "confirm-keep-game"
+			conf(False, "Keep Changes?")
+			Return True
+		Case "settings"
+			Settings(False)
+			Return True
+		Case "video"
+			VideoSettings(False)
+			Return True
+		Case "game"
+			GameSettings(False)
+			Return True
+		Case "audio"
+			AudioSettings(False)
+			Return True
+		Case "controller"
+			ControllerSettings(False)
+			Return True
+		Case "hybrid"
+			HybridControllerSettings(False)
+			Return True
+		Case "mouse"
+			MouseControllerSettings(False)
+			Return True
+		Case "keyboard"
+			KeyboardControllerSettings(False)
+			Return True
+		Case "joypad"
+			JoypadControllerSettings(False)
+			Return True
+		Case "dual-analog"
+			DualAnalogControllerSettings()
+			Return True
+	End Select
+	Return False
+End Function
+
+Function PrepareOriginalCaptureState()
+	SeedRnd(1)
+	RemoveAll(True)
+	StopLoopingSounds()
+	ResetGame()
+	CenterPlayer()
+	CreateStars()
+	messtime = 0
+	bombtime = 0
+	dying = False
+	player_shield = 0
+	showstars = 300
+	g_style = 0
+	particlestyle = 0
+	gridpoint.ResetAll()
+	part.CreateAll()
+End Function
+
+Function PrepareOriginalMenuBackground()
+	PrepareOriginalCaptureState()
+	CaptureOriginalOverview()
+	Cls
+	DrawAll()
+	Flip 1
+	CaptureScreen()
 End Function
 
 Function CaptureOriginalOverview()

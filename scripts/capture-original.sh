@@ -6,14 +6,15 @@ if [ "$(uname -s)" != "Darwin" ]; then
   exit 1
 fi
 
-if [ "$#" -lt 1 ] || [ "$#" -gt 2 ]; then
-  echo "Usage: $0 /path/to/BlitzMax [output-directory]" >&2
+if [ "$#" -lt 1 ] || [ "$#" -gt 3 ]; then
+  echo "Usage: $0 /path/to/BlitzMax [output-directory] [capture-name]" >&2
   exit 1
 fi
 
 repo_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 blitzmax_root=$1
 output_dir=${2:-"$repo_dir/docs/captures/original"}
+capture_name=${3:-}
 bmk="$blitzmax_root/bin/bmk"
 
 if [ ! -x "$bmk" ]; then
@@ -42,6 +43,10 @@ perl -0pi -e 's/\z/\nInclude "original-catalog.bmx"\n/' \
 (
   cd "$capture_work"
   patch -p0 < "$repo_dir/scripts/original-capture.patch"
+  perl -0pi -e 's/(^\s*DrawTarget\([^\n]+\)\n)/$1\t\tCaptureOriginalMenuFrame(cnt)\n/gm' \
+    control.bmx
+  perl -0pi -e 's/(\t\t\tpart\.DrawParticles\(\)\n)(\t\t\tFlip 1)/$1\t\t\tIf captureMode = "high-score-entry"\n\t\t\t\tSaveScreenshot(captureDir+"\/high-score-entry.png")\n\t\t\t\tEnd\n\t\t\tEndIf\n$2/; s/(\t\tUpdateAll\(count\)\n\t\tdrawall\(\)\n)(\t\tFlip)/$1\t\tIf captureMode = "death" And count = 0\n\t\t\tSaveScreenshot(captureDir+"\/death.png")\n\t\t\tEnd\n\t\tEndIf\n$2/' \
+    gridwars.bmx
   "$bmk" makeapp -t gui -r -w gridwars.bmx
 )
 
@@ -54,25 +59,34 @@ binary="$app/Contents/MacOS/gridwars"
 /usr/libexec/PlistBuddy -c 'Add :NSHighResolutionCapable bool false' "$plist"
 codesign --force --deep --sign - "$app"
 
-for screen in \
-  title scores friends enemies options gameplay hud-default hud-upgraded \
-  enemy-pinwheel enemy-diamond enemy-green-square enemy-cube enemy-seeker \
-  enemy-black-hole enemy-triangle enemy-snake enemy-interceptor enemy-butterfly \
-  generator-pinwheel generator-diamond generator-green-square generator-cube \
-  generator-seeker generator-black-hole generator-triangle generator-snake \
-  generator-interceptor generator-butterfly \
-  powerup-reverse powerup-side powerup-cannon powerup-faster powerup-player \
-  powerup-bomb powerup-shield powerup-super powerup-bouncy \
-  particle-0 particle-1 particle-2 particle-3 \
-  graphics-solid graphics-low graphics-medium graphics-high graphics-user; do
-  "$binary" "$screen" "$output_dir"
-done
+if [ -n "$capture_name" ]; then
+  "$binary" "$capture_name" "$output_dir"
+else
+  for screen in \
+    title scores friends enemies options gameplay \
+    get-ready-title get-ready-rings death game-over high-score-entry \
+    hud-default hud-upgraded \
+    enemy-pinwheel enemy-diamond enemy-green-square enemy-cube enemy-seeker \
+    enemy-black-hole enemy-triangle enemy-snake enemy-interceptor enemy-butterfly \
+    generator-pinwheel generator-diamond generator-green-square generator-cube \
+    generator-seeker generator-black-hole generator-triangle generator-snake \
+    generator-interceptor generator-butterfly \
+    powerup-reverse powerup-side powerup-cannon powerup-faster powerup-player \
+    powerup-bomb powerup-shield powerup-super powerup-bouncy \
+    particle-0 particle-1 particle-2 particle-3 \
+    graphics-solid graphics-low graphics-medium graphics-high graphics-user \
+    options-game confirm-exit confirm-end-game confirm-keep-video \
+    confirm-keep-game settings video game audio controller hybrid mouse keyboard \
+    joypad dual-analog; do
+    "$binary" "$screen" "$output_dir"
+  done
 
-for grid in \
-  00 01 02 03 04 05 06 07 08 09 10 \
-  11 12 13 14 15 16 17 18 19 20; do
-  "$binary" "grid-$grid" "$output_dir"
-done
+  for grid in \
+    00 01 02 03 04 05 06 07 08 09 10 \
+    11 12 13 14 15 16 17 18 19 20; do
+    "$binary" "grid-$grid" "$output_dir"
+  done
+fi
 
 (
   cd "$output_dir"
