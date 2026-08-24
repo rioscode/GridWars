@@ -634,12 +634,16 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         case let .getReady(frame):
             prepareGameplayCapture()
             startGetReadySequence()
-            if frame >= 60 {
-                gridSimulation.pull(at: player.position, radiusInPoints: 20, amount: 20)
-                for _ in 60...frame { gridSimulation.update() }
+            for sourceFrame in 0...frame {
+                if sourceFrame == OriginalGetReadyRule.ringPullFrame {
+                    gridSimulation.pull(at: player.position, radiusInPoints: 20, amount: 20)
+                }
+                for _ in 0..<OriginalGetReadyRule.gridUpdatesPerFrame {
+                    gridSimulation.update()
+                }
             }
             getReadyFrame = frame
-            advanceGetReadySequence()
+            advanceGetReadySequence(updatesGrid: false)
         case .death:
             prepareGameplayCapture()
             _ = hitPlayer()
@@ -4715,9 +4719,18 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         audio.play(.getReady)
     }
 
-    private func advanceGetReadySequence() {
+    private func advanceGetReadySequence(updatesGrid: Bool = true) {
         let frame = getReadyFrame
-        if frame < 60 {
+        if updatesGrid {
+            if frame == OriginalGetReadyRule.ringPullFrame {
+                gridSimulation.pull(at: player.position, radiusInPoints: 20, amount: 20)
+            }
+            let updateCount = frame == OriginalGetReadyRule.ringPullFrame
+                ? OriginalGetReadyRule.gridUpdatesPerFrame
+                : OriginalGetReadyRule.gridUpdatesPerFrame - 1
+            for _ in 0..<updateCount { gridSimulation.update() }
+        }
+        if frame < OriginalGetReadyRule.ringPullFrame {
             let pulse = abs(sin(CGFloat(frame) * .pi / 180))
             let color = SKColor(
                 red: 0,
@@ -4738,10 +4751,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             player.isHidden = true
             readyRings.forEach { $0.isHidden = true }
         } else {
-            let ringFrame = frame - 60
-            if ringFrame == 0 {
-                gridSimulation.pull(at: player.position, radiusInPoints: 20, amount: 20)
-            }
+            let ringFrame = frame - OriginalGetReadyRule.ringPullFrame
             readyMessageNode.isHidden = true
             player.isHidden = ringFrame <= 10
             let contractions: [CGFloat] = [6, 8, 12]

@@ -1415,6 +1415,11 @@ final class GameRulesTests: XCTestCase {
         )
     }
 
+    func testGetReadyPerformsExplicitAndUpdateAllGridSteps() {
+        XCTAssertEqual(OriginalGetReadyRule.ringPullFrame, 60)
+        XCTAssertEqual(OriginalGetReadyRule.gridUpdatesPerFrame, 2)
+    }
+
     func testCaptureCatalogCoversEveryFidelityCategory() {
         let scenarios = OriginalCaptureScenario.all
         XCTAssertEqual(scenarios.count, 87)

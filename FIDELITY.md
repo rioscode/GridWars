@@ -27,6 +27,11 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   the matching Swift references therefore render title frame 29 and ring frame
   19 (catalog frame 79), not the loop counters 30/20. This correction reduced
   normalized differences from 0.01828 to 0.01666 and from 0.02529 to 0.02175.
+  `GetReady()` also calls `UpdateGrid()` directly before `UpdateAll()` performs
+  a second Grid update on every displayed frame. The live sequence and capture
+  harness now preserve that order, including applying the ring pull before both
+  updates; the current ring difference falls from 0.01628 to 0.01009 while the
+  title frame remains unchanged at 0.00558 after the shared Grid-anchor fixes.
 - Gameplay entity audit: `gridwars.bmx:190-3167, 4752-4977, 5691-5777` maps to
   `SpawnDirector`, `TriangleBondState`, `SnakeSegmentRule`, `BlackHoleRule`,
   `InterceptorShieldGeometry`, and the generator/enemy/power-up/projectile
@@ -220,7 +225,7 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   archived legacy `Language/Data types.bbdoc` documents the implicit numeric
   conversions used by the original. Swift random ranges and intentional
   integer truncations follow those references.
-- Build evidence (2026-08-24): the macOS unit-test action (76 tests) and generic
+- Build evidence (2026-08-24): the macOS unit-test action (77 tests) and generic
   iOS Simulator Debug build both pass. The rule suite
   covers initial difficulty, motion, weapons, scoring, upgrades, spawn timing,
   triangle bonds, snake following, black-hole integer conversions,

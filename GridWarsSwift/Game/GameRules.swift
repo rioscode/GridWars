@@ -37,6 +37,11 @@ enum OriginalRGBSplitRule {
     }
 }
 
+enum OriginalGetReadyRule {
+    static let ringPullFrame = 60
+    static let gridUpdatesPerFrame = 2
+}
+
 enum OriginalCameraRule {
     static let edgeThreshold: CGFloat = 500
     static let overscroll: CGFloat = 80
