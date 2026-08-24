@@ -355,4 +355,131 @@ final class GameRulesTests: XCTestCase {
         XCTAssertEqual(session.multiplier, 1)
         XCTAssertEqual(session.killsSinceDamage, 0)
     }
+
+    func testGridSimulationUsesOriginalDimensionsAndReset() {
+        var grid = GridSimulation(arenaSize: CGSize(width: 1_024, height: 768))
+
+        XCTAssertEqual(grid.columns, 64)
+        XCTAssertEqual(grid.rows, 48)
+        XCTAssertEqual(grid[12, 9].origin, CGPoint(x: 192, y: 144))
+
+        grid.push(at: CGPoint(x: 192, y: 144), radiusInPoints: 2, amount: 1)
+        XCTAssertNotEqual(grid[13, 9].velocity, .zero)
+        grid.reset()
+        XCTAssertEqual(grid[13, 9].position, grid[13, 9].origin)
+        XCTAssertEqual(grid[13, 9].velocity, .zero)
+    }
+
+    func testGridPullPushAndShockwaveMatchOriginalImpulses() {
+        let center = CGPoint(x: 160, y: 160)
+        var pulled = GridSimulation(arenaSize: CGSize(width: 320, height: 320))
+        pulled.pull(at: center, radiusInPoints: 2, amount: 4)
+        XCTAssertEqual(pulled[11, 10].velocity.dx, -4, accuracy: 0.0001)
+
+        var pushed = GridSimulation(arenaSize: CGSize(width: 320, height: 320))
+        pushed.push(at: center, radiusInPoints: 2, amount: 1)
+        XCTAssertEqual(pushed[11, 10].velocity.dx, 16, accuracy: 0.0001)
+
+        var shocked = GridSimulation(arenaSize: CGSize(width: 320, height: 320))
+        shocked.shockwave(at: center)
+        XCTAssertEqual(shocked[11, 10].velocity.dx, 4, accuracy: 0.0001)
+    }
+
+    func testGridUpdateAppliesOriginalPointDamping() {
+        var grid = GridSimulation(arenaSize: CGSize(width: 320, height: 320))
+        grid.pull(at: CGPoint(x: 160, y: 160), radiusInPoints: 2, amount: 4)
+
+        grid.update()
+
+        XCTAssertNotEqual(grid[11, 10].position, grid[11, 10].origin)
+        XCTAssertLessThan(abs(grid[11, 10].velocity.dx), 4)
+    }
+
+    func testParticleRingUsesOriginalRadialVelocityLifetimeAndWrap() {
+        var random = SeededRandomNumberGenerator(seed: 123)
+        var particles = ParticleSimulation(
+            arenaSize: CGSize(width: 1_024, height: 768),
+            capacity: 2
+        )
+        let color = ParticleColor(red: 200, green: 100, blue: 50)
+
+        particles.emit(
+            at: CGPoint(x: 100, y: 100),
+            kind: .radialBomb,
+            color: color,
+            rotationDegrees: 0,
+            using: &random
+        )
+
+        XCTAssertEqual(particles.particles[0].velocity.dx, 32, accuracy: 0.0001)
+        XCTAssertEqual(particles.particles[0].position.x, 132, accuracy: 0.0001)
+        XCTAssertEqual(particles.particles[0].activeFrames, 24)
+        XCTAssertEqual(particles.nextSlot, 1)
+
+        particles.emit(at: .zero, kind: .directed, color: color, using: &random)
+        particles.emit(at: .zero, kind: .directed, color: color, using: &random)
+        XCTAssertEqual(particles.nextSlot, 1)
+    }
+
+    func testParticleUpdateUsesOriginalDecayAndLateColorFade() {
+        var random = SeededRandomNumberGenerator(seed: 321)
+        var particles = ParticleSimulation(
+            arenaSize: CGSize(width: 1_024, height: 768),
+            capacity: 1
+        )
+        particles.emit(
+            at: CGPoint(x: 100, y: 100),
+            kind: .radialBomb,
+            color: ParticleColor(red: 200, green: 100, blue: 50),
+            rotationDegrees: 0,
+            using: &random
+        )
+
+        particles.update()
+        XCTAssertEqual(particles.particles[0].velocity.dx, 30.4, accuracy: 0.0001)
+        XCTAssertEqual(particles.particles[0].activeFrames, 23)
+
+        for _ in 0..<14 { particles.update() }
+        XCTAssertLessThan(particles.particles[0].color.red, 200)
+        XCTAssertEqual(particles.particles[0].activeFrames, 9)
+    }
+
+    func testOriginalParticlePaletteMatchesColorDefinitions() {
+        XCTAssertEqual(
+            OriginalParticleColor.greenSquare,
+            ParticleColor(red: 32, green: 255, blue: 32)
+        )
+        XCTAssertEqual(
+            OriginalParticleColor.player,
+            ParticleColor(red: 255, green: 255, blue: 200)
+        )
+        XCTAssertEqual(
+            OriginalParticleColor.powerUp,
+            ParticleColor(red: 255, green: 255, blue: 32)
+        )
+    }
+
+    func testBlackHoleParticleGravityAlternatesHalfOfRing() {
+        var random = SeededRandomNumberGenerator(seed: 99)
+        var particles = ParticleSimulation(
+            arenaSize: CGSize(width: 1_024, height: 768),
+            capacity: 2
+        )
+        for _ in 0..<2 {
+            particles.emit(
+                at: CGPoint(x: 100, y: 100),
+                kind: .radialBomb,
+                color: OriginalParticleColor.bomb,
+                rotationDegrees: 0,
+                using: &random
+            )
+        }
+
+        particles.applyBlackHole(at: CGPoint(x: 200, y: 100), size: 20, frame: 0)
+        XCTAssertEqual(particles.particles[0].activeFrames, 27)
+        XCTAssertEqual(particles.particles[1].activeFrames, 24)
+
+        particles.applyBlackHole(at: CGPoint(x: 200, y: 100), size: 20, frame: 1)
+        XCTAssertEqual(particles.particles[1].activeFrames, 27)
+    }
 }

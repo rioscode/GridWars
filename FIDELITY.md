@@ -25,9 +25,20 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   ten generator kinds, the staged waves, collision radii, score values,
   black-hole absorption, snake chain death, interceptor blocking, triangle
   ownership, cube splitting, power-up merging, bomb cooldown, and wave reset
-  on player death. Entity presentation, per-event particle recipes, spatial
-  audio and matching runtime captures remain outstanding, so the broad enemy
-  checklist entries stay open.
+  on player death. The 2048-slot `ParticleSimulation` now reproduces every
+  gameplay emission recipe and colour from `gridwars.bmx`/`colordefs.bmx`.
+  Entity presentation, spatial audio and matching runtime captures remain
+  outstanding, so the broad enemy checklist entries stay open.
+- Grid and particle simulation: `gridparttrail.bmx:494-2017` maps to
+  `GridSimulation`, `GridRenderer`, `ParticleSimulation`, and
+  `ParticleRenderer`. The port has all 21 grid-style selectors, the original
+  16-pixel point lattice and in-place spring update, push/pull/shockwave
+  impulses, 2048-slot ring allocation, four particle render selectors,
+  half-ring black-hole gravity, lifetime/decay/bounce behaviour, and exact
+  gameplay emission counts. Unit tests cover lattice impulses, reset and
+  damping plus particle lifetime, wrap, colour fade, palette and black-hole
+  parity. Style-by-style captures are still required before checking the broad
+  rendering entries.
 - Language semantics: `docs/bb/blitzmax-ng/brl/random.mod/random.bmx` confirms
   inclusive integer `Rand` and upper-exclusive floating-point `Rnd`; the
   archived legacy `Language/Data types.bbdoc` documents the implicit numeric
@@ -37,7 +48,8 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   device Debug build both pass with code signing disabled. The rule suite
   covers initial difficulty, motion, weapons, scoring, upgrades, spawn timing,
   triangle bonds, snake following, black-hole integer conversions,
-  interceptor geometry and generator non-kill scoring.
+  interceptor geometry, generator non-kill scoring, grid deformation and the
+  original particle ring.
 
 ## Core loop and progression
 
@@ -93,7 +105,7 @@ the corresponding Swift implementation, and a test or visual/runtime check.
       (`gridparttrail.bmx:494-1662`).
 - [ ] Configurable spacing, RGB, opacity, full-grid mode, scroll offsets, arena
       sizes, and border.
-- [ ] Grid push, pull, shockwave, black-hole deformation, and reset.
+- [x] Grid push, pull, shockwave, black-hole deformation, and reset.
 - [ ] Star count/depth parallax and all four particle styles.
 - [ ] Particle gravity, lifetime, decay, capacity, fireworks, trails, and
       per-entity particle recipes.

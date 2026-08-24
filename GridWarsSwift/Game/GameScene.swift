@@ -87,6 +87,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
     private let worldLayer = SKNode()
     private let gridLayer = SKNode()
+    private let gridRenderer = GridRenderer()
+    private let particleRenderer = ParticleRenderer()
     private let enemyLayer = SKNode()
     private let projectileLayer = SKNode()
     private let pickupLayer = SKNode()
@@ -118,6 +120,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private var mouseAutofireArmed = false
     private var keyboardAutofireArmed = false
     private var playerMotion = PlayerMotionState()
+    private var gridSimulation = GridSimulation(arenaSize: CGSize(width: 1_024, height: 768))
+    private var particleSimulation = ParticleSimulation(arenaSize: CGSize(width: 1_024, height: 768))
+    private var gridStyle = GridStyle.pointsSolid
 
     private var lastUpdateTime: TimeInterval = 0
     private var shotTimerFrames = 0
@@ -145,12 +150,16 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
     override init(size: CGSize) {
         super.init(size: size)
+        gridSimulation = GridSimulation(arenaSize: size)
+        particleSimulation = ParticleSimulation(arenaSize: size)
         scaleMode = .aspectFit
         backgroundColor = .black
     }
 
     required init?(coder decoder: NSCoder) {
         super.init(coder: decoder)
+        gridSimulation = GridSimulation(arenaSize: size)
+        particleSimulation = ParticleSimulation(arenaSize: size)
         scaleMode = .aspectFit
         backgroundColor = .black
     }
@@ -171,6 +180,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private func setupLayers() {
         addChild(worldLayer)
         worldLayer.addChild(gridLayer)
+        worldLayer.addChild(particleRenderer.node)
         worldLayer.addChild(enemyLayer)
         worldLayer.addChild(projectileLayer)
         worldLayer.addChild(pickupLayer)
@@ -178,6 +188,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         addChild(hudLayer)
 
         gridLayer.zPosition = -10
+        gridLayer.addChild(gridRenderer.node)
+        particleRenderer.node.zPosition = 5
         enemyLayer.zPosition = 10
         projectileLayer.zPosition = 20
         pickupLayer.zPosition = 15
@@ -186,34 +198,18 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     private func setupArena() {
-        let path = CGMutablePath()
-        let spacing: CGFloat = 48
+        renderGrid()
 
-        stride(from: CGFloat.zero, through: size.width, by: spacing).forEach { x in
-            path.move(to: CGPoint(x: x, y: 0))
-            path.addLine(to: CGPoint(x: x, y: size.height))
-        }
-        stride(from: CGFloat.zero, through: size.height, by: spacing).forEach { y in
-            path.move(to: CGPoint(x: 0, y: y))
-            path.addLine(to: CGPoint(x: size.width, y: y))
-        }
-
-        let grid = SKShapeNode(path: path)
-        grid.name = "grid"
-        grid.strokeColor = SKColor(red: 0.08, green: 0.28, blue: 1, alpha: 1)
-        grid.lineWidth = 0.8
-        grid.glowWidth = 1.4
-        grid.alpha = 0.42
-        gridLayer.addChild(grid)
-
-        for _ in 0..<140 {
-            let star = SKShapeNode(circleOfRadius: CGFloat.random(in: 0.45...1.4))
-            star.fillColor = .white
+        for index in 0...300 {
+            let depth = 2 + CGFloat(index % 8) / 4
+            let brightness = min(1, (480 / depth) / 255)
+            let star = SKShapeNode(rectOf: CGSize(width: 2, height: 2))
+            star.fillColor = SKColor(white: brightness, alpha: 1)
             star.strokeColor = .clear
-            star.alpha = CGFloat.random(in: 0.18...0.72)
+            star.alpha = 0.8
             star.position = CGPoint(
-                x: CGFloat.random(in: 0...size.width),
-                y: CGFloat.random(in: 0...size.height)
+                x: CGFloat(Int.random(in: -100...Int(size.width + 100))),
+                y: CGFloat(Int.random(in: -100...Int(size.height + 100)))
             )
             gridLayer.addChild(star)
         }
@@ -337,6 +333,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         player.alpha = 1
         player.position = CGPoint(x: size.width / 2, y: size.height / 2)
         playerMotion.reset()
+        gridSimulation.reset()
+        particleSimulation.reset()
         playerShield.isHidden = true
         playerShield.position = player.position
         readyRings.forEach { $0.isHidden = true }
@@ -355,24 +353,32 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     override func update(_ currentTime: TimeInterval) {
         if lastUpdateTime == 0 {
             lastUpdateTime = currentTime
+            renderGrid()
+            particleRenderer.render(particleSimulation)
             return
         }
 
         let deltaTime = min(0.1, currentTime - lastUpdateTime)
         lastUpdateTime = currentTime
-        updateGrid(at: currentTime)
-
-        guard !session.isGameOver else { return }
+        guard !session.isGameOver else {
+            renderGrid()
+            particleRenderer.render(particleSimulation)
+            return
+        }
         fixedTimeAccumulator += deltaTime
         while fixedTimeAccumulator >= 0.02 {
             simulateFrame()
             fixedTimeAccumulator -= 0.02
         }
+        renderGrid()
+        particleRenderer.render(particleSimulation)
     }
 
     private func simulateFrame() {
+        updateParticleSimulation()
         cycleColors()
         cycleColors()
+        gridSimulation.update()
         if deathFramesRemaining > 0 {
             advanceDeathSequence()
             return
@@ -429,8 +435,39 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         return true
     }
 
-    private func updateGrid(at currentTime: TimeInterval) {
-        gridLayer.childNode(withName: "grid")?.alpha = 0.34 + 0.1 * sin(currentTime * 1.3)
+    private func renderGrid() {
+        gridRenderer.render(
+            simulation: gridSimulation,
+            style: gridStyle,
+            solidColor: SKColor(red: 32 / 255, green: 80 / 255, blue: 200 / 255, alpha: 1),
+            cyclingColor: SKColor(
+                red: CGFloat(cyclingRed) / 255,
+                green: CGFloat(cyclingGreen) / 255,
+                blue: CGFloat(cyclingBlue) / 255,
+                alpha: 1
+            ),
+            opacity: 0.85
+        )
+    }
+
+    private func updateParticleSimulation() {
+        for blackHole in enemies(of: .blackHole)
+            where (blackHole.userData?["blackHoleActive"] as? NSNumber)?.boolValue ?? false {
+            let blackHoleSize = CGFloat(
+                (blackHole.userData?["blackHoleSize"] as? NSNumber)?.doubleValue ?? 20
+            )
+            particleSimulation.applyBlackHole(
+                at: blackHole.position,
+                size: blackHoleSize,
+                frame: simulationFrame
+            )
+        }
+
+        if deathFramesRemaining > 0 {
+            let deathFrame = 100 - deathFramesRemaining
+            guard deathFrame.isMultiple(of: 2) else { return }
+        }
+        particleSimulation.update()
     }
 
     private func updatePlayer() {
@@ -925,6 +962,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 continue
             }
             guard rotation.isMultiple(of: max(1, rate + 42 - health)) else { continue }
+            gridSimulation.push(at: generator.position, radiusInPoints: 6, amount: 0.9)
             let offset = CGPoint(
                 x: generator.position.x + randomCoordinate(-10...10),
                 y: generator.position.y + randomCoordinate(-10...10)
@@ -1063,6 +1101,14 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 let facing = CGVector(dx: cos(headingRadians), dy: sin(headingRadians))
                 if abs(turnRemaining) < 20 {
                     velocity = velocity + facing * 2
+                    gridSimulation.push(
+                        at: CGPoint(
+                            x: enemy.position.x + velocity.dx * 8,
+                            y: enemy.position.y + velocity.dy * 8
+                        ),
+                        radiusInPoints: 4,
+                        amount: 0.1
+                    )
                 } else {
                     velocity = (velocity + facing) * (0.265 + maximumSpeed / 20)
                 }
@@ -1341,7 +1387,12 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                     byIndex[index + 1]?.userData?["snakeDyingMove"] = nextMove
                     let position = segment.position
                     segment.removeFromParent()
-                    createExplosion(at: position, color: .green)
+                    emitParticles(
+                        count: 8,
+                        at: position,
+                        kind: .random,
+                        color: OriginalParticleColor.snakeTail
+                    )
                     if nextMove < 50 {
                         run(.playSoundFileNamed("snakehit.wav", waitForCompletion: false))
                     }
@@ -1565,7 +1616,12 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 ) {
                     let position = projectile.position
                     projectile.removeFromParent()
-                    createExplosion(at: position, color: .red)
+                    emitParticles(
+                        count: 4,
+                        at: position,
+                        kind: .random,
+                        color: projectileParticleColor
+                    )
                     break
                 }
             }
@@ -1722,6 +1778,13 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     ) {
         let blackHoleSize = CGFloat((blackHole.userData?["blackHoleSize"] as? NSNumber)?.doubleValue ?? 20)
         blackHole.setScale(max(0.25, 0.25 + blackHoleSize / 64))
+        if (blackHole.userData?["blackHoleActive"] as? NSNumber)?.boolValue ?? false {
+            gridSimulation.pull(
+                at: blackHole.position,
+                radiusInPoints: 5 + Int(blackHoleSize / 2),
+                amount: 4
+            )
+        }
 
         for otherBlackHole in enemyLayer.children where otherBlackHole !== blackHole
             && otherBlackHole.name == "enemy"
@@ -1752,7 +1815,11 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         let speedUp = BlackHoleRule.growthSpeedUp(frame: simulationFrame)
         blackHoleSize += amount * speedUp
         blackHole.userData?["blackHoleSize"] = blackHoleSize
+        let wasActive = (blackHole.userData?["blackHoleActive"] as? NSNumber)?.boolValue ?? false
         blackHole.userData?["blackHoleActive"] = true
+        if !wasActive {
+            gridSimulation.push(at: blackHole.position, radiusInPoints: 6, amount: 1)
+        }
         let absorbed = (blackHole.userData?["absorbCount"] as? NSNumber)?.intValue ?? 0
         blackHole.userData?["absorbCount"] = absorbed + 1
 
@@ -1784,7 +1851,19 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                     closeToPlayer: true
                 )
             }
-            createExplosion(at: position, color: .red)
+            emitParticles(
+                count: 36,
+                at: position,
+                kind: .random,
+                color: OriginalParticleColor.blackHole,
+                positionForIndex: { index in
+                    let angle = CGFloat(index * 10) * .pi / 180
+                    return CGPoint(
+                        x: position.x + sin(angle) * 20,
+                        y: position.y + cos(angle) * 20
+                    )
+                }
+            )
         }
     }
 
@@ -1841,6 +1920,15 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                     projectile.removeFromParent()
                     createProjectileImpact(at: position)
                     break
+                } else {
+                    gridSimulation.push(
+                        at: CGPoint(
+                            x: projectile.position.x + velocity.dx * 2,
+                            y: projectile.position.y + velocity.dy * 2
+                        ),
+                        radiusInPoints: 3,
+                        amount: 0.025
+                    )
                 }
             }
 
@@ -1862,24 +1950,19 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         return SKColor(red: 200 / 255, green: 200 / 255, blue: 128 / 255, alpha: 1)
     }
 
+    private var projectileParticleColor: ParticleColor {
+        if session.superShotFrames > 0 { return OriginalParticleColor.superShot }
+        if session.bouncyShotFrames > 0 { return OriginalParticleColor.bouncyShot }
+        return OriginalParticleColor.shot
+    }
+
     private func createProjectileImpact(at position: CGPoint) {
-        let emitter = SKEmitterNode()
-        emitter.position = position
-        emitter.particleTexture = SKTexture(imageNamed: "particle")
-        emitter.particleColor = projectileColor
-        emitter.particleColorBlendFactor = 1
-        emitter.particleBirthRate = 400
-        emitter.numParticlesToEmit = 4
-        emitter.particleLifetime = 0.35
-        emitter.particleLifetimeRange = 0.1
-        emitter.emissionAngleRange = .pi * 2
-        emitter.particleSpeed = 80
-        emitter.particleSpeedRange = 45
-        emitter.particleAlphaSpeed = -2.8
-        emitter.particleScale = 0.45
-        emitter.particleScaleSpeed = -0.8
-        effectLayer.addChild(emitter)
-        emitter.run(.sequence([.wait(forDuration: 0.6), .removeFromParent()]))
+        emitParticles(
+            count: 4,
+            at: position,
+            kind: .random,
+            color: projectileParticleColor
+        )
         run(.playSoundFileNamed("shotwall.wav", waitForCompletion: false))
     }
 
@@ -2089,7 +2172,12 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private func damageEnemy(_ enemy: SKNode, projectile: SKNode) {
         guard enemy.parent != nil else { return }
         if enemy.name == "snakeTail" {
-            createExplosion(at: enemy.position, color: .green)
+            emitParticles(
+                count: 8,
+                at: enemy.position,
+                kind: .random,
+                color: OriginalParticleColor.snakeTail
+            )
             run(.playSoundFileNamed("tailhit.wav", waitForCompletion: false))
             return
         }
@@ -2106,37 +2194,69 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                    projectile.position,
                    projectileVelocity: projectileVelocity(projectile)
                ) {
-                createExplosion(at: projectile.position, color: .red)
+                emitParticles(
+                    count: 4,
+                    at: projectile.position,
+                    kind: .random,
+                    color: projectileParticleColor
+                )
                 return
             }
         }
-        if kind == .triangle, enemy.name == "enemy", trianglePartner(of: enemy) != nil {
+        var trianglePreHitParticlesEmitted = false
+        if kind == .triangle, enemy.name == "enemy" {
             let strength = CGFloat((enemy.userData?["triangleStrength"] as? NSNumber)?.doubleValue
                                    ?? Double(TriangleBondState.initialStrength))
-            var bond = TriangleBondState(strength: strength)
-            let shotVelocity = projectileVelocity(projectile)
-            let impulse = bond.registerProjectileHit(projectileVelocityPerFrame: shotVelocity)
-            var velocity = CGVector(
-                dx: CGFloat((enemy.userData?["dx"] as? NSNumber)?.doubleValue ?? 0),
-                dy: CGFloat((enemy.userData?["dy"] as? NSNumber)?.doubleValue ?? 0)
+            emitParticles(
+                count: 4,
+                at: enemy.position,
+                kind: .threeDirections,
+                color: ParticleColor(
+                    red: 20 + Int(strength * 4),
+                    green: 220 - Int(strength * 4),
+                    blue: 0
+                ),
+                rotation: { _ in
+                    CGFloat((enemy.userData?["rotation"] as? NSNumber)?.intValue ?? 0)
+                }
             )
-            velocity = velocity + impulse
-            enemy.userData?["dx"] = velocity.dx
-            enemy.userData?["dy"] = velocity.dy
-            enemy.userData?["triangleStrength"] = bond.strength
-            createExplosion(at: enemy.position, color: .orange)
-            if bond.isBroken { detachTriangle(enemy) }
-            return
+            trianglePreHitParticlesEmitted = true
+            if trianglePartner(of: enemy) != nil {
+                var bond = TriangleBondState(strength: strength)
+                let shotVelocity = projectileVelocity(projectile)
+                let impulse = bond.registerProjectileHit(projectileVelocityPerFrame: shotVelocity)
+                var velocity = CGVector(
+                    dx: CGFloat((enemy.userData?["dx"] as? NSNumber)?.doubleValue ?? 0),
+                    dy: CGFloat((enemy.userData?["dy"] as? NSNumber)?.doubleValue ?? 0)
+                )
+                velocity = velocity + impulse
+                enemy.userData?["dx"] = velocity.dx
+                enemy.userData?["dy"] = velocity.dy
+                enemy.userData?["triangleStrength"] = bond.strength
+                if bond.isBroken { detachTriangle(enemy) }
+                return
+            }
         }
         if kind == .blackHole, enemy.name == "enemy" {
+            emitParticles(
+                count: 4,
+                at: enemy.position,
+                kind: .random,
+                color: OriginalParticleColor.blackHole
+            )
             var blackHoleSize = CGFloat((enemy.userData?["blackHoleSize"] as? NSNumber)?.doubleValue ?? 20)
+            let wasActive = (enemy.userData?["blackHoleActive"] as? NSNumber)?.boolValue ?? false
             enemy.userData?["blackHoleActive"] = true
+            if !wasActive {
+                gridSimulation.push(at: enemy.position, radiusInPoints: 6, amount: 1)
+            }
             blackHoleSize -= 0.75
             enemy.userData?["blackHoleSize"] = blackHoleSize
             if blackHoleSize < 4 {
+                gridSimulation.push(at: enemy.position, radiusInPoints: 8, amount: 2)
                 let absorbed = (enemy.userData?["absorbCount"] as? NSNumber)?.intValue ?? 0
                 enemy.userData?["score"] = BlackHoleRule.destructionScore(absorbedEnemies: absorbed)
-                destroyEnemy(enemy)
+                destroyEnemy(enemy, preHitParticlesEmitted: true)
             } else {
                 run(.playSoundFileNamed("sunhit1.wav", waitForCompletion: false))
             }
@@ -2148,6 +2268,12 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             let newHealth = health - 1
             enemy.userData?["health"] = newHealth
             if enemy.name == "generator" {
+                emitParticles(
+                    count: 4,
+                    at: enemy.position,
+                    kind: .random,
+                    color: particleColor(for: kind)
+                )
                 for event in session.registerScore(baseScore: 1) {
                     handleProgressionEvent(event)
                 }
@@ -2160,7 +2286,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             ]))
             run(.playSoundFileNamed("genhit1.wav", waitForCompletion: false))
         } else {
-            destroyEnemy(enemy)
+            destroyEnemy(enemy, preHitParticlesEmitted: trianglePreHitParticlesEmitted)
         }
     }
 
@@ -2180,7 +2306,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private func destroyEnemy(
         _ enemy: SKNode,
         playSound: Bool = true,
-        awardPoints: Bool = true
+        awardPoints: Bool = true,
+        preHitParticlesEmitted: Bool = false
     ) {
         guard enemy.parent != nil, enemy.name == "enemy" || enemy.name == "generator" else { return }
         let originalName = enemy.name
@@ -2196,13 +2323,21 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         enemy.physicsBody?.categoryBitMask = 0
         let score = (enemy.userData?["score"] as? NSNumber)?.intValue ?? 100
         let position = enemy.position
+        if originalName == "enemy", kind != .blackHole {
+            gridSimulation.shockwave(at: position)
+        }
+        emitEnemyDestructionParticles(
+            for: enemy,
+            kind: kind,
+            originalName: originalName,
+            preHitParticlesEmitted: preHitParticlesEmitted
+        )
         enemy.removeFromParent()
 
         let progressionEvents = awardPoints
             ? session.registerEnemyDestroyed(baseScore: score)
             : []
         if awardPoints { destroyedEnemyCount += 1 }
-        createExplosion(at: position, color: .cyan)
         if awardPoints, kind == .cube, cubeTier == 0, originalName == "enemy" {
             for _ in 0..<3 {
                 if let smallCube = spawnEnemy(
@@ -2224,6 +2359,149 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             run(.playSoundFileNamed("Explo1.wav", waitForCompletion: false))
         }
         updateHUD()
+    }
+
+    private func emitEnemyDestructionParticles(
+        for enemy: SKNode,
+        kind: EnemyKind,
+        originalName: String?,
+        preHitParticlesEmitted: Bool
+    ) {
+        let position = enemy.position
+        let rotation = CGFloat((enemy.userData?["rotation"] as? NSNumber)?.intValue ?? 0)
+
+        if originalName == "generator" {
+            emitParticles(
+                count: 12,
+                at: position,
+                kind: .random,
+                color: particleColor(for: kind)
+            )
+            return
+        }
+
+        switch kind {
+        case .greenSquare:
+            emitParticles(
+                count: 16,
+                at: position,
+                kind: .eightDirections,
+                color: OriginalParticleColor.greenSquare
+            )
+        case .pinwheel:
+            emitParticles(
+                count: 16,
+                at: position,
+                kind: .eightDirections,
+                color: OriginalParticleColor.pinwheel,
+                rotation: { _ in rotation }
+            )
+        case .diamond:
+            emitParticles(
+                count: 16,
+                at: position,
+                kind: .fourDirections,
+                color: OriginalParticleColor.diamond,
+                positionForIndex: { _ in
+                    CGPoint(
+                        x: position.x + CGFloat(Int.random(in: -8...8)),
+                        y: position.y + CGFloat(Int.random(in: -8...8))
+                    )
+                }
+            )
+        case .cube:
+            emitParticles(
+                count: 16,
+                at: position,
+                kind: .fourDirections,
+                color: OriginalParticleColor.cube,
+                rotation: { _ in rotation }
+            )
+        case .seeker:
+            emitParticles(
+                count: 16,
+                at: position,
+                kind: .directed,
+                color: OriginalParticleColor.seeker,
+                rotation: { index in CGFloat(index * 24) + rotation }
+            )
+        case .blackHole:
+            if !preHitParticlesEmitted {
+                emitParticles(
+                    count: 4,
+                    at: position,
+                    kind: .random,
+                    color: OriginalParticleColor.blackHole
+                )
+            }
+            emitParticles(
+                count: 32,
+                at: position,
+                kind: .random,
+                color: OriginalParticleColor.blackHole
+            )
+        case .triangle:
+            if !preHitParticlesEmitted {
+                let strength = CGFloat(
+                    (enemy.userData?["triangleStrength"] as? NSNumber)?.doubleValue
+                        ?? Double(TriangleBondState.initialStrength)
+                )
+                emitParticles(
+                    count: 4,
+                    at: position,
+                    kind: .threeDirections,
+                    color: ParticleColor(
+                        red: 20 + Int(strength * 4),
+                        green: 220 - Int(strength * 4),
+                        blue: 0
+                    ),
+                    rotation: { _ in rotation }
+                )
+            }
+            emitParticles(
+                count: 32,
+                at: position,
+                kind: .threeDirections,
+                color: OriginalParticleColor.triangle
+            )
+        case .snake:
+            emitParticles(
+                count: 32,
+                at: position,
+                kind: .random,
+                color: OriginalParticleColor.snake
+            )
+        case .interceptor:
+            emitParticles(
+                count: 16,
+                at: position,
+                kind: .eightDirections,
+                color: OriginalParticleColor.interceptor
+            )
+        case .butterfly:
+            emitParticles(
+                count: 9,
+                at: position,
+                kind: .threeDirections,
+                color: OriginalParticleColor.butterfly,
+                rotation: { index in CGFloat(index * 120) + rotation }
+            )
+        }
+    }
+
+    private func particleColor(for kind: EnemyKind) -> ParticleColor {
+        switch kind {
+        case .greenSquare: OriginalParticleColor.greenSquare
+        case .pinwheel: OriginalParticleColor.pinwheel
+        case .diamond: OriginalParticleColor.diamond
+        case .cube: OriginalParticleColor.cube
+        case .seeker: OriginalParticleColor.seeker
+        case .blackHole: OriginalParticleColor.blackHole
+        case .triangle: OriginalParticleColor.triangle
+        case .snake: OriginalParticleColor.snake
+        case .interceptor: OriginalParticleColor.interceptor
+        case .butterfly: OriginalParticleColor.butterfly
+        }
     }
 
     private func handleProgressionEvent(_ event: ProgressionEvent) {
@@ -2302,6 +2580,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         star.zPosition = -1
         powerUp.addChild(star)
         pickupLayer.addChild(powerUp)
+        gridSimulation.push(at: position, radiusInPoints: 6, amount: 1)
     }
 
     private func powerUpTexture(for kind: PowerUpKind) -> SKTexture {
@@ -2406,14 +2685,26 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                     }
                 }
                 if didMerge {
+                    let position = powerUp.position
                     powerUp.removeFromParent()
-                    createExplosion(at: powerUp.position, color: .purple)
+                    emitParticles(
+                        count: 8,
+                        at: position,
+                        kind: .random,
+                        color: OriginalParticleColor.powerUp
+                    )
                     continue
                 }
             } else if kind.rawValue < 2, lifeFrames > 400 {
                 let position = powerUp.position
                 powerUp.removeFromParent()
                 spawnEnemy(kind: .butterfly, at: position, freezeFrames: 30)
+                emitParticles(
+                    count: 8,
+                    at: position,
+                    kind: .random,
+                    color: OriginalParticleColor.powerUp
+                )
                 continue
             }
 
@@ -2448,8 +2739,17 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             velocity = velocity + difference / distance * ((400 - distance) / 4_096)
             if distance < 12 + blackHoleSize {
                 let position = powerUp.position
+                let rotation = CGFloat(
+                    ((powerUp.userData?["lifeFrames"] as? NSNumber)?.intValue ?? 0) * 6
+                )
                 powerUp.removeFromParent()
-                createExplosion(at: position, color: .purple)
+                emitParticles(
+                    count: 15,
+                    at: position,
+                    kind: .directed,
+                    color: OriginalParticleColor.powerUp,
+                    rotation: { index in CGFloat(index * 24) + rotation }
+                )
                 growBlackHole(blackHole, amount: 1)
                 return true
             }
@@ -2459,12 +2759,10 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
     private func collect(_ powerUp: SKNode) {
         guard powerUp.parent != nil else { return }
-        let position = powerUp.position
         powerUp.removeFromParent()
         let rawKind = (powerUp.userData?["kind"] as? NSNumber)?.intValue ?? PowerUpKind.extraBomb.rawValue
         let kind = PowerUpKind(rawValue: rawKind) ?? .extraBomb
         let events = session.collectPowerUp(kind)
-        createExplosion(at: position, color: .white)
         run(.playSoundFileNamed("bonus1.wav", waitForCompletion: false))
         for event in events {
             if case let .powerUpCollected(_, message) = event {
@@ -2512,6 +2810,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             readyRings.forEach { $0.isHidden = true }
         } else {
             let ringFrame = frame - 60
+            if ringFrame == 0 {
+                gridSimulation.pull(at: player.position, radiusInPoints: 20, amount: 20)
+            }
             messageLabel.isHidden = true
             player.isHidden = ringFrame <= 10
             let contractions: [CGFloat] = [6, 8, 12]
@@ -2547,6 +2848,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         projectileLayer.removeAllChildren()
         pickupLayer.removeAllChildren()
         effectLayer.removeAllChildren()
+        gridSimulation.reset()
+        particleSimulation.reset()
         session.registerPlayerHit()
         updateHUD()
         player.position = CGPoint(x: size.width / 2, y: size.height / 2)
@@ -2623,48 +2926,35 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         playerShield.isHidden = true
         messageLabel.isHidden = true
         removeNonKillerEntities()
+        gridSimulation.pull(at: player.position, radiusInPoints: 32, amount: 64)
 
-        let emitter = SKEmitterNode()
-        emitter.name = "playerDeath"
-        emitter.position = player.position
-        emitter.particleTexture = SKTexture(imageNamed: "particle")
-        emitter.particleColor = SKColor(red: 1, green: 1, blue: 200 / 255, alpha: 1)
-        emitter.particleColorBlendFactor = 1
-        emitter.particleBirthRate = 1_280
-        emitter.numParticlesToEmit = 256
-        emitter.particleLifetime = 1.8
-        emitter.particleLifetimeRange = 0.4
-        emitter.emissionAngleRange = .pi * 2
-        emitter.particleSpeed = 170
-        emitter.particleSpeedRange = 110
-        emitter.particleAlphaSpeed = -0.5
-        emitter.particleScale = 0.8
-        emitter.particleScaleRange = 0.5
-        emitter.particleScaleSpeed = -0.35
-        effectLayer.addChild(emitter)
+        emitParticles(
+            count: 256,
+            at: player.position,
+            kind: .random,
+            color: OriginalParticleColor.player
+        )
         run(.playSoundFileNamed("die1.wav", waitForCompletion: false))
         return true
     }
 
-    private func createExplosion(at position: CGPoint, color: SKColor) {
-        let emitter = SKEmitterNode()
-        emitter.position = position
-        emitter.particleTexture = SKTexture(imageNamed: "particle")
-        emitter.particleColor = color
-        emitter.particleColorBlendFactor = 1
-        emitter.particleBirthRate = 240
-        emitter.numParticlesToEmit = 26
-        emitter.particleLifetime = 0.55
-        emitter.particleLifetimeRange = 0.2
-        emitter.emissionAngleRange = .pi * 2
-        emitter.particleSpeed = 150
-        emitter.particleSpeedRange = 80
-        emitter.particleAlphaSpeed = -1.8
-        emitter.particleScale = 0.7
-        emitter.particleScaleRange = 0.35
-        emitter.particleScaleSpeed = -0.8
-        effectLayer.addChild(emitter)
-        emitter.run(.sequence([.wait(forDuration: 1), .removeFromParent()]))
+    private func emitParticles(
+        count: Int,
+        at position: CGPoint,
+        kind: OriginalParticleKind,
+        color: ParticleColor,
+        rotation: (Int) -> CGFloat = { _ in 0 },
+        positionForIndex: ((Int) -> CGPoint)? = nil
+    ) {
+        guard count > 0 else { return }
+        for index in 0..<count {
+            particleSimulation.emit(
+                at: positionForIndex?(index) ?? position,
+                kind: kind,
+                color: color,
+                rotationDegrees: rotation(index)
+            )
+        }
     }
 
     private func updateHUD() {
@@ -2716,10 +3006,24 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         guard bombCooldownFrames == 0 else { return }
         guard session.useBomb() else { return }
         bombCooldownFrames = 60
+        for angle in 0..<360 {
+            particleSimulation.emit(
+                at: player.position,
+                kind: .radialBomb,
+                color: OriginalParticleColor.bomb,
+                rotationDegrees: CGFloat(angle)
+            )
+            particleSimulation.emit(
+                at: player.position,
+                kind: .bombInternal,
+                color: OriginalParticleColor.bomb
+            )
+        }
         let enemies = enemyLayer.children.filter { $0.name == "enemy" || $0.name == "generator" }
         for enemy in enemies {
             destroyEnemy(enemy, playSound: false, awardPoints: false)
         }
+        gridSimulation.pull(at: player.position, radiusInPoints: 60, amount: 60)
 
         let ring = SKShapeNode(circleOfRadius: 12)
         ring.position = player.position
