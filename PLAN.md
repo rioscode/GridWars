@@ -143,6 +143,7 @@ branch. Each major fidelity milestone has its own commit:
 - [x] Get Ready's two source-ordered Grid updates per displayed frame, including
       pull-before-update ordering
 - [x] Top-left 1×1 `Plot` pixel anchoring for midpoint-circle Get Ready rings
+- [x] OpenGL pixel-center anchoring for one-pixel particle line style 0
 
 `FIDELITY.md` is the acceptance ledger. The isolated BlitzMax harness and the
 Swift port now each capture the same 87 attract, transition, gameplay, HUD,

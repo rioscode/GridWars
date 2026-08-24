@@ -116,7 +116,9 @@ final class ParticleRenderer {
             )
         )
         line.path = path
-        line.position = particle.position
+        line.position = style == 0
+            ? OriginalLineRasterRule.scenePixelCenter(particle.position)
+            : particle.position
         line.strokeColor = color
         line.lineWidth = style == 0 ? 1 : 2
         line.alpha = style == 0 ? 1 : (style == 1 ? 0.9 : 0.8)

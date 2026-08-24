@@ -80,7 +80,10 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   particle render paths now separately use
   the original doubled line vectors, line widths/alpha, half-scale 7.5-pixel
   image, and style-3 line-plus-stretched-image bloom. Their isolated differences
-  are 0.00775, 0.00870, 0.00019, and 0.00806; two independent style-3 Swift
+  are 0.00236, 0.00870, 0.00019, and 0.00806; the first value fell from 0.00775
+  after applying the same `(x+0.5,y-0.5)` OpenGL pixel-center conversion as the
+  direct one-pixel grid strokes. This also lowers the title capture from
+  0.02116 to 0.02025. Two independent style-3 Swift
   captures are byte-identical. The isolated Grid/particle harness also hides
   the gameplay arena border, matching the direct original draw path and making
   the empty grid selector pixel-identical. Vertical particle boundary checks
