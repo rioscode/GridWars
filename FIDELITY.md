@@ -122,7 +122,14 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   border that the original page never draws, exposes the original 35 screen
   modes and their historical `/34` display, and preserves capture counter 20
   plus the unmoved top-edge pointer. Its normalized difference fell from
-  0.02188 to 0.01316.
+  0.02188 to 0.01316. Normal vector-font strokes now disable SpriteKit
+  antialiasing and use the rectangular caps and miter joins of the original
+  OpenGL line path. The multiply-overdrawn animated title keeps its stable
+  smooth SpriteKit approximation; its metric remains 0.02116. Across the new
+  87-state catalog this common correction improves screens including top
+  scores (0.00708 to 0.00668), options (0.00194 to 0.00151), and high-score
+  entry (0.01006 to 0.00819). Two independently rendered high-score-entry
+  captures have identical SHA-256 hashes.
 - Graphics and HUD: `images.bmx:34-100`, `gridwars.bmx:3266-3272, 5911-5932`,
   and the deterministic fixed-frame original images in
   `docs/captures/original/` map to
@@ -192,7 +199,7 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   archived legacy `Language/Data types.bbdoc` documents the implicit numeric
   conversions used by the original. Swift random ranges and intentional
   integer truncations follow those references.
-- Build evidence (2026-08-24): the macOS unit-test action (71 tests) and generic
+- Build evidence (2026-08-24): the macOS unit-test action (72 tests) and generic
   iOS Simulator Debug build both pass. The rule suite
   covers initial difficulty, motion, weapons, scoring, upgrades, spawn timing,
   triangle bonds, snake following, black-hole integer conversions,

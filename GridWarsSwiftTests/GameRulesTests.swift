@@ -1358,6 +1358,23 @@ final class GameRulesTests: XCTestCase {
         XCTAssertEqual(font.glyphs[33]?.last?.end, CGPoint(x: 2, y: 6))
     }
 
+    @MainActor
+    func testVectorFontUsesUnsmoothedOpenGLLikeStrokes() {
+        let node = OriginalVectorFont().makeNode(
+            "A",
+            x: 0,
+            yFromTop: 0,
+            scale: 1,
+            arenaHeight: 100,
+            color: .white
+        )
+
+        XCTAssertFalse(node.isAntialiased)
+        XCTAssertEqual(node.lineCap, .butt)
+        XCTAssertEqual(node.lineJoin, .miter)
+        XCTAssertEqual(node.lineWidth, 2)
+    }
+
     func testCaptureCatalogCoversEveryFidelityCategory() {
         let scenarios = OriginalCaptureScenario.all
         XCTAssertEqual(scenarios.count, 87)

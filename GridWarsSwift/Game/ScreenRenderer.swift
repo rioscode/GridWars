@@ -391,6 +391,24 @@ final class OriginalScreenRenderer {
         color: SKColor
     ) {
         let shrink = size.width / 1_024
+        func addTitleText(
+            _ text: String,
+            x: CGFloat,
+            y: CGFloat,
+            scale: CGFloat,
+            color: SKColor
+        ) {
+            addText(
+                text,
+                x: x,
+                y: y,
+                scale: scale,
+                color: color,
+                size: size,
+                smoothStrokes: true
+            )
+        }
+
         let title = "GridWars 2"
         let length = CGFloat(title.count - 1)
         let scale = min(20, CGFloat(titleFrame) / 24) * shrink
@@ -402,23 +420,65 @@ final class OriginalScreenRenderer {
                 let y = (size.height - 18 * scale) / 2 - 50
                     + sin(angle) * (2 + CGFloat(titleFrame) / 60)
                     + 600 / 8 - CGFloat(titleFrame) / 8
-                addText(title, x: x, y: y, scale: scale, color: color, size: size)
+                addTitleText(
+                    title,
+                    x: x,
+                    y: y,
+                    scale: scale,
+                    color: color
+                )
             }
         }
 
         let creditColor = SKColor(red: 64 / 255, green: 180 / 255, blue: 64 / 255, alpha: 1)
-        addText("Programmed In Blitzmax", x: size.width / 2 - CGFloat(22 / 2) * 5 * 3.2 * shrink, y: size.height - 280, scale: 3.2 * shrink, color: creditColor, size: size)
-        addText("By Mark Incitti", x: size.width / 2 - CGFloat(15 / 2) * 5 * 3.2 * shrink, y: size.height - 240, scale: 3.2 * shrink, color: creditColor, size: size)
+        addTitleText(
+            "Programmed In Blitzmax",
+            x: size.width / 2 - CGFloat(22 / 2) * 5 * 3.2 * shrink,
+            y: size.height - 280,
+            scale: 3.2 * shrink,
+            color: creditColor
+        )
+        addTitleText(
+            "By Mark Incitti",
+            x: size.width / 2 - CGFloat(15 / 2) * 5 * 3.2 * shrink,
+            y: size.height - 240,
+            scale: 3.2 * shrink,
+            color: creditColor
+        )
         let detail = frame % 200 > 99
             ? "Version 5.4 - Apr 19, 2006"
             : "Visit www.incitti.com for more games."
         let detailScale: CGFloat = frame % 200 > 99 ? 3 : 3.1
         let detailLength = frame % 200 > 99 ? 25 : 36
-        addText(detail, x: size.width / 2 - CGFloat(detailLength / 2) * 5 * detailScale * shrink, y: size.height - 200, scale: detailScale * shrink, color: creditColor, size: size)
-        addText("Special Thanks To", x: size.width / 2 - CGFloat(17 / 2) * 5 * 3.2 * shrink, y: size.height - 160, scale: 3.2 * shrink, color: SKColor(red: 240 / 255, green: 32 / 255, blue: 200 / 255, alpha: 1), size: size)
-        addText("Svrman, taumel - Gfx & Effects, Swith - Music, RiK - Mac", x: size.width / 2 - CGFloat(56 / 2) * 5 * 3.2 * shrink, y: size.height - 120, scale: 3.2 * shrink, color: SKColor(red: 200 / 255, green: 32 / 255, blue: 240 / 255, alpha: 1), size: size)
+        addTitleText(
+            detail,
+            x: size.width / 2 - CGFloat(detailLength / 2) * 5 * detailScale * shrink,
+            y: size.height - 200,
+            scale: detailScale * shrink,
+            color: creditColor
+        )
+        addTitleText(
+            "Special Thanks To",
+            x: size.width / 2 - CGFloat(17 / 2) * 5 * 3.2 * shrink,
+            y: size.height - 160,
+            scale: 3.2 * shrink,
+            color: SKColor(red: 240 / 255, green: 32 / 255, blue: 200 / 255, alpha: 1)
+        )
+        addTitleText(
+            "Svrman, taumel - Gfx & Effects, Swith - Music, RiK - Mac",
+            x: size.width / 2 - CGFloat(56 / 2) * 5 * 3.2 * shrink,
+            y: size.height - 120,
+            scale: 3.2 * shrink,
+            color: SKColor(red: 200 / 255, green: 32 / 255, blue: 240 / 255, alpha: 1)
+        )
         if frame % 60 > 29 {
-            addText("Press BOMB Button to Start", x: size.width / 2 - CGFloat(26 / 2) * 5 * 4 * shrink, y: size.height - 32, scale: 4 * shrink, color: .yellow, size: size)
+            addTitleText(
+                "Press BOMB Button to Start",
+                x: size.width / 2 - CGFloat(26 / 2) * 5 * 4 * shrink,
+                y: size.height - 32,
+                scale: 4 * shrink,
+                color: .yellow
+            )
         }
 
     }
@@ -1071,7 +1131,8 @@ final class OriginalScreenRenderer {
         y: CGFloat,
         scale: CGFloat,
         color: SKColor,
-        size: CGSize
+        size: CGSize,
+        smoothStrokes: Bool = false
     ) {
         content.addChild(font.makeNode(
             text,
@@ -1079,7 +1140,8 @@ final class OriginalScreenRenderer {
             yFromTop: y,
             scale: scale,
             arenaHeight: size.height,
-            color: color
+            color: color,
+            smoothStrokes: smoothStrokes
         ))
     }
 

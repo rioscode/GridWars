@@ -64,7 +64,8 @@ final class OriginalVectorFont {
         scale: CGFloat,
         arenaHeight: CGFloat,
         color: SKColor,
-        lineWidth: CGFloat = 2
+        lineWidth: CGFloat = 2,
+        smoothStrokes: Bool = false
     ) -> SKShapeNode {
         let path = CGMutablePath()
         for (index, scalar) in text.unicodeScalars.enumerated() {
@@ -85,8 +86,9 @@ final class OriginalVectorFont {
         shape.strokeColor = color
         shape.fillColor = .clear
         shape.lineWidth = lineWidth
-        shape.lineCap = .round
-        shape.lineJoin = .round
+        shape.lineCap = smoothStrokes ? .round : .butt
+        shape.lineJoin = smoothStrokes ? .round : .miter
+        shape.isAntialiased = smoothStrokes
         shape.blendMode = .add
         return shape
     }
