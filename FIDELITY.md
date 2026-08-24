@@ -20,7 +20,13 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   now cover Get Ready, death, Game Over, and high-score entry. Their capture
   setup reproduces the original pre-draw grid/particle updates, ring deformation,
   Game Over counter, and `3 mns, 21 secs` score text; a full interactive
-  continuation check remains outstanding.
+  continuation check remains outstanding. The Get Ready title now uses the
+  original vector-font formula and the three contracting rings use the integer
+  midpoint-circle `Plot` algorithm from `utils.bmx`. Because the original
+  capture hook runs before `Flip`, its PNG contains the preceding frontbuffer;
+  the matching Swift references therefore render title frame 29 and ring frame
+  19 (catalog frame 79), not the loop counters 30/20. This correction reduced
+  normalized differences from 0.01828 to 0.01666 and from 0.02529 to 0.02175.
 - Gameplay entity audit: `gridwars.bmx:190-3167, 4752-4977, 5691-5777` maps to
   `SpawnDirector`, `TriangleBondState`, `SnakeSegmentRule`, `BlackHoleRule`,
   `InterceptorShieldGeometry`, and the generator/enemy/power-up/projectile

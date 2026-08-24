@@ -116,6 +116,8 @@ branch. Each major fidelity milestone has its own commit:
       600-frame attract capture simulation
 - [x] Source-specific Dual Analog configuration renderer using the official
       8×16 BRL Max2D bitmap font and original `1/128/255` scale values
+- [x] Source-rasterized Get Ready rings, vector title, and pre-`Flip`
+      frontbuffer frame selection
 
 `FIDELITY.md` is the acceptance ledger. The isolated BlitzMax harness and the
 Swift port now each capture the same 87 attract, transition, gameplay, HUD,

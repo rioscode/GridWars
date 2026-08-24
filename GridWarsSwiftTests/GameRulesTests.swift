@@ -1285,6 +1285,14 @@ final class GameRulesTests: XCTestCase {
         let scenarios = OriginalCaptureScenario.all
         XCTAssertEqual(scenarios.count, 87)
         XCTAssertEqual(Set(scenarios.map(\.name)).count, scenarios.count)
+        XCTAssertEqual(
+            OriginalCaptureScenario(name: "get-ready-title")?.subject,
+            .getReady(frame: 29)
+        )
+        XCTAssertEqual(
+            OriginalCaptureScenario(name: "get-ready-rings")?.subject,
+            .getReady(frame: 79)
+        )
 
         var enemies = 0
         var generators = 0

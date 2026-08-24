@@ -126,6 +126,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private let particleRenderer = ParticleRenderer()
     private let screenRenderer = OriginalScreenRenderer()
     private let hudRenderer = OriginalHUDRenderer()
+    private let vectorFont = OriginalVectorFont()
     private let enemyLayer = SKNode()
     private let projectileLayer = SKNode()
     private let pickupLayer = SKNode()
@@ -134,6 +135,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
     private let player = SKSpriteNode()
     private let messageLabel = SKLabelNode(fontNamed: "Menlo-Bold")
+    private let readyMessageNode = SKNode()
     private let bombButton = SKShapeNode(circleOfRadius: 38)
     private let optionsButton = SKShapeNode(circleOfRadius: 30)
     private let movementStick = VirtualStickNode()
@@ -359,10 +361,11 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
         for ring in readyRings {
             ring.name = "readyRing"
-            ring.fillColor = .clear
-            ring.strokeColor = SKColor(red: 1, green: 1, blue: 0.78, alpha: 1)
-            ring.lineWidth = 2
+            ring.fillColor = .white
+            ring.strokeColor = .clear
+            ring.lineWidth = 0
             ring.glowWidth = 0
+            ring.isAntialiased = false
             ring.zPosition = 3
             ring.isHidden = true
             worldLayer.addChild(ring)
@@ -383,6 +386,10 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         messageLabel.zPosition = 20
         messageLabel.isHidden = true
         hudLayer.addChild(messageLabel)
+
+        readyMessageNode.zPosition = 20
+        readyMessageNode.isHidden = true
+        hudLayer.addChild(readyMessageNode)
 
         bombButton.position = CGPoint(x: size.width - 62, y: 72)
         bombButton.fillColor = SKColor(red: 0.1, green: 0.2, blue: 0.55, alpha: 0.65)
@@ -4603,7 +4610,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         readyRings.forEach { $0.isHidden = true }
         messageLabel.text = "GET READY"
         messageLabel.setScale(1)
-        messageLabel.isHidden = false
+        messageLabel.isHidden = true
+        readyMessageNode.removeAllChildren()
+        readyMessageNode.isHidden = false
         audio.play(.getReady)
     }
 
@@ -4611,18 +4620,22 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         let frame = getReadyFrame
         if frame < 60 {
             let pulse = abs(sin(CGFloat(frame) * .pi / 180))
-            messageLabel.isHidden = false
-            messageLabel.position = CGPoint(
-                x: size.width / 2,
-                y: size.height / 2 + pulse * 100
-            )
-            messageLabel.setScale(max(0.05, pulse * 3.2))
-            messageLabel.fontColor = SKColor(
+            let color = SKColor(
                 red: 0,
                 green: (55 + pulse * 200) / 255,
                 blue: 0,
                 alpha: 1
             )
+            readyMessageNode.removeAllChildren()
+            readyMessageNode.addChild(vectorFont.makeNode(
+                "GET READY",
+                x: size.width / 2 - pulse * 19 * 5 * 9 * 0.5,
+                yFromTop: size.height / 2 - pulse * 100,
+                scale: pulse * 20,
+                arenaHeight: size.height,
+                color: color
+            ))
+            readyMessageNode.isHidden = false
             player.isHidden = true
             readyRings.forEach { $0.isHidden = true }
         } else {
@@ -4630,16 +4643,17 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             if ringFrame == 0 {
                 gridSimulation.pull(at: player.position, radiusInPoints: 20, amount: 20)
             }
-            messageLabel.isHidden = true
+            readyMessageNode.isHidden = true
             player.isHidden = ringFrame <= 10
             let contractions: [CGFloat] = [6, 8, 12]
             for (ring, contraction) in zip(readyRings, contractions) {
                 let radius = max(0, 300 - CGFloat(ringFrame) * contraction)
                 ring.position = player.position
-                ring.path = CGPath(
-                    ellipseIn: CGRect(x: -radius, y: -radius, width: radius * 2, height: radius * 2),
-                    transform: nil
-                )
+                // DrawPlayer leaves Max2D's draw colour white before the
+                // source calls DrawCircle, so the rings are white rather than
+                // the configured player colour.
+                ring.fillColor = .white
+                ring.path = originalCirclePath(radius: Int(radius))
                 ring.isHidden = radius == 0
             }
         }
@@ -4651,11 +4665,50 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             messageLabel.position = CGPoint(x: size.width / 2, y: size.height / 2)
             messageLabel.setScale(1)
             messageLabel.isHidden = true
+            readyMessageNode.removeAllChildren()
+            readyMessageNode.isHidden = true
             player.isHidden = false
             session.grantRespawnShield()
             updatePlayerShield()
             audio.startMusic(.gameplay)
         }
+    }
+
+    private func originalCirclePath(radius: Int) -> CGPath {
+        let path = CGMutablePath()
+        guard radius > 0 else { return path }
+
+        func plot(_ x: Int, _ y: Int) {
+            path.addRect(CGRect(x: x, y: y, width: 1, height: 1))
+        }
+        func plotOctants(x: Int, y: Int) {
+            plot(x, y)
+            plot(-x, y)
+            plot(x, -y)
+            plot(-x, -y)
+            plot(y, x)
+            plot(-y, x)
+            plot(y, -x)
+            plot(-y, -x)
+        }
+
+        var x = 0
+        var y = radius
+        var decision = 1 - radius
+        plotOctants(x: x, y: y)
+        while x < y {
+            x += 1
+            if decision >= 0 {
+                y -= 1
+            }
+            if decision < 0 {
+                decision += (x << 1) + 1
+            } else {
+                decision += ((x - y) << 1) + 1
+            }
+            plotOctants(x: x, y: y)
+        }
+        return path
     }
 
     private func advanceDeathSequence() {
