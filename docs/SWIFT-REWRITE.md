@@ -62,6 +62,13 @@ Remember that the scene-Y inversion changes the apparent rotation direction.
 Use `atan2`, not `atan(dy/dx)`, except where the original explicitly used the
 latter and its divide-by-zero behavior is part of the result.
 
+The same handedness change applies to tangential forces, not just displayed
+angles. For a BlitzMax force term `(dx - dy/spin, dy + dx/spin)`, a simulation
+stored in SpriteKit coordinates needs the Y-inverted equivalent
+`(dx + dy/spin, dy - dx/spin)`. The title-screen particle spirals and gameplay
+black holes expose this difference clearly; copying the source signs verbatim
+makes their rotation run mirrored.
+
 Preserve first-draw edge cases. For example, the original Snake tail computes
 `ATan2(0,0)+90`, so a new zero-velocity segment is drawn at 90 degrees before
 its first update.

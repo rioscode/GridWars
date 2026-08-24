@@ -883,9 +883,11 @@ final class GameRulesTests: XCTestCase {
         particles.applyBlackHole(at: CGPoint(x: 200, y: 100), size: 20, frame: 0)
         XCTAssertEqual(particles.particles[0].activeFrames, 27)
         XCTAssertEqual(particles.particles[1].activeFrames, 24)
+        XCTAssertGreaterThan(particles.particles[0].velocity.dy, 0)
 
         particles.applyBlackHole(at: CGPoint(x: 200, y: 100), size: 20, frame: 1)
         XCTAssertEqual(particles.particles[1].activeFrames, 27)
+        XCTAssertLessThan(particles.particles[1].velocity.dy, 0)
     }
 
     func testAttractModeUsesOriginalPageDurationsAndOrder() {

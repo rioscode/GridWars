@@ -275,13 +275,13 @@ struct ParticleSimulation: Equatable {
             guard distance < size * 8, distance > 8 else { continue }
             if distance < size / 4 {
                 difference = difference / -distance
-                particle.velocity.dx += difference.dx / 2 + difference.dy / spin
-                particle.velocity.dy += difference.dy / 2 - difference.dx / spin
+                particle.velocity.dx += difference.dx / 2 - difference.dy / spin
+                particle.velocity.dy += difference.dy / 2 + difference.dx / spin
             } else {
                 particle.activeFrames += 3
                 difference = difference / distance
-                particle.velocity.dx += difference.dx / 2 - difference.dy / spin
-                particle.velocity.dy += difference.dy / 2 + difference.dx / spin
+                particle.velocity.dx += difference.dx / 2 + difference.dy / spin
+                particle.velocity.dy += difference.dy / 2 - difference.dx / spin
             }
             if particle.velocity.dx * particle.velocity.dx
                 + particle.velocity.dy * particle.velocity.dy > 12 * 12 {
