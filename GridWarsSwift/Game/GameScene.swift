@@ -722,7 +722,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
     private func configureEnemyCapture(_ originalKind: OriginalEnemyKind) {
         let kind = EnemyKind(originalKind)
-        player.position = CGPoint(x: playfieldSize.width / 2, y: 100)
+        player.position = sourcePoint(CGPoint(x: playfieldSize.width / 2, y: 100))
         let center = CGPoint(x: playfieldSize.width / 2, y: playfieldSize.height / 2)
         if kind == .triangle {
             let first = spawnEnemy(
@@ -764,10 +764,12 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             }
             for segment in segments {
                 let index = (segment.userData?["segmentIndex"] as? NSNumber)?.intValue ?? 0
-                segment.position = CGPoint(
-                    x: center.x - CGFloat(index + 1) * 13,
-                    y: center.y + sin(CGFloat(index) * 0.35) * 22
-                )
+                let sourceIndex = index + 1
+                segment.position = sourcePoint(CGPoint(
+                    x: center.x - CGFloat(sourceIndex) * 13,
+                    y: center.y
+                        + sin(CGFloat(sourceIndex * 20) * .pi / 180) * 22
+                ))
             }
         }
     }

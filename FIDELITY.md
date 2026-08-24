@@ -39,7 +39,11 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   Enemy sprite transforms, per-kind auras, generator fill/outline geometry,
   warning flashes and attract-screen animation rates are now source-matched.
   The original and Swift capture catalogs expose matching isolated states for
-  all ten enemies and generators; pairwise visual correction is in progress,
+  all ten enemies and generators. The isolated enemy player's source Y=100 is
+  now converted to SpriteKit coordinates, improving all ten enemy captures by
+  2.6–3.4%. The Snake fixture also reproduces `Sin(segmentIndex*20)` in degrees,
+  with the source tail index and inverted scene Y; its normalized difference
+  fell from 0.02209 to 0.01977. Pairwise visual correction is still in progress,
   so the broad enemy checklist entries stay open.
 - Grid and particle simulation: `gridparttrail.bmx:494-2017` maps to
   `GridSimulation`, `GridRenderer`, `ParticleSimulation`, and
