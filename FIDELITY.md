@@ -231,9 +231,10 @@ the corresponding Swift implementation, and a test or visual/runtime check.
 
 ## Final verification
 
-- [ ] Pure rule tests cover difficulty, spawn scheduling, scoring, upgrades,
+- [x] Pure rule tests cover difficulty, spawn scheduling, scoring, upgrades,
       persistence, checksums, and deterministic entity transitions.
-- [ ] macOS and iOS builds and tests pass with Swift 6 strict concurrency.
+- [x] The macOS app/test action and generic iOS Simulator build pass with
+      Swift 6 strict concurrency.
 - [ ] Automated capture scenes cover each entity, grid style, power-up, HUD,
       and menu state.
 - [ ] Side-by-side captures against the BlitzMax reference have been reviewed

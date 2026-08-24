@@ -1,53 +1,87 @@
 # GridWars
 
-This repository holds the source code of GridWars, created originally by Mark Incitti in 2006. The goal of this project is to improve compatibility with embedded systems, such as the Respberry Pi.
+This repository holds the source code of GridWars, created originally by Mark Incitti in 2006. The goal of this project is to improve compatibility with embedded systems, such as the Raspberry Pi.
 
 
 ## Native Swift port for macOS and iOS
 
-The repository now also contains a native Swift 6 and SpriteKit port. It keeps
-the original BlitzMax source intact and provides shared gameplay code for a
-macOS application and an iPhone/iPad application.
+The repository contains a native Swift 6/SpriteKit port shared by macOS and
+iPhone/iPad. The original BlitzMax source and assets remain intact and are the
+authority for gameplay and presentation.
 
-The playable first milestone includes:
+The port includes all ten enemies and generators, the 21 grid selectors, the
+original particle recipes, weapons and power-ups, attract screens, menus,
+graphics sets, sound effects, tracker music, high scores, legacy configuration
+import, and all five controller modes. The remaining evidence work is tracked
+honestly in `FIDELITY.md`.
 
-- neon grid and star-field rendering;
-- keyboard/mouse controls on macOS and twin virtual sticks on iOS;
-- three enemy behaviours, projectiles, collisions, and particle effects;
-- score, multiplier, lives, bombs, power-ups, game over, and restart;
-- selected original graphics and sounds;
-- deterministic unit tests for scoring, lives, bombs, and spawn pacing.
+### Requirements
 
-Open `GridWars.xcodeproj` in Xcode and select either `GridWars-macOS` or
-`GridWars-iOS`. The command-line builds are:
+- Xcode 16 or newer with the macOS SDK and an iOS Simulator runtime;
+- macOS 14 or newer for the Mac target;
+- iOS/iPadOS 17 or newer for the mobile target.
+
+### Start on macOS
+
+From the repository root, build and launch with one command:
+
+```sh
+./scripts/run-macos.sh
+```
+
+Alternatively, open `GridWars.xcodeproj`, select the `GridWars-macOS` scheme,
+choose **My Mac**, and press **Run** (`Cmd-R`). Build products stay in `.build/`.
+
+### Start on iPhone or iPad
+
+1. Open `GridWars.xcodeproj` in Xcode.
+2. Select the `GridWars-iOS` scheme.
+3. Choose an iPhone/iPad Simulator and press **Run** (`Cmd-R`).
+
+For a physical device, select a development team for the `GridWars-iOS`
+target's Signing & Capabilities settings first.
+
+### Command-line verification
 
 ```sh
 xcodebuild -project GridWars.xcodeproj -scheme GridWars-macOS \
-  -configuration Debug -derivedDataPath .build/DerivedData build
+  -configuration Debug -destination 'platform=macOS' \
+  -derivedDataPath .build/DerivedData CODE_SIGNING_ALLOWED=NO build
 
 xcodebuild -project GridWars.xcodeproj -scheme GridWars-iOS \
   -configuration Debug -sdk iphonesimulator \
   -destination 'generic/platform=iOS Simulator' \
-  -derivedDataPath .build/DerivedData build
+  -derivedDataPath .build/DerivedData-iOS CODE_SIGNING_ALLOWED=NO build
 
 xcodebuild -project GridWars.xcodeproj -scheme GridWars-macOS \
-  -configuration Debug -derivedDataPath .build/DerivedData test
+  -configuration Debug -destination 'platform=macOS' \
+  -derivedDataPath .build/DerivedData-tests CODE_SIGNING_ALLOWED=NO test
 ```
-
-Running on a physical iPhone or iPad requires selecting your development team
-for the `GridWars-iOS` target in Xcode.
 
 ### Swift port controls
 
-- macOS: WASD moves, mouse or arrow keys aim/fire, Space or right-click uses a
-  bomb, and R restarts after game over.
-- iOS/iPadOS: drag on the left half to move, drag on the right half to aim and
-  fire, and tap the BOMB button to use a bomb.
+- Use the configured BOMB key, mouse button, controller button, or the iOS
+  **BOMB** control on the attract screen to start.
+- macOS original keyboard defaults: `S`/`D` move left/right, `E`/`X` move
+  up/down, arrow keys aim/fire, and `Space` uses a bomb.
+- `Esc` opens Options. Choose **Settings → Controls** to select Dual Analog,
+  Mouse, Keyboard, Joypad, or Hybrid and configure its bindings.
+- iOS/iPadOS: drag the left stick to move and the right stick to aim/fire; tap
+  **BOMB** to use a bomb and **OPT** to open Options.
+- Runtime controls match the original: `F3` cycles the grid, `F4` changes the
+  star count, `F5` toggles particle gravity, `F6` cycles particle style, and
+  `F7` toggles debug output.
+- `F1` toggles cheat mode and invalidates the current score. While enabled,
+  `1`–`4` grant timed weapons, `X` adds a cannon, `Z` increases shot speed,
+  `S` grants a shield, `F2` toggles god mode, holding `P` pauses, and `O`
+  advances one frame.
 
-See `PLAN.md` for the implemented milestone and the remaining fidelity work.
+Official language references used during the port are archived in `docs/bb/`.
+`PLAN.md` records the milestones, while `FIDELITY.md` maps the BlitzMax source
+to its Swift implementation and verification evidence.
 
 
-## Build intructions
+## Build instructions
 
 The instructions below apply to the original BlitzMax version.
 

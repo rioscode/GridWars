@@ -47,7 +47,7 @@ they can be tested without rendering.
 
 - Render the scrolling neon grid and star field.
 - Add player movement, aiming, projectiles, arena bounds, and collisions.
-- Add representative enemy behaviours inspired by the original enemy types.
+- Reproduce every original enemy, generator, projectile, and power-up rule.
 - Add lives, bombs, score, multiplier, game-over, and restart flow.
 - Add keyboard/mouse controls on macOS and twin virtual sticks on iOS.
 
@@ -67,7 +67,7 @@ they can be tested without rendering.
 
 ### 5. Full fidelity
 
-- Recreate every original enemy and all twenty grid styles.
+- Recreate every original enemy and all 21 grid selectors.
 - Reproduce the complete configuration and high-score menus.
 - Match every original sound/music backend detail.
 - Tune difficulty and spawn timing against side-by-side gameplay captures.
@@ -84,7 +84,8 @@ they can be tested without rendering.
 
 ## Current status
 
-The first playable milestone is complete on the `codex/swift-port` branch:
+The source-level implementation audit is complete on the `codex/swift-port`
+branch. Each major fidelity milestone has its own commit:
 
 - [x] Shared SwiftUI/SpriteKit app sources
 - [x] macOS keyboard and mouse input
@@ -93,15 +94,22 @@ The first playable milestone is complete on the `codex/swift-port` branch:
 - [x] Apple controller ports, button remapping, axis mapping, and calibration
 - [x] Core combat, scoring, lives, bombs, enemies, and power-ups
 - [x] Original PNG and WAV resources packaged for both targets
+- [x] All enemies, generators, projectiles, power-ups, and spawn rules
+- [x] All 21 grid selectors and all four particle selectors
+- [x] Original graphics sets, vector HUD, screens, and fixed menu layouts
+- [x] Original WAV mappings and lossless conversions of the tracker music
+- [x] Legacy configuration, colours, high scores, and checksum compatibility
+- [x] Original arena sizing, camera scrolling, star parallax, pause, and cheats
+- [x] Transactional Video/Game settings confirmation and rollback
+- [x] Official BlitzMax/BlitzBasic language references archived in `docs/bb`
 - [x] macOS Debug build
 - [x] Generic iOS Simulator Debug build
-- [x] Gameplay rule unit tests
+- [x] 62 gameplay, input, persistence, audio, and rendering-rule unit tests
 - [x] macOS launch and rendering smoke test
 
-The items under “Full fidelity” remain open and are the active project goal.
-
-The source, gameplay, grid/particle, screen/runtime, persistence, audio, input,
-original graphics/HUD, entity/attract visual, and exact menu-layout audit
-milestones are committed separately. Automated fixed-state captures are
-implemented; final side-by-side review and full playthrough verification
-remain.
+`FIDELITY.md` is the acceptance ledger. Automated fixed-state capture support
+is implemented, but authoritative 1024×768 side-by-side review still requires
+an active unlocked macOS window session and a runnable BlitzMax reference
+binary. A full manual playthrough on physical iPhone/iPad hardware also remains
+verification work; these evidence gaps are not represented as completed 1:1
+proof.
