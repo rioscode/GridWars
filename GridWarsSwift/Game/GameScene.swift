@@ -59,14 +59,14 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             }
         }
 
-        var initialMagnitude: ClosedRange<CGFloat> {
+        var initialMagnitude: Range<CGFloat> {
             switch self {
-            case .pinwheel, .snake, .interceptor: 0.5...2
-            case .cube: 0.25...2
-            case .diamond, .triangle: 0.25...1
-            case .greenSquare: 2...4
-            case .seeker, .butterfly: 3...6
-            case .blackHole: 0.05...0.5
+            case .pinwheel, .snake, .interceptor: 0.5..<2
+            case .cube: 0.25..<2
+            case .diamond, .triangle: 0.25..<1
+            case .greenSquare: 2..<4
+            case .seeker, .butterfly: 3..<6
+            case .blackHole: 0.05..<0.5
             }
         }
 
@@ -101,6 +101,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private let bombButton = SKShapeNode(circleOfRadius: 38)
     private let movementStick = VirtualStickNode()
     private let aimingStick = VirtualStickNode()
+    private let playerShield = SKShapeNode(circleOfRadius: 8)
+    private let readyRings = (0..<3).map { _ in SKShapeNode(circleOfRadius: 1) }
 
     private var session = GameSession()
     private var configured = false
@@ -108,20 +110,31 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private var pointerLocation = CGPoint(x: 512, y: 600)
     private var hasPointerLocation = false
     private var mouseIsFiring = false
+    private var mouseBombIsHeld = false
     private var touchMovement = CGVector.zero
     private var touchAim = CGVector.zero
     private var touchIsFiring = false
     private var currentAim = CGVector(dx: 0, dy: 1)
+    private var mouseAutofireArmed = false
+    private var keyboardAutofireArmed = false
+    private var playerMotion = PlayerMotionState()
 
     private var lastUpdateTime: TimeInterval = 0
     private var shotTimerFrames = 0
-    private var playerInvulnerableUntil: TimeInterval = 0
+    private var deathFramesRemaining = 0
+    private var getReadyFrame = -1
     private var destroyedEnemyCount = 0
     private var fixedTimeAccumulator: TimeInterval = 0
     private var simulationFrame = GameDifficulty.medium.initialFrame
     private var bombCooldownFrames = 20
     private var spawnDirector = SpawnDirector()
     private var spawnRandom = SystemRandomNumberGenerator()
+    private var cyclingRed = 250
+    private var cyclingGreen = 20
+    private var cyclingBlue = 30
+    private var cyclingRedDelta: CGFloat = -3
+    private var cyclingGreenDelta: CGFloat = 5
+    private var cyclingBlueDelta: CGFloat = 7
 
     #if os(iOS)
     private var movementTouch: UITouch?
@@ -213,6 +226,14 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     private func setupPlayer() {
+        playerShield.name = "playerShield"
+        playerShield.fillColor = SKColor(red: 0.4, green: 0.8, blue: 1, alpha: 1)
+        playerShield.strokeColor = .clear
+        playerShield.alpha = 0.48
+        playerShield.zPosition = 4
+        playerShield.isHidden = true
+        worldLayer.addChild(playerShield)
+
         player.name = "player"
         player.size = CGSize(width: 64, height: 64)
         player.blendMode = .add
@@ -224,6 +245,17 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         player.physicsBody?.collisionBitMask = 0
         player.physicsBody?.contactTestBitMask = Category.enemy | Category.powerUp
         worldLayer.addChild(player)
+
+        for ring in readyRings {
+            ring.name = "readyRing"
+            ring.fillColor = .clear
+            ring.strokeColor = SKColor(red: 1, green: 1, blue: 0.78, alpha: 1)
+            ring.lineWidth = 2
+            ring.glowWidth = 3
+            ring.zPosition = 3
+            ring.isHidden = true
+            worldLayer.addChild(ring)
+        }
     }
 
     private func setupHUD() {
@@ -296,19 +328,28 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         destroyedEnemyCount = 0
         lastUpdateTime = 0
         shotTimerFrames = 0
-        playerInvulnerableUntil = 0
+        deathFramesRemaining = 0
+        getReadyFrame = -1
         fixedTimeAccumulator = 0
         simulationFrame = session.difficulty.initialFrame
         bombCooldownFrames = 20
         player.removeAllActions()
         player.alpha = 1
         player.position = CGPoint(x: size.width / 2, y: size.height / 2)
-        player.isHidden = false
+        playerMotion.reset()
+        playerShield.isHidden = true
+        playerShield.position = player.position
+        readyRings.forEach { $0.isHidden = true }
         messageLabel.isHidden = true
         touchMovement = .zero
         touchAim = .zero
         touchIsFiring = false
+        mouseAutofireArmed = false
+        keyboardAutofireArmed = false
+        mouseBombIsHeld = false
+        currentAim = CGVector(dx: 0, dy: 1)
         updateHUD()
+        startGetReadySequence()
     }
 
     override func update(_ currentTime: TimeInterval) {
@@ -330,6 +371,17 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     private func simulateFrame() {
+        cycleColors()
+        cycleColors()
+        if deathFramesRemaining > 0 {
+            advanceDeathSequence()
+            return
+        }
+        if getReadyFrame >= 0 {
+            advanceGetReadySequence()
+            return
+        }
+
         let spawnResult = spawnDirector.advance(
             frame: simulationFrame,
             spawningIsBlocked: bombCooldownFrames > 0,
@@ -344,85 +396,194 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
         session.tick()
         bombCooldownFrames = max(0, bombCooldownFrames - 1)
-        updatePlayer(deltaTime: 0.02)
+        if bombCooldownFrames == 0,
+           pressedKeys.contains(49) || mouseBombIsHeld {
+            triggerBomb()
+        }
+        updatePlayer()
+        updatePlayerTrails()
         updateAim()
+        updatePlayerShield()
         fireIfNeeded()
         pullPlayerTowardBlackHoles()
         checkTriangleBondPlayerCollision()
+        if stopGameplayFrameForDeath() { return }
         updateGenerators()
+        if stopGameplayFrameForDeath() { return }
         updateEnemies(kinds: [
             .greenSquare, .pinwheel, .diamond, .cube, .seeker,
             .snake, .interceptor, .butterfly, .triangle,
         ])
+        if stopGameplayFrameForDeath() { return }
         updateTrianglePairsAndBonds()
         updatePowerUps()
         updateEnemies(kinds: [.blackHole])
+        if stopGameplayFrameForDeath() { return }
         updateProjectiles()
         simulationFrame += 1
+    }
+
+    private func stopGameplayFrameForDeath() -> Bool {
+        guard deathFramesRemaining > 0 else { return false }
+        simulationFrame += 1
+        return true
     }
 
     private func updateGrid(at currentTime: TimeInterval) {
         gridLayer.childNode(withName: "grid")?.alpha = 0.34 + 0.1 * sin(currentTime * 1.3)
     }
 
-    private func updatePlayer(deltaTime: TimeInterval) {
+    private func updatePlayer() {
         let keyboard = keyboardMovement
         let combined = keyboard.length > 0 ? keyboard : touchMovement
-        let movement = combined.length > 1 ? combined.normalized : combined
-        let speed: CGFloat = 285
-        let margin: CGFloat = 24
+        let result = playerMotion.advance(
+            from: player.position,
+            input: combined,
+            arenaSize: size
+        )
+        player.position = result.position
+        if result.movement.length > 0 {
+            player.zRotation = atan2(result.movement.dy, result.movement.dx) - .pi / 2
+        }
+        if abs(result.movement.dx) > 0.1 || abs(result.movement.dy) > 0.1 {
+            createPlayerTrail(movement: result.movement)
+        }
+    }
 
-        player.position.x += movement.dx * speed * deltaTime
-        player.position.y += movement.dy * speed * deltaTime
-        player.position.x = min(size.width - margin, max(margin, player.position.x))
-        player.position.y = min(size.height - margin, max(margin, player.position.y))
+    private func createPlayerTrail(movement: CGVector) {
+        for index in 0..<3 {
+            let angle = CGFloat(simulationFrame * 12 + index * 45) * .pi / 180
+            let trail = SKSpriteNode(imageNamed: "particle")
+            trail.name = "playerTrail"
+            trail.color = SKColor(red: 240 / 255, green: 240 / 255, blue: 100 / 255, alpha: 1)
+            trail.colorBlendFactor = 1
+            trail.blendMode = .add
+            trail.alpha = 0.23
+            trail.size = CGSize(width: 30, height: 30)
+            trail.position = CGPoint(
+                x: player.position.x - movement.dx * 12 + sin(angle) * 8,
+                y: player.position.y - movement.dy * 12 + cos(angle) * 8
+            )
+            trail.userData = NSMutableDictionary(dictionary: [
+                "trailActive": 40,
+                "trailDX": -movement.dx * 1.5,
+                "trailDY": -movement.dy * 1.5,
+                "trailR": 240,
+                "trailG": 240,
+                "trailB": 100,
+            ])
+            effectLayer.addChild(trail)
+        }
+    }
+
+    private func updatePlayerTrails() {
+        for case let trail as SKSpriteNode in effectLayer.children where trail.name == "playerTrail" {
+            var active = (trail.userData?["trailActive"] as? NSNumber)?.intValue ?? 0
+            active -= 1
+            trail.userData?["trailActive"] = active
+            if active < 28 {
+                var red = (trail.userData?["trailR"] as? NSNumber)?.intValue ?? 0
+                var green = (trail.userData?["trailG"] as? NSNumber)?.intValue ?? 0
+                var blue = (trail.userData?["trailB"] as? NSNumber)?.intValue ?? 0
+                var dx = CGFloat((trail.userData?["trailDX"] as? NSNumber)?.doubleValue ?? 0)
+                var dy = CGFloat((trail.userData?["trailDY"] as? NSNumber)?.doubleValue ?? 0)
+
+                red = Int(CGFloat(red) * 0.91)
+                green = Int(CGFloat(green) * 0.88)
+                blue = Int(CGFloat(blue) * 0.86)
+                trail.position.x += dx
+                trail.position.y += dy
+                dx *= 0.999
+                dy *= 0.999
+
+                trail.userData?["trailR"] = red
+                trail.userData?["trailG"] = green
+                trail.userData?["trailB"] = blue
+                trail.userData?["trailDX"] = dx
+                trail.userData?["trailDY"] = dy
+                trail.color = SKColor(
+                    red: CGFloat(red) / 255,
+                    green: CGFloat(green) / 255,
+                    blue: CGFloat(blue) / 255,
+                    alpha: 1
+                )
+            }
+            if active <= 0 {
+                trail.removeFromParent()
+            }
+        }
+    }
+
+    private func updatePlayerShield() {
+        playerShield.position = player.position
+        let frames = session.shieldFrames
+        playerShield.isHidden = frames == 0 || (frames <= 60 && frames % 15 <= 7)
+        playerShield.setScale(2.75 + CGFloat(frames) / 128)
+        playerShield.fillColor = SKColor(
+            red: CGFloat(cyclingRed) / 255,
+            green: CGFloat(cyclingGreen) / 255,
+            blue: CGFloat(cyclingBlue) / 255,
+            alpha: 1
+        )
+    }
+
+    private func cycleColors() {
+        cycleColor(value: &cyclingRed, delta: &cyclingRedDelta)
+        cycleColor(value: &cyclingGreen, delta: &cyclingGreenDelta)
+        cycleColor(value: &cyclingBlue, delta: &cyclingBlueDelta)
+    }
+
+    private func cycleColor(value: inout Int, delta: inout CGFloat) {
+        value = Int(CGFloat(value) + delta)
+        if value < 0 {
+            value = 0
+            delta = CGFloat.random(in: 1..<10)
+        } else if value > 255 {
+            value = 255
+            delta = -CGFloat.random(in: 1..<10)
+        }
     }
 
     private func updateAim() {
         let arrowAim = keyboardAim
         if arrowAim.length > 0 {
             currentAim = arrowAim.normalized
+            keyboardAutofireArmed = true
         } else if touchAim.length > 0 {
             currentAim = touchAim.normalized
-        } else if hasPointerLocation {
+        } else if hasPointerLocation, mouseIsFiring {
             let pointerAim = CGVector(
                 dx: pointerLocation.x - player.position.x,
                 dy: pointerLocation.y - player.position.y
             )
             if pointerAim.length > 2 {
                 currentAim = pointerAim.normalized
+                mouseAutofireArmed = true
             }
         }
 
-        player.zRotation = atan2(currentAim.dy, currentAim.dx) - .pi / 2
     }
 
     private func fireIfNeeded() {
         shotTimerFrames = max(0, shotTimerFrames - 1)
-        let shouldFire = mouseIsFiring || touchIsFiring || keyboardAim.length > 0
+        let shouldFire = mouseIsFiring
+            || touchIsFiring
+            || keyboardAim.length > 0
+            || mouseAutofireArmed
+            || keyboardAutofireArmed
         guard shotTimerFrames == 0 else { return }
-        shotTimerFrames = 4 + session.cannons / 2
+        shotTimerFrames = PlayerWeaponRule.timerFrames(cannons: session.cannons)
         guard shouldFire else { return }
 
-        let baseDirection = currentAim.normalized
-        if session.cannons.isMultiple(of: 2) == false {
-            spawnProjectile(direction: baseDirection, speed: CGFloat(session.shotSpeed) * 3.2)
-        }
-        if session.cannons > 1 {
-            let angle: CGFloat = session.cannons.isMultiple(of: 2) ? 2 : 4
-            spawnProjectile(direction: rotated(baseDirection, degrees: angle), speed: CGFloat(session.shotSpeed) * 3.15)
-            spawnProjectile(direction: rotated(baseDirection, degrees: -angle), speed: CGFloat(session.shotSpeed) * 3.15)
-        }
-        if session.cannons > 3 {
-            spawnProjectile(direction: rotated(baseDirection, degrees: 5), speed: CGFloat(session.shotSpeed) * 3.1)
-            spawnProjectile(direction: rotated(baseDirection, degrees: -5), speed: CGFloat(session.shotSpeed) * 3.1)
-        }
-        if session.reverseShooterFrames > 0 {
-            spawnProjectile(direction: rotated(baseDirection, degrees: 180), speed: CGFloat(session.shotSpeed) * 3)
-        }
-        if session.sideShooterFrames > 0 {
-            spawnProjectile(direction: rotated(baseDirection, degrees: 90), speed: CGFloat(session.shotSpeed) * 3)
-            spawnProjectile(direction: rotated(baseDirection, degrees: -90), speed: CGFloat(session.shotSpeed) * 3)
+        let launches = PlayerWeaponRule.launches(
+            aim: currentAim,
+            cannons: session.cannons,
+            shotSpeed: session.shotSpeed,
+            reverseShooter: session.reverseShooterFrames > 0,
+            sideShooters: session.sideShooterFrames > 0
+        )
+        for launch in launches {
+            spawnProjectile(direction: launch.direction, speed: launch.speed)
         }
         run(.playSoundFileNamed("shotborn.wav", waitForCompletion: false))
     }
@@ -433,6 +594,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         projectile.name = "projectile"
         projectile.size = CGSize(width: 32, height: 32)
         projectile.blendMode = .add
+        projectile.color = projectileColor
+        projectile.colorBlendFactor = 1
         projectile.position = player.position
         projectile.zRotation = atan2(direction.dy, direction.dx)
         let velocity = direction * speed
@@ -442,14 +605,6 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             "speed": speed,
         ])
         projectileLayer.addChild(projectile)
-    }
-
-    private func rotated(_ vector: CGVector, degrees: CGFloat) -> CGVector {
-        let angle = degrees * .pi / 180
-        return CGVector(
-            dx: vector.dx * cos(angle) - vector.dy * sin(angle),
-            dy: vector.dx * sin(angle) + vector.dy * cos(angle)
-        )
     }
 
     @discardableResult
@@ -468,7 +623,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         case .blackHole where matchingEnemyCount > 3:
             return nil
         case .snake:
-            let snakeNodeCount = matchingEnemyCount + enemyLayer.children.filter { $0.name == "snakeTail" }.count
+            let snakeNodeCount = matchingEnemyCount + enemyLayer.children.filter {
+                $0.name == "snakeTail"
+            }.count
             if snakeNodeCount > 16 * 24 { return nil }
         case .interceptor:
             if matchingEnemyCount > 7
@@ -491,10 +648,14 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         enemy.physicsBody?.collisionBitMask = 0
         enemy.physicsBody?.contactTestBitMask = Category.player | Category.projectile
         let enemyID = UUID().uuidString
-        let initialRotation = Int.random(in: 0...359)
+        let initialRotation = switch kind {
+        case .greenSquare, .pinwheel: 90
+        default: Int.random(in: 0...359)
+        }
+        let initialDirection = Int.random(in: 0...359)
         let initialAngle = kind == .snake
             ? CGFloat(initialRotation) * .pi / 180
-            : CGFloat.random(in: 0...(2 * .pi))
+            : CGFloat(initialDirection) * .pi / 180
         let initialMagnitude = CGFloat.random(in: kind.initialMagnitude)
         let initialVelocity = CGVector(
             dx: cos(initialAngle) * initialMagnitude,
@@ -526,9 +687,11 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             "snakeTurnDirection": Int.random(in: 0...1),
             "interceptorHeading": Double(initialRotation),
             "interceptorTurnRemaining": abs(interceptorTurn) < 16
-                ? (interceptorTurn < 0 ? -16 : 16)
+                ? 16
                 : interceptorTurn,
+            "interceptorLastPlayed": 0,
             "seekerMean": 0,
+            "triangleResist": false,
         ])
         let aura = SKShapeNode(path: generatorPath(kind: kind, radius: 12))
         aura.name = "spawnAura"
@@ -587,22 +750,26 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
         switch resolved {
         case .topLeft:
-            return CGPoint(x: CGFloat.random(in: 30...80), y: size.height - CGFloat.random(in: 30...80))
+            return CGPoint(x: randomCoordinate(30...80), y: size.height - randomCoordinate(30...80))
         case .topRight:
-            return CGPoint(x: size.width - CGFloat.random(in: 30...80), y: size.height - CGFloat.random(in: 30...80))
+            return CGPoint(x: size.width - randomCoordinate(30...80), y: size.height - randomCoordinate(30...80))
         case .bottomRight:
-            return CGPoint(x: size.width - CGFloat.random(in: 30...80), y: CGFloat.random(in: 30...80))
+            return CGPoint(x: size.width - randomCoordinate(30...80), y: randomCoordinate(30...80))
         case .bottomLeft:
-            return CGPoint(x: CGFloat.random(in: 30...80), y: CGFloat.random(in: 30...80))
+            return CGPoint(x: randomCoordinate(30...80), y: randomCoordinate(30...80))
         case .nearPlayer:
-            let angle = CGFloat.random(in: 0...(2 * .pi))
+            let angle = CGFloat(Int.random(in: 0...360)) * .pi / 180
             return CGPoint(x: player.position.x + cos(angle) * 240, y: player.position.y + sin(angle) * 240)
         default:
             return CGPoint(
-                x: CGFloat.random(in: 30...(size.width - 30)),
-                y: CGFloat.random(in: 30...(size.height - 30))
+                x: randomCoordinate(30...Int(size.width - 30)),
+                y: randomCoordinate(30...Int(size.height - 30))
             )
         }
+    }
+
+    private func randomCoordinate(_ range: ClosedRange<Int>) -> CGFloat {
+        CGFloat(Int.random(in: range))
     }
 
     private func safePosition(_ proposed: CGPoint, minimumPlayerDistance: CGFloat) -> CGPoint {
@@ -610,13 +777,46 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             x: min(size.width - 20, max(20, proposed.x)),
             y: min(size.height - 20, max(20, proposed.y))
         )
-        var vector = CGVector(dx: result.x - player.position.x, dy: result.y - player.position.y)
-        if vector.length < minimumPlayerDistance {
-            if vector.length < 0.001 { vector = CGVector(dx: 1, dy: 0) }
-            let offset = vector.normalized * minimumPlayerDistance
-            result = CGPoint(x: player.position.x + offset.dx, y: player.position.y + offset.dy)
-            result.x = min(size.width - 20, max(20, result.x))
-            result.y = min(size.height - 20, max(20, result.y))
+        var fromSpawnToPlayer = CGVector(
+            dx: player.position.x - result.x,
+            dy: player.position.y - result.y
+        )
+
+        if minimumPlayerDistance == 40 {
+            var distance = fromSpawnToPlayer.length + 0.001
+            while distance < minimumPlayerDistance {
+                if distance < 0.001 {
+                    let angle = CGFloat(Int.random(in: 0...360)) * .pi / 180
+                    result = CGPoint(
+                        x: player.position.x + cos(angle) * 10,
+                        y: player.position.y + sin(angle) * 10
+                    )
+                } else {
+                    result.x -= fromSpawnToPlayer.dx / distance * 10
+                    result.y -= fromSpawnToPlayer.dy / distance * 10
+                }
+                fromSpawnToPlayer = CGVector(
+                    dx: player.position.x - result.x,
+                    dy: player.position.y - result.y
+                )
+                distance = fromSpawnToPlayer.length
+            }
+        } else {
+            while fromSpawnToPlayer.dx * fromSpawnToPlayer.dx
+                    + fromSpawnToPlayer.dy * fromSpawnToPlayer.dy
+                    < minimumPlayerDistance * minimumPlayerDistance {
+                let angle = CGFloat(Int.random(in: 0...(360 * 8))) / 8 * .pi / 180
+                result = CGPoint(
+                    x: player.position.x + sin(angle) * minimumPlayerDistance,
+                    y: player.position.y + cos(angle) * minimumPlayerDistance
+                )
+                result.x = min(size.width - 20, max(20, result.x))
+                result.y = min(size.height - 20, max(20, result.y))
+                fromSpawnToPlayer = CGVector(
+                    dx: player.position.x - result.x,
+                    dy: player.position.y - result.y
+                )
+            }
         }
         return result
     }
@@ -721,14 +921,13 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             }
             let collisionRadiusSquared = pow(12 + CGFloat(health) / 2, 2) + 12 * 12
             if squaredDistance(generator.position, player.position) < collisionRadiusSquared,
-               hitPlayer(at: generator.position) {
-                destroyEnemy(generator, playSound: false, awardPoints: false)
+               hitPlayer(killer: generator) {
                 continue
             }
             guard rotation.isMultiple(of: max(1, rate + 42 - health)) else { continue }
             let offset = CGPoint(
-                x: generator.position.x + CGFloat.random(in: -10...10),
-                y: generator.position.y + CGFloat.random(in: -10...10)
+                x: generator.position.x + randomCoordinate(-10...10),
+                y: generator.position.y + randomCoordinate(-10...10)
             )
             let born = spawnEnemy(kind: kind, at: offset, freezeFrames: 5, closeToPlayer: true)
             if kind == .blackHole {
@@ -739,11 +938,26 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
     private func updateEnemies(kinds: [EnemyKind]) {
         for requestedKind in kinds {
+            if requestedKind == .snake {
+                updateDyingSnakeSegments(maximumSpeed: session.enemySpeeds[.snake])
+                if deathFramesRemaining > 0 { return }
+            }
+            if requestedKind == .triangle {
+                pairEligibleTriangles()
+            }
             let enemies = enemyLayer.children.filter {
                 $0.name == "enemy" && $0.userData?["kind"] as? String == requestedKind.rawValue
             }
             for enemy in enemies {
             guard enemy.parent != nil else { continue }
+            var maximumSpeed = CGFloat((enemy.userData?["speed"] as? NSNumber)?.doubleValue ?? 1)
+            if requestedKind == .seeker {
+                maximumSpeed += CGFloat((enemy.userData?["seekerMean"] as? NSNumber)?.intValue ?? 0)
+            }
+            if requestedKind == .snake {
+                updateSnakeSegments(for: enemy, maximumSpeed: maximumSpeed)
+                if deathFramesRemaining > 0 { continue }
+            }
             var freezeFrames = (enemy.userData?["freezeFrames"] as? NSNumber)?.intValue ?? 0
             if freezeFrames > 0 {
                 freezeFrames -= 1
@@ -753,16 +967,16 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             }
 
             let kind = EnemyKind(rawValue: enemy.userData?["kind"] as? String ?? "") ?? .pinwheel
-            var maximumSpeed = CGFloat((enemy.userData?["speed"] as? NSNumber)?.doubleValue ?? 1)
-            if kind == .seeker {
-                maximumSpeed += CGFloat((enemy.userData?["seekerMean"] as? NSNumber)?.intValue ?? 0)
-            }
             var velocity = CGVector(
                 dx: CGFloat((enemy.userData?["dx"] as? NSNumber)?.doubleValue ?? 0),
                 dy: CGFloat((enemy.userData?["dy"] as? NSNumber)?.doubleValue ?? 0)
             )
             var rotation = (enemy.userData?["rotation"] as? NSNumber)?.intValue ?? 0
-            rotation += kind == .interceptor ? 16 : 1
+            rotation = switch kind {
+            case .interceptor: (rotation + 16) % 360
+            case .triangle: rotation + 2
+            default: rotation + 1
+            }
 
             let movesBeforeSteering: Bool = switch kind {
             case .pinwheel, .diamond, .greenSquare, .cube, .seeker, .blackHole, .butterfly:
@@ -781,21 +995,17 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 bounce(enemy, velocity: &velocity, margin: margin)
             }
 
-            let towardPlayer = CGVector(
+            let playerDifference = CGVector(
                 dx: player.position.x - enemy.position.x,
                 dy: player.position.y - enemy.position.y
-            ).normalized
+            )
+            let towardPlayer = playerDifference / (playerDifference.length + 0.001)
 
             switch kind {
             case .pinwheel:
                 _ = applyBlackHoleInfluence(to: enemy, kind: kind, velocity: &velocity)
             case .diamond:
-                if Bool.random() {
-                    velocity = velocity + CGVector(
-                        dx: CGFloat.random(in: -0.2...0.2),
-                        dy: CGFloat.random(in: -0.2...0.2)
-                    )
-                }
+                // BlitzMax Rand is integer-valued, so Rand(-0.2, 0.2) is always zero.
                 _ = applyBlackHoleInfluence(to: enemy, kind: kind, velocity: &velocity)
                 velocity = velocity + towardPlayer * 0.5
             case .greenSquare:
@@ -808,7 +1018,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 velocity = velocity + towardPlayer * 4
                 _ = applyBlackHoleInfluence(to: enemy, kind: kind, velocity: &velocity)
             case .blackHole:
-                updateBlackHole(enemy, velocity: &velocity)
+                updateBlackHole(enemy, velocity: &velocity, maximumSpeed: maximumSpeed)
             case .triangle:
                 updateTriangleVelocity(enemy, towardPlayer: towardPlayer, velocity: &velocity)
             case .snake:
@@ -829,7 +1039,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             case .interceptor:
                 var heading = CGFloat((enemy.userData?["interceptorHeading"] as? NSNumber)?.doubleValue ?? 0)
                 var turnRemaining = (enemy.userData?["interceptorTurnRemaining"] as? NSNumber)?.intValue ?? 0
-                if CGFloat.random(in: 1...100) > 95 - maximumSpeed * 8 {
+                if CGFloat(Int.random(in: 1...100)) > 95 - maximumSpeed * 8 {
                     turnRemaining = turnToFace(
                         velocity: velocity,
                         target: CGVector(
@@ -843,6 +1053,12 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                     heading += CGFloat(4 * sign)
                     turnRemaining -= sign
                 }
+                var lastPlayed = (enemy.userData?["interceptorLastPlayed"] as? NSNumber)?.intValue ?? 0
+                if turnRemaining == 0, lastPlayed == 0 {
+                    lastPlayed = 60
+                    run(.playSoundFileNamed("shield1.wav", waitForCompletion: false))
+                }
+                if lastPlayed > 0 { lastPlayed -= 1 }
                 let headingRadians = heading * .pi / 180
                 let facing = CGVector(dx: cos(headingRadians), dy: sin(headingRadians))
                 if abs(turnRemaining) < 20 {
@@ -852,6 +1068,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 }
                 enemy.userData?["interceptorHeading"] = heading
                 enemy.userData?["interceptorTurnRemaining"] = turnRemaining
+                enemy.userData?["interceptorLastPlayed"] = lastPlayed
             case .butterfly:
                 velocity = velocity + towardPlayer * 2
                 _ = applyBlackHoleInfluence(to: enemy, kind: kind, velocity: &velocity)
@@ -908,10 +1125,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             enemy.userData?["dy"] = velocity.dy
             enemy.userData?["rotation"] = rotation
             updateEnemyVisual(enemy, kind: kind, rotation: rotation)
-            if kind == .interceptor { updateInterceptorShieldVisual(enemy, velocity: velocity) }
-            if kind == .snake {
-                updateSnakeSegments(for: enemy, maximumSpeed: maximumSpeed)
-            }
+            if kind == .interceptor { updateInterceptorShieldVisual(enemy) }
         }
         }
     }
@@ -964,11 +1178,12 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             let attached = trianglePartner(of: enemy) != nil
             var second = enemy.childNode(withName: "triangleTwin") as? SKSpriteNode
             if attached, second == nil {
-                second = SKSpriteNode(imageNamed: EnemyKind.triangle.textureName)
-                second?.name = "triangleTwin"
-                second?.size = EnemyKind.triangle.size
-                second?.blendMode = .add
-                enemy.addChild(second!)
+                let twin = SKSpriteNode(imageNamed: EnemyKind.triangle.textureName)
+                twin.name = "triangleTwin"
+                twin.size = EnemyKind.triangle.size
+                twin.blendMode = .add
+                enemy.addChild(twin)
+                second = twin
             }
             second?.isHidden = !attached
             second?.zRotation = CGFloat(rotation * 2 + 180) * .pi / 180
@@ -1048,18 +1263,23 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             .filter {
                 $0.name == "snakeTail" && $0.userData?["snakeHeadID"] as? String == headID
             }
-            .sorted {
-                (($0.userData?["segmentIndex"] as? NSNumber)?.intValue ?? 0)
-                    < (($1.userData?["segmentIndex"] as? NSNumber)?.intValue ?? 0)
-            }
+        let segmentsByIndex = Dictionary(uniqueKeysWithValues: segments.map {
+            ((($0.userData?["segmentIndex"] as? NSNumber)?.intValue ?? 0), $0)
+        })
+        let orderedSegments = segments.sorted {
+            (($0.userData?["segmentIndex"] as? NSNumber)?.intValue ?? 0)
+                > (($1.userData?["segmentIndex"] as? NSNumber)?.intValue ?? 0)
+        }
 
-        var precedingPosition = head.position
-        for segment in segments {
+        for segment in orderedSegments {
+            let index = (segment.userData?["segmentIndex"] as? NSNumber)?.intValue ?? 0
+            let precedingPosition = index == 0
+                ? head.position
+                : segmentsByIndex[index - 1]?.position ?? head.position
             var freezeFrames = (segment.userData?["freezeFrames"] as? NSNumber)?.intValue ?? 0
             if freezeFrames > 0 {
                 freezeFrames -= 1
                 segment.userData?["freezeFrames"] = freezeFrames
-                precedingPosition = segment.position
                 continue
             }
 
@@ -1073,14 +1293,11 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             bounce(segment, velocity: &velocity, margin: 8)
             segment.userData?["dx"] = velocity.dx
             segment.userData?["dy"] = velocity.dy
-            segment.zRotation = atan2(velocity.dy, velocity.dx) - .pi / 2
+            segment.zRotation = atan2(velocity.dy, velocity.dx) + .pi / 2
             if squaredDistance(segment.position, player.position) < 24 * 24,
-               hitPlayer(at: segment.position) {
-                segment.removeFromParent()
-                createExplosion(at: segment.position, color: .green)
-                continue
+               hitPlayer(killer: segment) {
+                return
             }
-            precedingPosition = segment.position
         }
     }
 
@@ -1089,20 +1306,71 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         let segments = enemyLayer.children.filter {
             $0.name == "snakeTail" && $0.userData?["snakeHeadID"] as? String == headID
         }
-        let baseDelay = awardPoints ? 30.0 / 50.0 : 300.0 / 50.0
-        for segment in segments {
-            let index = (segment.userData?["segmentIndex"] as? NSNumber)?.intValue ?? 0
-            segment.name = "snakeDying"
-            segment.physicsBody?.categoryBitMask = 0
-            let position = segment.position
-            segment.run(.sequence([
-                .wait(forDuration: baseDelay + Double(index) / 50.0),
-                .run { [weak self, weak segment] in
-                    guard let self, let segment, segment.parent != nil else { return }
-                    self.createExplosion(at: position, color: .green)
-                },
-                .removeFromParent(),
-            ]))
+        let nearest = segments.min {
+            (($0.userData?["segmentIndex"] as? NSNumber)?.intValue ?? 0)
+                < (($1.userData?["segmentIndex"] as? NSNumber)?.intValue ?? 0)
+        }
+        nearest?.userData?["snakeDyingMove"] = awardPoints ? 30 : 300
+    }
+
+    private func updateDyingSnakeSegments(maximumSpeed: CGFloat) {
+        let allSegments = enemyLayer.children.compactMap { $0 as? SKSpriteNode }
+            .filter { $0.name == "snakeTail" }
+        let dyingHeadIDs = Set(allSegments.compactMap { segment -> String? in
+            guard segment.userData?["snakeDyingMove"] != nil else { return nil }
+            return segment.userData?["snakeHeadID"] as? String
+        })
+        let chains = Dictionary(grouping: allSegments.filter {
+            dyingHeadIDs.contains($0.userData?["snakeHeadID"] as? String ?? "")
+        }) {
+            $0.userData?["snakeHeadID"] as? String ?? ""
+        }
+
+        for chain in chains.values {
+            let byIndex = Dictionary(uniqueKeysWithValues: chain.map {
+                ((($0.userData?["segmentIndex"] as? NSNumber)?.intValue ?? 0), $0)
+            })
+            let ordered = chain.sorted {
+                (($0.userData?["segmentIndex"] as? NSNumber)?.intValue ?? 0)
+                    > (($1.userData?["segmentIndex"] as? NSNumber)?.intValue ?? 0)
+            }
+            for segment in ordered {
+                let index = (segment.userData?["segmentIndex"] as? NSNumber)?.intValue ?? 0
+                if let dyingMove = (segment.userData?["snakeDyingMove"] as? NSNumber)?.intValue {
+                    let nextMove = dyingMove - 1
+                    byIndex[index + 1]?.userData?["snakeDyingMove"] = nextMove
+                    let position = segment.position
+                    segment.removeFromParent()
+                    createExplosion(at: position, color: .green)
+                    if nextMove < 50 {
+                        run(.playSoundFileNamed("snakehit.wav", waitForCompletion: false))
+                    }
+                    continue
+                }
+
+                var freezeFrames = (segment.userData?["freezeFrames"] as? NSNumber)?.intValue ?? 0
+                if freezeFrames > 0 {
+                    freezeFrames -= 1
+                    segment.userData?["freezeFrames"] = freezeFrames
+                    continue
+                }
+                guard let preceding = byIndex[index - 1] else { continue }
+                var velocity = SnakeSegmentRule.velocity(
+                    from: segment.position,
+                    toward: preceding.position,
+                    maximumSpeed: maximumSpeed
+                )
+                segment.position.x += velocity.dx
+                segment.position.y += velocity.dy
+                bounce(segment, velocity: &velocity, margin: 8)
+                segment.userData?["dx"] = velocity.dx
+                segment.userData?["dy"] = velocity.dy
+                segment.zRotation = atan2(velocity.dy, velocity.dx) + .pi / 2
+                if squaredDistance(segment.position, player.position) < 24 * 24,
+                   hitPlayer(killer: segment) {
+                    return
+                }
+            }
         }
     }
 
@@ -1116,7 +1384,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             let distance = CGVector(
                 dx: player.position.x - triangle.position.x,
                 dy: player.position.y - triangle.position.y
-            ).length
+            ).length + 0.001
             if distance < 300 { velocity = velocity + towardPlayer }
             _ = applyBlackHoleInfluence(to: triangle, kind: .triangle, velocity: &velocity)
             return
@@ -1126,7 +1394,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             dx: partner.position.x - triangle.position.x,
             dy: partner.position.y - triangle.position.y
         )
-        let distance = max(0.001, difference.length)
+        let distance = difference.length + 0.001
         if distance > 150 {
             velocity = velocity + difference / distance * 32
         } else if distance < 64 {
@@ -1145,18 +1413,6 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 && $0.userData?["kind"] as? String == EnemyKind.triangle.rawValue
                 && (($0.userData?["freezeFrames"] as? NSNumber)?.intValue ?? 0) == 0
         }
-        for triangle in triangles where trianglePartner(of: triangle) == nil {
-            guard let partner = triangles.first(where: {
-                $0 !== triangle
-                    && trianglePartner(of: $0) == nil
-                    && CGVector(
-                        dx: triangle.position.x - $0.position.x,
-                        dy: triangle.position.y - $0.position.y
-                    ).length < 32
-            }) else { continue }
-            attachTriangles(triangle, partner)
-        }
-
         var drawnPairs = Set<String>()
         for triangle in triangles {
             guard let partner = trianglePartner(of: triangle),
@@ -1186,6 +1442,23 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         }
     }
 
+    private func pairEligibleTriangles() {
+        let triangles = enemyLayer.children.filter {
+            $0.name == "enemy"
+                && $0.userData?["kind"] as? String == EnemyKind.triangle.rawValue
+        }
+        for triangle in triangles where trianglePartner(of: triangle) == nil {
+            let freezeFrames = (triangle.userData?["freezeFrames"] as? NSNumber)?.intValue ?? 0
+            guard freezeFrames == 0 else { continue }
+            guard let partner = triangles.first(where: {
+                $0 !== triangle
+                    && trianglePartner(of: $0) == nil
+                    && squaredDistance(triangle.position, $0.position) < 32 * 32
+            }) else { continue }
+            attachTriangles(triangle, partner)
+        }
+    }
+
     private func checkTriangleBondPlayerCollision() {
         var checkedPairs = Set<String>()
         for triangle in enemies(of: .triangle) {
@@ -1195,7 +1468,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             let pairID = [firstID, secondID].sorted().joined(separator: "-")
             guard checkedPairs.insert(pairID).inserted else { continue }
             if distanceFromPoint(player.position, toLineFrom: triangle.position, to: partner.position) <= 12 {
-                _ = hitPlayer(at: player.position)
+                _ = hitPlayer()
                 return
             }
         }
@@ -1222,8 +1495,10 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
               let secondID = second.userData?["enemyID"] as? String else { return }
         first.userData?["trianglePartnerID"] = secondID
         first.userData?["triangleStrength"] = TriangleBondState.initialStrength
+        first.userData?["triangleResist"] = false
         second.userData?["trianglePartnerID"] = firstID
         second.userData?["triangleStrength"] = TriangleBondState.initialStrength
+        second.userData?["triangleResist"] = true
     }
 
     private func trianglePartner(of triangle: SKNode) -> SKNode? {
@@ -1237,37 +1512,35 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         if let partner = trianglePartner(of: triangle) {
             partner.userData?["trianglePartnerID"] = nil
             partner.userData?["triangleStrength"] = 0
+            partner.userData?["triangleResist"] = false
         }
         triangle.userData?["trianglePartnerID"] = nil
         triangle.userData?["triangleStrength"] = 0
+        triangle.userData?["triangleResist"] = false
     }
 
-    private func updateInterceptorShieldVisual(_ interceptor: SKNode, velocity: CGVector) {
+    private func updateInterceptorShieldVisual(_ interceptor: SKNode) {
         interceptor.childNode(withName: "interceptorShield")?.removeFromParent()
         let turnRemaining = (interceptor.userData?["interceptorTurnRemaining"] as? NSNumber)?.intValue ?? 0
         guard abs(turnRemaining) <= 4 else { return }
 
-        let geometry = InterceptorShieldGeometry(center: interceptor.position, velocity: velocity)
         let path = CGMutablePath()
-        path.move(to: CGPoint(
-            x: geometry.rear.x - interceptor.position.x,
-            y: geometry.rear.y - interceptor.position.y
-        ))
-        path.addLine(to: CGPoint(
-            x: geometry.right.x - interceptor.position.x,
-            y: geometry.right.y - interceptor.position.y
-        ))
-        path.addLine(to: CGPoint(
-            x: geometry.left.x - interceptor.position.x,
-            y: geometry.left.y - interceptor.position.y
-        ))
-        path.closeSubpath()
+        let rotation = CGFloat((interceptor.userData?["rotation"] as? NSNumber)?.intValue ?? 0)
+        let phase = rotation / 360
+        for index in 0...2 {
+            let t = 1.5 + phase + CGFloat(index)
+            let forward = 12 + 12 * t
+            let halfWidth = abs(12 - 9 * t)
+            path.move(to: CGPoint(x: forward, y: -halfWidth))
+            path.addLine(to: CGPoint(x: forward, y: halfWidth))
+        }
         let shield = SKShapeNode(path: path)
         shield.name = "interceptorShield"
         shield.strokeColor = SKColor(red: 1, green: 0.2, blue: 0.2, alpha: 0.9)
-        shield.lineWidth = 1.5
+        shield.lineWidth = 1
         shield.glowWidth = 2
         shield.zPosition = -1
+        shield.zRotation = -.pi / 2
         interceptor.addChild(shield)
     }
 
@@ -1286,7 +1559,10 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                     dy: CGFloat((interceptor.userData?["dy"] as? NSNumber)?.doubleValue ?? 0)
                 )
                 let geometry = InterceptorShieldGeometry(center: interceptor.position, velocity: velocity)
-                if geometry.contains(projectile.position) {
+                if geometry.contains(
+                    projectile.position,
+                    projectileVelocity: projectileVelocity(projectile)
+                ) {
                     let position = projectile.position
                     projectile.removeFromParent()
                     createExplosion(at: position, color: .red)
@@ -1349,17 +1625,16 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         velocity: inout CGVector
     ) -> Bool {
         if kind == .triangle,
-           let partner = trianglePartner(of: enemy),
-           let enemyID = enemy.userData?["enemyID"] as? String,
-           let partnerID = partner.userData?["enemyID"] as? String {
-            guard enemyID < partnerID else { return false }
+           let partner = trianglePartner(of: enemy) {
+            let resists = (enemy.userData?["triangleResist"] as? NSNumber)?.boolValue ?? false
+            guard !resists else { return false }
             for blackHole in enemies(of: .blackHole) {
                 let blackHoleSize = CGFloat((blackHole.userData?["blackHoleSize"] as? NSNumber)?.doubleValue ?? 20)
                 let difference = CGVector(
                     dx: blackHole.position.x - enemy.position.x,
                     dy: blackHole.position.y - enemy.position.y
                 )
-                let distance = max(0.001, difference.length)
+                let distance = difference.length + 0.001
                 if distance < 100 + blackHoleSize * 10 {
                     velocity = velocity + difference / distance
                 }
@@ -1397,7 +1672,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 dx: blackHole.position.x - enemy.position.x,
                 dy: blackHole.position.y - enemy.position.y
             )
-            let distance = max(0.001, difference.length)
+            let distance = difference.length + 0.001
             let pullRange: CGFloat
             let pullStrength: CGFloat
             let absorbDistance: CGFloat
@@ -1440,7 +1715,11 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         return false
     }
 
-    private func updateBlackHole(_ blackHole: SKNode, velocity: inout CGVector) {
+    private func updateBlackHole(
+        _ blackHole: SKNode,
+        velocity: inout CGVector,
+        maximumSpeed: CGFloat
+    ) {
         let blackHoleSize = CGFloat((blackHole.userData?["blackHoleSize"] as? NSNumber)?.doubleValue ?? 20)
         blackHole.setScale(max(0.25, 0.25 + blackHoleSize / 64))
 
@@ -1452,7 +1731,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 dx: otherBlackHole.position.x - blackHole.position.x,
                 dy: otherBlackHole.position.y - blackHole.position.y
             )
-            let distance = max(0.001, difference.length)
+            let distance = difference.length + 0.001
             var magnitude = min(8, max(1, (otherSize - blackHoleSize) / 8))
             if magnitude.isNaN { magnitude = 1 }
             guard distance < otherSize * 2 + blackHoleSize * 2 + 64 else { continue }
@@ -1462,12 +1741,15 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 difference.dy = -difference.dy - difference.dx * 0.25
             }
             velocity = velocity + difference
+            if velocity.length > maximumSpeed {
+                velocity = velocity.normalized * maximumSpeed
+            }
         }
     }
 
     private func growBlackHole(_ blackHole: SKNode, amount: CGFloat) {
         var blackHoleSize = CGFloat((blackHole.userData?["blackHoleSize"] as? NSNumber)?.doubleValue ?? 20)
-        let speedUp = min(5, 1 + CGFloat(simulationFrame / (50 * 60 * 6)))
+        let speedUp = BlackHoleRule.growthSpeedUp(frame: simulationFrame)
         blackHoleSize += amount * speedUp
         blackHole.userData?["blackHoleSize"] = blackHoleSize
         blackHole.userData?["blackHoleActive"] = true
@@ -1479,12 +1761,28 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             blackHole.removeFromParent()
             for index in 0..<16 {
                 let angle = CGFloat(index) * 22.5 * .pi / 180
-                let seeker = spawnEnemy(kind: .seeker, at: CGPoint(x: position.x + cos(angle) * 20, y: position.y + sin(angle) * 20), freezeFrames: 4, closeToPlayer: true)
+                let seeker = spawnEnemy(
+                    kind: .seeker,
+                    at: CGPoint(
+                        x: CGFloat(Int(position.x + cos(angle) * 20)),
+                        y: CGFloat(Int(position.y + sin(angle) * 20))
+                    ),
+                    freezeFrames: 4,
+                    closeToPlayer: true
+                )
                 seeker?.userData?["seekerMean"] = 1
             }
             for index in 0..<18 {
                 let angle = CGFloat(index) * 20 * .pi / 180
-                spawnEnemy(kind: .butterfly, at: CGPoint(x: position.x + cos(angle) * 30, y: position.y + sin(angle) * 30), freezeFrames: 4, closeToPlayer: true)
+                spawnEnemy(
+                    kind: .butterfly,
+                    at: CGPoint(
+                        x: CGFloat(Int(position.x + cos(angle) * 30)),
+                        y: CGFloat(Int(position.y + sin(angle) * 30))
+                    ),
+                    freezeFrames: 4,
+                    closeToPlayer: true
+                )
             }
             createExplosion(at: position, color: .red)
         }
@@ -1493,6 +1791,10 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private func updateProjectiles() {
         for projectile in projectileLayer.children {
             guard projectile.parent != nil else { continue }
+            if let sprite = projectile as? SKSpriteNode {
+                sprite.color = projectileColor
+                sprite.colorBlendFactor = 1
+            }
             var velocity = projectileVelocity(projectile)
             let originalSpeed = CGFloat((projectile.userData?["speed"] as? NSNumber)?.doubleValue
                                         ?? Double(velocity.length))
@@ -1537,7 +1839,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 if shouldRemove {
                     let position = projectile.position
                     projectile.removeFromParent()
-                    createExplosion(at: position, color: session.superShotFrames > 0 ? .cyan : .yellow)
+                    createProjectileImpact(at: position)
                     break
                 }
             }
@@ -1548,6 +1850,37 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 projectile.zRotation = atan2(velocity.dy, velocity.dx)
             }
         }
+    }
+
+    private var projectileColor: SKColor {
+        if session.superShotFrames > 0 {
+            return SKColor(red: 200 / 255, green: 32 / 255, blue: 32 / 255, alpha: 1)
+        }
+        if session.bouncyShotFrames > 0 {
+            return SKColor(red: 32 / 255, green: 200 / 255, blue: 32 / 255, alpha: 1)
+        }
+        return SKColor(red: 200 / 255, green: 200 / 255, blue: 128 / 255, alpha: 1)
+    }
+
+    private func createProjectileImpact(at position: CGPoint) {
+        let emitter = SKEmitterNode()
+        emitter.position = position
+        emitter.particleTexture = SKTexture(imageNamed: "particle")
+        emitter.particleColor = projectileColor
+        emitter.particleColorBlendFactor = 1
+        emitter.particleBirthRate = 400
+        emitter.numParticlesToEmit = 4
+        emitter.particleLifetime = 0.35
+        emitter.particleLifetimeRange = 0.1
+        emitter.emissionAngleRange = .pi * 2
+        emitter.particleSpeed = 80
+        emitter.particleSpeedRange = 45
+        emitter.particleAlphaSpeed = -2.8
+        emitter.particleScale = 0.45
+        emitter.particleScaleSpeed = -0.8
+        effectLayer.addChild(emitter)
+        emitter.run(.sequence([.wait(forDuration: 0.6), .removeFromParent()]))
+        run(.playSoundFileNamed("shotwall.wav", waitForCompletion: false))
     }
 
     private func projectileVelocity(_ projectile: SKNode) -> CGVector {
@@ -1633,7 +1966,10 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                     dx: CGFloat((interceptor.userData?["dx"] as? NSNumber)?.doubleValue ?? 0),
                     dy: CGFloat((interceptor.userData?["dy"] as? NSNumber)?.doubleValue ?? 0)
                 )
-                if InterceptorShieldGeometry(center: interceptor.position, velocity: velocity).contains(position) {
+                if InterceptorShieldGeometry(center: interceptor.position, velocity: velocity).contains(
+                    position,
+                    projectileVelocity: projectileVelocity(projectile)
+                ) {
                     return true
                 }
                 if distance < 12 * 12 {
@@ -1676,8 +2012,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             radiusSquared = pow(12 + blackHoleSize / 2, 2) + 12 * 12
         }
         guard squaredDistance(enemy.position, player.position) < radiusSquared,
-              hitPlayer(at: enemy.position) else { return false }
-        destroyEnemy(enemy, playSound: false, awardPoints: false)
+              hitPlayer(killer: enemy) else { return false }
         return true
     }
 
@@ -1692,8 +2027,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             dy: projectile.position.y - square.position.y + shotVelocity.dy * 4
         )
         let bulletBack = shotVelocity * -1
-        let dangerDistance = max(0.001, danger.length)
-        let bulletDistance = max(0.001, bulletBack.length)
+        let dangerDistance = danger.length + 0.001
+        let bulletDistance = bulletBack.length + 0.001
         guard dangerDistance < 100 else { return }
         squareVelocity = squareVelocity
             - danger / dangerDistance * 30
@@ -1710,15 +2045,12 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         for blackHole in enemies(of: .blackHole) {
             guard (blackHole.userData?["blackHoleActive"] as? NSNumber)?.boolValue ?? false else { continue }
             let blackHoleSize = CGFloat((blackHole.userData?["blackHoleSize"] as? NSNumber)?.doubleValue ?? 20)
-            let difference = CGVector(
-                dx: blackHole.position.x - projectile.position.x,
-                dy: blackHole.position.y - projectile.position.y
+            velocity = BlackHoleRule.deflectProjectile(
+                position: projectile.position,
+                velocity: velocity,
+                blackHolePosition: blackHole.position,
+                blackHoleSize: blackHoleSize
             )
-            let distanceSquared = difference.dx * difference.dx + difference.dy * difference.dy
-            guard distanceSquared < pow(75 + blackHoleSize * 5, 2), distanceSquared > 32 * 32 else { continue }
-            let divisor = max(1, 26 - blackHoleSize / 4)
-            velocity.dx -= difference.dx == 0 ? 0 : copysign(1 / divisor, difference.dx)
-            velocity.dy -= difference.dy == 0 ? 0 : copysign(1 / divisor, difference.dy)
             projectile.userData?["dx"] = velocity.dx
             projectile.userData?["dy"] = velocity.dy
         }
@@ -1747,14 +2079,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             damageEnemy(enemy, projectile: projectile)
         } else if categories == Category.player | Category.enemy {
             let enemy = first.physicsBody?.categoryBitMask == Category.enemy ? first : second
-            if hitPlayer(at: contact.contactPoint) {
-                if enemy.name == "snakeTail" {
-                    enemy.removeFromParent()
-                    createExplosion(at: enemy.position, color: .green)
-                } else {
-                    destroyEnemy(enemy, playSound: false, awardPoints: false)
-                }
-            }
+            _ = hitPlayer(killer: enemy)
         } else if categories == Category.player | Category.powerUp {
             let powerUp = first.physicsBody?.categoryBitMask == Category.powerUp ? first : second
             collect(powerUp)
@@ -1765,6 +2090,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         guard enemy.parent != nil else { return }
         if enemy.name == "snakeTail" {
             createExplosion(at: enemy.position, color: .green)
+            run(.playSoundFileNamed("tailhit.wav", waitForCompletion: false))
             return
         }
         guard enemy.name == "enemy" || enemy.name == "generator" else { return }
@@ -1776,7 +2102,10 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 dy: CGFloat((enemy.userData?["dy"] as? NSNumber)?.doubleValue ?? 0)
             )
             if abs(turnRemaining) <= 4,
-               InterceptorShieldGeometry(center: enemy.position, velocity: velocity).contains(projectile.position) {
+               InterceptorShieldGeometry(center: enemy.position, velocity: velocity).contains(
+                   projectile.position,
+                   projectileVelocity: projectileVelocity(projectile)
+               ) {
                 createExplosion(at: projectile.position, color: .red)
                 return
             }
@@ -1806,7 +2135,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             enemy.userData?["blackHoleSize"] = blackHoleSize
             if blackHoleSize < 4 {
                 let absorbed = (enemy.userData?["absorbCount"] as? NSNumber)?.intValue ?? 0
-                enemy.userData?["score"] = 150 + absorbed * (absorbed + 1) / 3 * 5
+                enemy.userData?["score"] = BlackHoleRule.destructionScore(absorbedEnemies: absorbed)
                 destroyEnemy(enemy)
             } else {
                 run(.playSoundFileNamed("sunhit1.wav", waitForCompletion: false))
@@ -1876,13 +2205,12 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         createExplosion(at: position, color: .cyan)
         if awardPoints, kind == .cube, cubeTier == 0, originalName == "enemy" {
             for _ in 0..<3 {
-                spawnEnemy(
+                if let smallCube = spawnEnemy(
                     kind: .cube,
-                    at: CGPoint(x: position.x - 30, y: position.y + CGFloat.random(in: -30...30)),
+                    at: CGPoint(x: position.x - 30, y: position.y + randomCoordinate(-30...30)),
                     freezeFrames: 2,
                     closeToPlayer: true
-                )
-                if let smallCube = enemyLayer.children.last {
+                ) {
                     smallCube.userData?["cubeTier"] = 4
                     smallCube.userData?["score"] = 50
                     (smallCube as? SKSpriteNode)?.texture = SKTexture(imageNamed: "purplesquare2")
@@ -1908,8 +2236,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         case let .spawnPowerUp(requestedKind):
             let kind = requestedKind ?? choosePowerUpKind()
             let position = CGPoint(
-                x: CGFloat.random(in: 250...(size.width - 250)),
-                y: CGFloat.random(in: 150...(size.height - 150))
+                x: randomCoordinate(250...Int(size.width - 250)),
+                y: randomCoordinate(150...Int(size.height - 150))
             )
             spawnPowerUp(at: position, kind: kind)
             run(.playSoundFileNamed("bonusborn.wav", waitForCompletion: false))
@@ -1951,8 +2279,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         powerUp.physicsBody?.categoryBitMask = Category.powerUp
         powerUp.physicsBody?.collisionBitMask = 0
         powerUp.physicsBody?.contactTestBitMask = Category.player
-        let direction = CGFloat.random(in: 0...(2 * .pi))
-        let magnitude = CGFloat.random(in: 0.5...2)
+        let direction = CGFloat(Int.random(in: 0...359)) * .pi / 180
+        let magnitude = CGFloat.random(in: 0.5..<2)
         powerUp.userData = NSMutableDictionary(dictionary: [
             "kind": kind.rawValue,
             "lifeFrames": 0,
@@ -2037,55 +2365,60 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             }
 
             if Int.random(in: 0...100) > 96 {
-                let towardPlayer = CGVector(
+                let differenceToPlayer = CGVector(
                     dx: player.position.x - powerUp.position.x,
                     dy: player.position.y - powerUp.position.y
-                ).normalized
+                )
+                let towardPlayer = differenceToPlayer / (differenceToPlayer.length + 0.001)
                 velocity = velocity + towardPlayer
             }
 
-            if kind.rawValue > 1, lifeFrames > 200,
-               let other = powerUps.first(where: {
-                   $0 !== powerUp && $0.parent != nil &&
-                   ((($0.userData?["kind"] as? NSNumber)?.intValue ?? 0) > 1)
-               }) {
-                let towardOther = CGVector(
-                    dx: other.position.x - powerUp.position.x,
-                    dy: other.position.y - powerUp.position.y
-                )
-                if lifeFrames > 300 {
-                    velocity.dx += towardOther.dx == 0 ? 0 : copysign(1.0 / 64.0, towardOther.dx)
-                    velocity.dy += towardOther.dy == 0 ? 0 : copysign(1.0 / 64.0, towardOther.dy)
-                    var otherVelocity = CGVector(
-                        dx: CGFloat((other.userData?["dx"] as? NSNumber)?.doubleValue ?? 0),
-                        dy: CGFloat((other.userData?["dy"] as? NSNumber)?.doubleValue ?? 0)
+            if kind.rawValue > 1, lifeFrames > 200 {
+                var didMerge = false
+                for other in powerUps where other !== powerUp && other.parent != nil
+                    && ((other.userData?["kind"] as? NSNumber)?.intValue ?? 0) > 1 {
+                    let towardOther = CGVector(
+                        dx: other.position.x - powerUp.position.x,
+                        dy: other.position.y - powerUp.position.y
                     )
-                    otherVelocity.dx -= towardOther.dx == 0 ? 0 : copysign(1.0 / 64.0, towardOther.dx)
-                    otherVelocity.dy -= towardOther.dy == 0 ? 0 : copysign(1.0 / 64.0, towardOther.dy)
-                    other.userData?["dx"] = otherVelocity.dx
-                    other.userData?["dy"] = otherVelocity.dy
+                    if lifeFrames > 300 {
+                        velocity.dx += towardOther.dx == 0 ? 0 : copysign(1.0 / 64.0, towardOther.dx)
+                        velocity.dy += towardOther.dy == 0 ? 0 : copysign(1.0 / 64.0, towardOther.dy)
+                        var otherVelocity = CGVector(
+                            dx: CGFloat((other.userData?["dx"] as? NSNumber)?.doubleValue ?? 0),
+                            dy: CGFloat((other.userData?["dy"] as? NSNumber)?.doubleValue ?? 0)
+                        )
+                        otherVelocity.dx -= towardOther.dx == 0 ? 0 : copysign(1.0 / 64.0, towardOther.dx)
+                        otherVelocity.dy -= towardOther.dy == 0 ? 0 : copysign(1.0 / 64.0, towardOther.dy)
+                        other.userData?["dx"] = otherVelocity.dx
+                        other.userData?["dy"] = otherVelocity.dy
+                    }
+                    if towardOther.dx * towardOther.dx + towardOther.dy * towardOther.dy < 16 * 16 + 16 * 16 {
+                        other.removeFromParent()
+                        didMerge = true
+                        spawnGenerator(
+                            kind: .butterfly,
+                            at: powerUp.position,
+                            freezeFrames: 20,
+                            rate: 20,
+                            generatorSize: 20
+                        )
+                    }
                 }
-                if towardOther.length < 23 {
-                    let position = powerUp.position
+                if didMerge {
                     powerUp.removeFromParent()
-                    other.removeFromParent()
-                    spawnGenerator(
-                        kind: .butterfly,
-                        at: position,
-                        freezeFrames: 20,
-                        rate: 20,
-                        generatorSize: 20
-                    )
+                    createExplosion(at: powerUp.position, color: .purple)
                     continue
                 }
             } else if kind.rawValue < 2, lifeFrames > 400 {
                 let position = powerUp.position
                 powerUp.removeFromParent()
-                spawnEnemy(kind: .butterfly, at: position, freezeFrames: 30, closeToPlayer: true)
+                spawnEnemy(kind: .butterfly, at: position, freezeFrames: 30)
                 continue
             }
 
-            if velocity.length > 4 { velocity = velocity.normalized * 4 }
+            let speed = velocity.length + 0.001
+            if speed > 4 { velocity = velocity / speed * 4 }
             powerUp.userData?["dx"] = velocity.dx
             powerUp.userData?["dy"] = velocity.dy
             (powerUp.childNode(withName: "powerUpStar") as? SKSpriteNode)?.zRotation =
@@ -2110,9 +2443,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 dx: blackHole.position.x - powerUp.position.x,
                 dy: blackHole.position.y - powerUp.position.y
             )
-            let distance = max(0.001, difference.length)
+            let distance = difference.length + 0.001
             guard distance < 75 + blackHoleSize * 5 else { continue }
-            velocity = velocity + difference.normalized * ((400 - distance) / 4_096)
+            velocity = velocity + difference / distance * ((400 - distance) / 4_096)
             if distance < 12 + blackHoleSize {
                 let position = powerUp.position
                 powerUp.removeFromParent()
@@ -2145,30 +2478,171 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         updateHUD()
     }
 
-    @discardableResult
-    private func hitPlayer(at position: CGPoint) -> Bool {
-        guard session.shieldFrames == 0, lastUpdateTime >= playerInvulnerableUntil else { return false }
+    private func startGetReadySequence() {
+        getReadyFrame = 0
+        player.position = CGPoint(x: size.width / 2, y: size.height / 2)
+        playerMotion.reset()
+        player.isHidden = true
+        player.alpha = 1
+        playerShield.isHidden = true
+        readyRings.forEach { $0.isHidden = true }
+        messageLabel.text = "GET READY"
+        messageLabel.setScale(1)
+        messageLabel.isHidden = false
+        run(.playSoundFileNamed("startup.wav", waitForCompletion: false))
+    }
+
+    private func advanceGetReadySequence() {
+        let frame = getReadyFrame
+        if frame < 60 {
+            let pulse = abs(sin(CGFloat(frame) * .pi / 180))
+            messageLabel.isHidden = false
+            messageLabel.position = CGPoint(
+                x: size.width / 2,
+                y: size.height / 2 + pulse * 100
+            )
+            messageLabel.setScale(max(0.05, pulse * 3.2))
+            messageLabel.fontColor = SKColor(
+                red: 0,
+                green: (55 + pulse * 200) / 255,
+                blue: 0,
+                alpha: 1
+            )
+            player.isHidden = true
+            readyRings.forEach { $0.isHidden = true }
+        } else {
+            let ringFrame = frame - 60
+            messageLabel.isHidden = true
+            player.isHidden = ringFrame <= 10
+            let contractions: [CGFloat] = [6, 8, 12]
+            for (ring, contraction) in zip(readyRings, contractions) {
+                let radius = max(0, 300 - CGFloat(ringFrame) * contraction)
+                ring.position = player.position
+                ring.path = CGPath(
+                    ellipseIn: CGRect(x: -radius, y: -radius, width: radius * 2, height: radius * 2),
+                    transform: nil
+                )
+                ring.isHidden = radius == 0
+            }
+        }
+
+        getReadyFrame += 1
+        if getReadyFrame >= 100 {
+            getReadyFrame = -1
+            readyRings.forEach { $0.isHidden = true }
+            messageLabel.position = CGPoint(x: size.width / 2, y: size.height / 2)
+            messageLabel.setScale(1)
+            messageLabel.isHidden = true
+            player.isHidden = false
+            session.grantRespawnShield()
+            updatePlayerShield()
+        }
+    }
+
+    private func advanceDeathSequence() {
+        deathFramesRemaining -= 1
+        guard deathFramesRemaining == 0 else { return }
+
+        enemyLayer.removeAllChildren()
+        projectileLayer.removeAllChildren()
+        pickupLayer.removeAllChildren()
+        effectLayer.removeAllChildren()
         session.registerPlayerHit()
         updateHUD()
-        createExplosion(at: position, color: .magenta)
+        player.position = CGPoint(x: size.width / 2, y: size.height / 2)
+        playerMotion.reset()
 
         if session.isGameOver {
             player.isHidden = true
+            playerShield.isHidden = true
             mouseIsFiring = false
             touchIsFiring = false
+            messageLabel.position = CGPoint(x: size.width / 2, y: size.height / 2)
+            messageLabel.setScale(1)
+            messageLabel.fontColor = .white
             messageLabel.text = "GAME OVER\nPunkte: \(session.score)\nR oder Tippen zum Neustart"
             messageLabel.isHidden = false
             run(.playSoundFileNamed("gameover.wav", waitForCompletion: false))
-            return true
+        } else {
+            touchAim = .zero
+            touchIsFiring = false
+            mouseAutofireArmed = false
+            keyboardAutofireArmed = false
+            startGetReadySequence()
         }
+    }
 
-        playerInvulnerableUntil = lastUpdateTime + 2
-        player.removeAllActions()
-        let blink = SKAction.sequence([
-            .fadeAlpha(to: 0.18, duration: 0.08),
-            .fadeAlpha(to: 1, duration: 0.08),
-        ])
-        player.run(.repeat(blink, count: 10))
+    private func markKiller(_ killer: SKNode?) {
+        guard let killer else { return }
+        killer.userData?["killer"] = true
+
+        let snakeHeadID: String?
+        if killer.name == "snakeTail" {
+            snakeHeadID = killer.userData?["snakeHeadID"] as? String
+        } else if killer.userData?["kind"] as? String == EnemyKind.snake.rawValue {
+            snakeHeadID = killer.userData?["enemyID"] as? String
+        } else {
+            snakeHeadID = nil
+        }
+        guard let snakeHeadID else { return }
+
+        for node in enemyLayer.children {
+            let isHead = node.userData?["enemyID"] as? String == snakeHeadID
+            let isTail = node.userData?["snakeHeadID"] as? String == snakeHeadID
+            if isHead || isTail {
+                node.userData?["killer"] = true
+            }
+        }
+    }
+
+    private func removeNonKillerEntities() {
+        for node in enemyLayer.children {
+            let isKiller = (node.userData?["killer"] as? NSNumber)?.boolValue ?? false
+            if !isKiller {
+                node.removeFromParent()
+            }
+        }
+        projectileLayer.removeAllChildren()
+        pickupLayer.removeAllChildren()
+        for node in effectLayer.children where node.name == "playerTrail" {
+            node.removeFromParent()
+        }
+        // RemoveAll(False) clears all four pending wave counters in the original.
+        spawnDirector.reset()
+    }
+
+    @discardableResult
+    private func hitPlayer(killer: SKNode? = nil) -> Bool {
+        guard session.shieldFrames == 0,
+              deathFramesRemaining == 0,
+              getReadyFrame < 0 else { return false }
+
+        markKiller(killer)
+        deathFramesRemaining = 100
+        player.isHidden = true
+        playerShield.isHidden = true
+        messageLabel.isHidden = true
+        removeNonKillerEntities()
+
+        let emitter = SKEmitterNode()
+        emitter.name = "playerDeath"
+        emitter.position = player.position
+        emitter.particleTexture = SKTexture(imageNamed: "particle")
+        emitter.particleColor = SKColor(red: 1, green: 1, blue: 200 / 255, alpha: 1)
+        emitter.particleColorBlendFactor = 1
+        emitter.particleBirthRate = 1_280
+        emitter.numParticlesToEmit = 256
+        emitter.particleLifetime = 1.8
+        emitter.particleLifetimeRange = 0.4
+        emitter.emissionAngleRange = .pi * 2
+        emitter.particleSpeed = 170
+        emitter.particleSpeedRange = 110
+        emitter.particleAlphaSpeed = -0.5
+        emitter.particleScale = 0.8
+        emitter.particleScaleRange = 0.5
+        emitter.particleScaleSpeed = -0.35
+        effectLayer.addChild(emitter)
+        run(.playSoundFileNamed("die1.wav", waitForCompletion: false))
         return true
     }
 
@@ -2226,7 +2700,20 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         mouseIsFiring = firing
     }
 
+    func setMouseBomb(_ pressed: Bool) {
+        mouseBombIsHeld = pressed
+        if pressed {
+            triggerBomb()
+        }
+    }
+
     func triggerBomb() {
+        if getReadyFrame >= 0 {
+            getReadyFrame = getReadyFrame < 60 ? 60 : 99
+            return
+        }
+        guard deathFramesRemaining == 0 else { return }
+        guard bombCooldownFrames == 0 else { return }
         guard session.useBomb() else { return }
         bombCooldownFrames = 60
         let enemies = enemyLayer.children.filter { $0.name == "enemy" || $0.name == "generator" }
@@ -2265,7 +2752,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         if pressedKeys.contains(1) || pressedKeys.contains(125) && pressedKeys.contains(56) {
             vector.dy -= 1
         }
-        return vector.length > 1 ? vector.normalized : vector
+        return vector
     }
 
     private var keyboardAim: CGVector {

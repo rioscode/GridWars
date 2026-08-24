@@ -64,6 +64,21 @@ final class GameRulesTests: XCTestCase {
         XCTAssertEqual(session.bouncyShotFrames, 0)
     }
 
+    func testFinalPlayerDeathDoesNotRunRespawnDowngrades() {
+        var session = GameSession(difficulty: .hard)
+        session.collectPowerUp(.extraCannon)
+        session.collectPowerUp(.fasterShots)
+
+        session.registerPlayerHit()
+        session.collectPowerUp(.extraCannon)
+        session.collectPowerUp(.fasterShots)
+        session.registerPlayerHit()
+
+        XCTAssertTrue(session.isGameOver)
+        XCTAssertEqual(session.cannons, 3)
+        XCTAssertEqual(session.shotSpeed, 4)
+    }
+
     func testBombMatchesOriginalSupplyShieldAndMultiplierReset() {
         var session = GameSession()
         for _ in 0..<25 {
@@ -75,6 +90,86 @@ final class GameRulesTests: XCTestCase {
         XCTAssertEqual(session.shieldFrames, 65)
         XCTAssertEqual(session.multiplier, 1)
         XCTAssertEqual(session.killsSinceDamage, 0)
+    }
+
+    func testPlayerMotionUsesOriginalInertiaSpeedAndNormalization() {
+        var motion = PlayerMotionState()
+        let center = CGPoint(x: 512, y: 384)
+
+        let first = motion.advance(
+            from: center,
+            input: CGVector(dx: 1, dy: 0),
+            arenaSize: CGSize(width: 1_024, height: 768)
+        )
+        XCTAssertEqual(first.position.x, 518, accuracy: 0.0001)
+        XCTAssertEqual(first.position.y, 384, accuracy: 0.0001)
+
+        let coast = motion.advance(
+            from: first.position,
+            input: .zero,
+            arenaSize: CGSize(width: 1_024, height: 768)
+        )
+        XCTAssertEqual(coast.movement.dx, 0.5, accuracy: 0.0001)
+        XCTAssertEqual(coast.position.x, 521, accuracy: 0.0001)
+
+        let diagonal = motion.advance(
+            from: coast.position,
+            input: CGVector(dx: 1, dy: 1),
+            arenaSize: CGSize(width: 1_024, height: 768)
+        )
+        XCTAssertEqual(diagonal.movement.length, 1, accuracy: 0.0001)
+    }
+
+    func testPlayerMotionUndoesBoundaryStepAndReversesMemory() {
+        var motion = PlayerMotionState()
+        let result = motion.advance(
+            from: CGPoint(x: 17, y: 384),
+            input: CGVector(dx: -1, dy: 0),
+            arenaSize: CGSize(width: 1_024, height: 768)
+        )
+
+        XCTAssertEqual(result.position.x, 17, accuracy: 0.0001)
+        XCTAssertEqual(motion.memory.dx, 1, accuracy: 0.0001)
+    }
+
+    func testRespawnShieldAndOriginalWarningFrames() {
+        var session = GameSession()
+        session.grantRespawnShield()
+        XCTAssertEqual(session.shieldFrames, 80)
+
+        for _ in 0..<9 {
+            XCTAssertFalse(session.tick())
+        }
+        XCTAssertTrue(session.tick())
+        XCTAssertEqual(session.shieldFrames, 70)
+    }
+
+    func testWeaponRuleMatchesOriginalCannonCountsTimersAndSpeeds() {
+        let aim = CGVector(dx: 1, dy: 0)
+        let one = PlayerWeaponRule.launches(
+            aim: aim,
+            cannons: 1,
+            shotSpeed: 3,
+            reverseShooter: false,
+            sideShooters: false
+        )
+        XCTAssertEqual(one.count, 1)
+        XCTAssertEqual(one[0].speed, 9.6, accuracy: 0.0001)
+
+        let four = PlayerWeaponRule.launches(
+            aim: aim,
+            cannons: 4,
+            shotSpeed: 5,
+            reverseShooter: true,
+            sideShooters: true
+        )
+        XCTAssertEqual(four.count, 7)
+        XCTAssertEqual(four[0].speed, 15.75, accuracy: 0.0001)
+        XCTAssertEqual(four[2].speed, 15.5, accuracy: 0.0001)
+        XCTAssertEqual(four[4].direction.dx, -1, accuracy: 0.0001)
+        XCTAssertEqual(PlayerWeaponRule.timerFrames(cannons: 1), 4)
+        XCTAssertEqual(PlayerWeaponRule.timerFrames(cannons: 2), 5)
+        XCTAssertEqual(PlayerWeaponRule.timerFrames(cannons: 4), 6)
     }
 
     func testPowerUpCapsFallBackToTwoThousandPoints() {
@@ -146,8 +241,8 @@ final class GameRulesTests: XCTestCase {
         XCTAssertNotEqual(kind, .blackHole)
         XCTAssertNotEqual(kind, .interceptor)
         XCTAssertEqual(freezeFrames, 20)
-        XCTAssertTrue((60...140).contains(rate))
-        XCTAssertTrue((0...32).contains(size))
+        XCTAssertTrue((81...140).contains(rate))
+        XCTAssertTrue((1...32).contains(size))
 
         let speedFrame = director.advance(frame: 3_001, spawningIsBlocked: false, using: &random)
         XCTAssertTrue(speedFrame.shouldIncreaseEnemySpeeds)
@@ -195,16 +290,49 @@ final class GameRulesTests: XCTestCase {
         XCTAssertEqual(nearVelocity.dx, 1.0 / 32.0, accuracy: 0.0001)
     }
 
+    func testBlackHoleRulesPreserveOriginalIntegerConversions() {
+        XCTAssertEqual(BlackHoleRule.growthSpeedUp(frame: 0), 1)
+        XCTAssertEqual(BlackHoleRule.growthSpeedUp(frame: 50 * 60 * 6), 2)
+        XCTAssertEqual(BlackHoleRule.growthSpeedUp(frame: 50 * 60 * 30), 5)
+        XCTAssertEqual(BlackHoleRule.destructionScore(absorbedEnemies: 5), 200)
+
+        let deflected = BlackHoleRule.deflectProjectile(
+            position: .zero,
+            velocity: CGVector(dx: 3, dy: 4),
+            blackHolePosition: CGPoint(x: 40, y: 40),
+            blackHoleSize: 21.9
+        )
+        XCTAssertEqual(deflected.dx, 3 - 1.0 / 21.0, accuracy: 0.0001)
+        XCTAssertEqual(deflected.dy, 4 - 1.0 / 21.0, accuracy: 0.0001)
+    }
+
     func testInterceptorShieldMatchesOriginalForwardTriangle() {
         let shield = InterceptorShieldGeometry(
             center: CGPoint(x: 100, y: 100),
             velocity: CGVector(dx: 4, dy: 0)
         )
 
-        XCTAssertTrue(shield.contains(CGPoint(x: 140, y: 100)))
-        XCTAssertFalse(shield.contains(CGPoint(x: 70, y: 100)))
+        let projectileVelocity = CGVector(dx: 10, dy: 0)
+        XCTAssertTrue(shield.contains(
+            CGPoint(x: 140, y: 100),
+            projectileVelocity: projectileVelocity
+        ))
+        XCTAssertFalse(shield.contains(
+            CGPoint(x: 70, y: 100),
+            projectileVelocity: projectileVelocity
+        ))
         XCTAssertEqual(shield.right.x, 164, accuracy: 0.0001)
         XCTAssertEqual(abs(shield.right.y - 100), 36, accuracy: 0.0001)
+    }
+
+    func testStationaryInterceptorShieldMatchesOriginalFallbackGeometry() {
+        let shield = InterceptorShieldGeometry(
+            center: CGPoint(x: 40, y: 60),
+            velocity: .zero
+        )
+
+        XCTAssertEqual(shield.right, CGPoint(x: 140, y: 32))
+        XCTAssertEqual(shield.left, CGPoint(x: 68, y: -40))
     }
 
     func testTriangleBondCollisionUsesOriginalTwelvePixelRadius() {

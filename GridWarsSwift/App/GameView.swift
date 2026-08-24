@@ -97,7 +97,12 @@ private final class KeyboardSKView: SKView {
 
     override func rightMouseDown(with event: NSEvent) {
         updatePointer(with: event)
-        sceneController?.triggerBomb()
+        sceneController?.setMouseBomb(true)
+    }
+
+    override func rightMouseUp(with event: NSEvent) {
+        updatePointer(with: event)
+        sceneController?.setMouseBomb(false)
     }
 
     private func updatePointer(with event: NSEvent) {

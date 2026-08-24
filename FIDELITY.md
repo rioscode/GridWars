@@ -4,6 +4,41 @@ This file defines the acceptance surface for the native Swift port. A checked
 item requires three forms of evidence: an original BlitzMax source reference,
 the corresponding Swift implementation, and a test or visual/runtime check.
 
+## Evidence in progress
+
+- Player motion and weapons: `gridwars.bmx:96, 5308-5347, 5443-5604` map to
+  `PlayerMotionState`, `PlayerWeaponRule`, and the player/shot update paths in
+  `GameScene`. `GameRulesTests` verifies inertia, the effective six-pixel
+  maximum speed caused by the original `Int = 6.5` declaration, boundary
+  reversal, cannon counts, timers, shot speeds, timed shooters, and shield
+  frames. Visual verification of trail, facing, and shield presentation is
+  still required before checking the corresponding items.
+- Player lifecycle: `gridwars.bmx:4344-4503` maps to the frame-based death and
+  Get Ready states in `GameScene`: 256 death particles, non-killer removal,
+  100 death frames, 60 title frames, 40 contraction frames, delayed life loss,
+  respawn downgrade/reset, and 80 shield frames. Runtime capture and the full
+  Game Over/high-score continuation remain outstanding.
+- Gameplay entity audit: `gridwars.bmx:190-3167, 4752-4977, 5691-5777` maps to
+  `SpawnDirector`, `TriangleBondState`, `SnakeSegmentRule`, `BlackHoleRule`,
+  `InterceptorShieldGeometry`, and the generator/enemy/power-up/projectile
+  update paths in `GameScene`. The source-order audit covers all ten enemies,
+  ten generator kinds, the staged waves, collision radii, score values,
+  black-hole absorption, snake chain death, interceptor blocking, triangle
+  ownership, cube splitting, power-up merging, bomb cooldown, and wave reset
+  on player death. Entity presentation, per-event particle recipes, spatial
+  audio and matching runtime captures remain outstanding, so the broad enemy
+  checklist entries stay open.
+- Language semantics: `docs/bb/blitzmax-ng/brl/random.mod/random.bmx` confirms
+  inclusive integer `Rand` and upper-exclusive floating-point `Rnd`; the
+  archived legacy `Language/Data types.bbdoc` documents the implicit numeric
+  conversions used by the original. Swift random ranges and intentional
+  integer truncations follow those references.
+- Build evidence (2026-08-24): the macOS unit-test action and generic iOS
+  device Debug build both pass with code signing disabled. The rule suite
+  covers initial difficulty, motion, weapons, scoring, upgrades, spawn timing,
+  triangle bonds, snake following, black-hole integer conversions,
+  interceptor geometry and generator non-kill scoring.
+
 ## Core loop and progression
 
 - [ ] Fixed 50 Hz gameplay timing (`gridwars.bmx:3622-3704`).

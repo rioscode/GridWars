@@ -127,6 +127,118 @@ struct EnemySpeeds: Equatable {
     }
 }
 
+struct PlayerMotionState: Equatable {
+    static let maximumSpeedPerFrame: CGFloat = 6
+    static let defaultInertia: CGFloat = 0.5
+    static let boundaryMargin: CGFloat = 16
+
+    private(set) var memory = CGVector.zero
+
+    mutating func advance(
+        from position: CGPoint,
+        input: CGVector,
+        arenaSize: CGSize,
+        inertia: CGFloat = Self.defaultInertia
+    ) -> (position: CGPoint, movement: CGVector) {
+        var movement = input + memory * inertia
+        if movement.length > 1 {
+            movement = movement.normalized
+        }
+        memory = movement
+
+        var next = position
+        next.x += movement.dx * Self.maximumSpeedPerFrame
+        if next.x < Self.boundaryMargin || next.x > arenaSize.width - Self.boundaryMargin {
+            next.x -= movement.dx * Self.maximumSpeedPerFrame
+            memory.dx = -memory.dx
+        }
+
+        next.y += movement.dy * Self.maximumSpeedPerFrame
+        if next.y < Self.boundaryMargin || next.y > arenaSize.height - Self.boundaryMargin {
+            next.y -= movement.dy * Self.maximumSpeedPerFrame
+            memory.dy = -memory.dy
+        }
+        return (next, movement)
+    }
+
+    mutating func reset() {
+        memory = .zero
+    }
+}
+
+struct ProjectileLaunch: Equatable {
+    let direction: CGVector
+    let speed: CGFloat
+}
+
+enum PlayerWeaponRule {
+    static func timerFrames(cannons: Int) -> Int {
+        4 + cannons / 2
+    }
+
+    static func launches(
+        aim: CGVector,
+        cannons: Int,
+        shotSpeed: Int,
+        reverseShooter: Bool,
+        sideShooters: Bool
+    ) -> [ProjectileLaunch] {
+        let direction = aim.normalized
+        guard direction.length > 0 else { return [] }
+        var launches: [ProjectileLaunch] = []
+
+        if !cannons.isMultiple(of: 2) {
+            launches.append(.init(direction: direction, speed: CGFloat(shotSpeed) * 3.2))
+        }
+        if cannons > 1 {
+            let angle: CGFloat = cannons.isMultiple(of: 2) ? 2 : 4
+            launches.append(.init(
+                direction: rotate(direction, degrees: angle),
+                speed: CGFloat(shotSpeed) * 3.15
+            ))
+            launches.append(.init(
+                direction: rotate(direction, degrees: -angle),
+                speed: CGFloat(shotSpeed) * 3.15
+            ))
+        }
+        if cannons > 3 {
+            launches.append(.init(
+                direction: rotate(direction, degrees: 5),
+                speed: CGFloat(shotSpeed) * 3.1
+            ))
+            launches.append(.init(
+                direction: rotate(direction, degrees: -5),
+                speed: CGFloat(shotSpeed) * 3.1
+            ))
+        }
+        if reverseShooter {
+            launches.append(.init(
+                direction: rotate(direction, degrees: 180),
+                speed: CGFloat(shotSpeed) * 3
+            ))
+        }
+        if sideShooters {
+            launches.append(.init(
+                direction: rotate(direction, degrees: 90),
+                speed: CGFloat(shotSpeed) * 3
+            ))
+            launches.append(.init(
+                direction: rotate(direction, degrees: -90),
+                speed: CGFloat(shotSpeed) * 3
+            ))
+        }
+        return launches
+    }
+
+    private static func rotate(_ vector: CGVector, degrees: CGFloat) -> CGVector {
+        let angle = degrees * .pi / 180
+        return CGVector(
+            dx: vector.dx * cos(angle) - vector.dy * sin(angle),
+            dy: vector.dx * sin(angle) + vector.dy * cos(angle)
+        )
+    }
+}
+
 struct GameSession: Equatable {
     static let multiplierThresholds = [25, 100, 200, 400, 800, 1_600, 2_500, 3_500, 5_000, 5_500]
     static let powerUpBaseScore = 2_500
@@ -203,6 +315,7 @@ struct GameSession: Equatable {
     mutating func registerPlayerHit() {
         guard lives > 0 else { return }
         lives -= 1
+        guard lives > 0 else { return }
         if cannons > 2 { cannons -= 1 }
         if shotSpeed > 3 { shotSpeed -= 1 }
         reverseShooterFrames = 0
@@ -218,6 +331,10 @@ struct GameSession: Equatable {
         shieldFrames = 65
         resetMultiplier()
         return true
+    }
+
+    mutating func grantRespawnShield() {
+        shieldFrames = 80
     }
 
     @discardableResult
@@ -269,12 +386,14 @@ struct GameSession: Equatable {
         return [.powerUpCollected(kind, message: message)] + scoreEvents
     }
 
-    mutating func tick() {
+    @discardableResult
+    mutating func tick() -> Bool {
         reverseShooterFrames = max(0, reverseShooterFrames - 1)
         sideShooterFrames = max(0, sideShooterFrames - 1)
         shieldFrames = max(0, shieldFrames - 1)
         superShotFrames = max(0, superShotFrames - 1)
         bouncyShotFrames = max(0, bouncyShotFrames - 1)
+        return shieldFrames == 100 || shieldFrames == 70 || shieldFrames == 40
     }
 
     mutating func increaseEnemySpeeds() {
@@ -368,22 +487,55 @@ enum SnakeSegmentRule {
     }
 }
 
+enum BlackHoleRule {
+    static func growthSpeedUp(frame: Int) -> CGFloat {
+        min(5, 1 + CGFloat(frame / (50 * 60 * 6)))
+    }
+
+    static func destructionScore(absorbedEnemies: Int) -> Int {
+        150 + absorbedEnemies * (absorbedEnemies + 1) / 3 * 5
+    }
+
+    static func deflectProjectile(
+        position: CGPoint,
+        velocity: CGVector,
+        blackHolePosition: CGPoint,
+        blackHoleSize: CGFloat
+    ) -> CGVector {
+        let difference = CGVector(
+            dx: blackHolePosition.x - position.x,
+            dy: blackHolePosition.y - position.y
+        )
+        let distanceSquared = difference.dx * difference.dx + difference.dy * difference.dy
+        let range = CGFloat(Int(75 + blackHoleSize * 5))
+        guard distanceSquared < range * range, distanceSquared > 32 * 32 else { return velocity }
+
+        let diameter = Int(blackHoleSize / 4)
+        let divisor = CGFloat(26 - diameter)
+        return CGVector(
+            dx: velocity.dx - (difference.dx == 0 ? 0 : copysign(1 / divisor, difference.dx)),
+            dy: velocity.dy - (difference.dy == 0 ? 0 : copysign(1 / divisor, difference.dy))
+        )
+    }
+}
+
 struct InterceptorShieldGeometry: Equatable {
-    let rear: CGPoint
+    let center: CGPoint
     let right: CGPoint
     let left: CGPoint
 
     init(center: CGPoint, velocity: CGVector) {
         let speed = velocity.length
-        let direction = speed > 0
-            ? velocity / speed
-            : CGVector(dx: 1, dy: 0)
+        guard speed > 0 else {
+            self.center = center
+            right = CGPoint(x: center.x + 100, y: center.y - 28)
+            left = CGPoint(x: center.x + 28, y: center.y - 100)
+            return
+        }
+        let direction = velocity / speed
         let normal = CGVector(dx: -direction.dy, dy: direction.dx)
 
-        rear = CGPoint(
-            x: center.x - velocity.dx,
-            y: center.y - velocity.dy
-        )
+        self.center = center
         right = CGPoint(
             x: center.x + direction.dx * 64 + normal.dx * 36,
             y: center.y + direction.dy * 64 + normal.dy * 36
@@ -394,7 +546,11 @@ struct InterceptorShieldGeometry: Equatable {
         )
     }
 
-    func contains(_ point: CGPoint) -> Bool {
+    func contains(_ point: CGPoint, projectileVelocity: CGVector) -> Bool {
+        let rear = CGPoint(
+            x: center.x - projectileVelocity.dx,
+            y: center.y - projectileVelocity.dy
+        )
         let first = Self.cross(point, rear, right)
         let second = Self.cross(point, right, left)
         let third = Self.cross(point, left, rear)
@@ -487,8 +643,8 @@ struct SpawnDirector {
             if kindValue == 9 { kindValue = 10 }
             if kindValue == 6 { kindValue = randomInt(3...5, using: &random) }
             let generatorKind = OriginalEnemyKind(rawValue: kindValue - 1) ?? .greenSquare
-            let size = min(randomInt(0...(16 + frame / 2_000), using: &random), 32)
-            let rate = max(60, 80 + randomInt(0...60, using: &random) - frame / 1_000)
+            let size = min(randomInt(1...(16 + frame / 2_000), using: &random), 32)
+            let rate = max(60, 80 + randomInt(1...60, using: &random) - frame / 1_000)
             result.commands.append(.generator(
                 kind: generatorKind,
                 freezeFrames: 20,
