@@ -27,6 +27,7 @@ capture_work=$(mktemp -d "${TMPDIR:-/tmp}/gridwars-original-capture.XXXXXX")
 trap 'rm -rf -- "$capture_work"' EXIT HUP INT TERM
 
 cp "$repo_dir"/*.bmx "$capture_work/"
+cp "$repo_dir/scripts/original-catalog.bmx" "$capture_work/"
 cp -R "$repo_dir/gfx" "$repo_dir/music" "$repo_dir/sounds" "$capture_work/"
 
 # BlitzMax NG has a Max2D Rect symbol and rejects the duplicate legacy Linux
@@ -34,6 +35,8 @@ cp -R "$repo_dir/gfx" "$repo_dir/music" "$repo_dir/sounds" "$capture_work/"
 perl -pi -e 's/\brect\b/LegacyRect/ig' \
   "$capture_work/control.bmx" "$capture_work/utils.bmx"
 perl -0pi -e 's/\?Linux\n\?OpenGLES\nFramework SDL\.GL2SDLMax2D\n\?not OpenGLES\nFramework BRL\.GLMax2D\n\?\n/?\n/' \
+  "$capture_work/gridwars.bmx"
+perl -0pi -e 's/\z/\nInclude "original-catalog.bmx"\n/' \
   "$capture_work/gridwars.bmx"
 
 (
@@ -51,8 +54,31 @@ binary="$app/Contents/MacOS/gridwars"
 /usr/libexec/PlistBuddy -c 'Add :NSHighResolutionCapable bool false' "$plist"
 codesign --force --deep --sign - "$app"
 
-for screen in title scores friends enemies options; do
+for screen in \
+  title scores friends enemies options gameplay hud-default hud-upgraded \
+  enemy-pinwheel enemy-diamond enemy-green-square enemy-cube enemy-seeker \
+  enemy-black-hole enemy-triangle enemy-snake enemy-interceptor enemy-butterfly \
+  generator-pinwheel generator-diamond generator-green-square generator-cube \
+  generator-seeker generator-black-hole generator-triangle generator-snake \
+  generator-interceptor generator-butterfly \
+  powerup-reverse powerup-side powerup-cannon powerup-faster powerup-player \
+  powerup-bomb powerup-shield powerup-super powerup-bouncy \
+  particle-0 particle-1 particle-2 particle-3 \
+  graphics-solid graphics-low graphics-medium graphics-high graphics-user; do
   "$binary" "$screen" "$output_dir"
 done
+
+for grid in \
+  00 01 02 03 04 05 06 07 08 09 10 \
+  11 12 13 14 15 16 17 18 19 20; do
+  "$binary" "grid-$grid" "$output_dir"
+done
+
+(
+  cd "$output_dir"
+  for image in *.png; do
+    shasum -a 256 "$image"
+  done > SHA256SUMS
+)
 
 echo "Original captures written to $output_dir"

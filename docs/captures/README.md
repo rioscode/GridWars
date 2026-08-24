@@ -21,18 +21,23 @@ requires compatibility-only edits in the temporary copy:
 - bypass the modern `GraphicsModeExists` window-mode rejection for the fixed
   1024×768 capture window;
 - disable Retina backing so `GrabPixmap` returns the complete logical frame
-  instead of one quadrant of the 2× framebuffer.
+  instead of one quadrant of the 2× framebuffer; and
+- store screenshots as opaque RGB so an undefined window-framebuffer alpha
+  channel cannot affect otherwise identical PNGs.
 
-Capture mode uses the original compiled renderer and assets, fixes the random
-seed, installs default scores and colours, and skips all reads and writes under
-`~/.config/gridwars`. It changes only the selected presentation page, fixed
-window mode, and PNG export after the named frame. Available references are:
+Capture mode uses the original compiled renderer, entity types, draw functions,
+and assets; fixes the random seed; installs default scores and colours; and
+skips all reads and writes under `~/.config/gridwars`. It changes only the
+selected fixed state, window mode, and PNG export after the named frame. The
+67 available references cover:
 
-- `title-600.png`
-- `scores-600.png`
-- `friends-600.png`
-- `enemies-600.png`
-- `options-20.png`
+- the title, scores, friends, and enemies attract pages at frame 600;
+- the options page at frame 20;
+- gameplay plus default and upgraded HUD states;
+- all ten enemies and all ten generator variants;
+- all nine power-ups;
+- all 21 grid styles and all four particle styles; and
+- Solid, Low, Medium, High, and User graphics sets.
 
 `original/SHA256SUMS` pins the exact reference artifacts. To regenerate them:
 
@@ -40,8 +45,9 @@ window mode, and PNG export after the named frame. Available references are:
 ./scripts/capture-original.sh /path/to/BlitzMax
 ```
 
-The script copies source and assets to a `mktemp` directory, patches and builds
-only that copy, captures the five states, then deletes the temporary build.
+The script copies source and assets to a `mktemp` directory, textually includes
+`scripts/original-catalog.bmx`, patches and builds only that copy, captures the
+67 states, then deletes the temporary build.
 
 ## Swift renderer
 
@@ -58,3 +64,17 @@ sh scripts/capture-screens.sh
 An optional first argument selects the output directory. The capture mode does
 not load or save player configuration or high scores. It requires an active,
 unlocked macOS window session so SpriteKit can create a render texture.
+
+## Comparison
+
+With ImageMagick installed, compare every currently matching original/Swift
+pair and verify that both inputs are 1024×768:
+
+```sh
+sh scripts/compare-captures.sh docs/captures/original docs/captures/swift
+```
+
+The CSV value is the normalized mean absolute pixel difference: zero is exact
+pixel identity. Small nonzero values are expected where BlitzMax/OpenGL and
+SpriteKit rasterize the same vector edges differently. Review the images as
+well; the metric alone is not fidelity acceptance.

@@ -110,8 +110,9 @@ branch. Each major fidelity milestone has its own commit:
 
 `FIDELITY.md` is the acceptance ledger. Automated fixed-state capture support
 is implemented and has been generated successfully. The isolated BlitzMax
-harness currently captures the five attract/options reference states;
-authoritative entity-by-entity 1024×768 comparisons still require expanding
-that harness. A full manual playthrough on physical iPhone/iPad hardware also
-remains verification work; these evidence gaps are not represented as
-completed 1:1 proof.
+harness now captures 67 attract/options, gameplay, HUD, entity, generator,
+power-up, grid, particle, and graphics-set reference states. The matching Swift
+states are ready for 1024×768 pairwise comparison; original transition/menu
+coverage and final visual corrections remain open. A full manual playthrough
+on physical iPhone/iPad hardware also remains verification work; these evidence
+gaps are not represented as completed 1:1 proof.

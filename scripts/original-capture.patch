@@ -66,10 +66,11 @@
  
  End
  
-@@ -3625,6 +3645,10 @@
+@@ -3625,6 +3646,11 @@
  	Local done:Int,f:Int
  
  	part.CreateAll()
++	If CaptureOriginalCatalog(captureMode, captureDir) Then Return
 +	If captureMode = "scores" Then ShowScores();Return
 +	If captureMode = "friends" Then ShowFriends();Return
 +	If captureMode = "enemies" Then ShowEnemies();Return
@@ -144,6 +145,10 @@
 +	If AppArgs.length > 1
 +		Graphics(SCREENW, SCREENH, 0)
 +	ElseIf windowed
- 		If GraphicsModeExists( SCREENW,SCREENH )
- 			Graphics(SCREENW, SCREENH, 0)
- 		Else
+		If GraphicsModeExists( SCREENW,SCREENH )
+			Graphics(SCREENW, SCREENH, 0)
+		Else
+--- utils.bmx
++++ utils.bmx
+@@ -284,0 +285 @@
++	img = ConvertPixmap(img, PF_RGB888)

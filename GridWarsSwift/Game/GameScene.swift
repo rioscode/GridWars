@@ -620,10 +620,18 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             session.grantCheatCannon()
             session.grantCheatShotSpeed()
             session.grantCheatShotSpeed()
-            for kind in PowerUpKind.allCases {
+            for kind in [
+                PowerUpKind.reverseShooter,
+                .sideShooters,
+                .extraPlayer,
+                .extraBomb,
+                .shield,
+                .superShots,
+                .bouncyShots,
+            ] {
                 _ = session.collectPowerUp(kind)
             }
-            _ = session.registerScore(baseScore: 123_456, countsAsKill: true)
+            _ = session.registerScore(baseScore: 123_456)
             updatePlayerShield()
             updateHUD()
         case let .menu(menu):

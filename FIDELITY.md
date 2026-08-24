@@ -28,9 +28,10 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   on player death. The 2048-slot `ParticleSimulation` now reproduces every
   gameplay emission recipe and colour from `gridwars.bmx`/`colordefs.bmx`.
   Enemy sprite transforms, per-kind auras, generator fill/outline geometry,
-  warning flashes and attract-screen animation rates are now source-matched;
-  matching runtime captures remain outstanding, so the broad enemy checklist
-  entries stay open.
+  warning flashes and attract-screen animation rates are now source-matched.
+  The original and Swift capture catalogs expose matching isolated states for
+  all ten enemies and generators; pairwise visual correction is in progress,
+  so the broad enemy checklist entries stay open.
 - Grid and particle simulation: `gridparttrail.bmx:494-2017` maps to
   `GridSimulation`, `GridRenderer`, `ParticleSimulation`, and
   `ParticleRenderer`. The port has all 21 grid-style selectors, the original
@@ -40,8 +41,9 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   half-ring black-hole gravity, lifetime/decay/bounce behaviour, and exact
   gameplay emission counts. Unit tests cover lattice impulses, reset and
   damping plus particle lifetime, wrap, colour fade, palette and black-hole
-  parity. Style-by-style captures are still required before checking the broad
-  rendering entries.
+  parity. Matching original and Swift fixed states now cover every grid and
+  particle selector; style-by-style visual correction is still required before
+  checking the broad rendering entries.
 - Screens and runtime controls: `gridwars.bmx:3622-4319, 5383-5439` and
   `control.bmx:889-2570` map to `OriginalScreenFlow`, `OriginalMenuModel`,
   `OriginalVectorFont`, `OriginalScreenRenderer`, and the presentation/input
@@ -65,8 +67,9 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   original debug weapon patterns. `OriginalCameraRule` and the scene now apply
   the configured arena size, forced scrolling for oversized playfields, the
   original integer 500-pixel edge acceleration, ±80 overscroll, pointer-space
-  conversion, and depth-divided star parallax. Matching visual captures are still required
-  before checking the broad screen and menu entries.
+  conversion, and depth-divided star parallax. Matching original menu and
+  transition captures are still required before checking the broad screen and
+  menu entries.
 - Graphics and HUD: `images.bmx:34-100`, `gridwars.bmx:3266-3272, 5911-5932`,
   and the deterministic fixed-frame original images in
   `docs/captures/original/` map to
@@ -76,13 +79,15 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   set-specific frame sizes, white entity art is no longer palette-tinted, and
   the score, high score, multiplier, lives and bomb indicators use the original
   vector font, coordinates, alpha and icon frames. The isolated original
-  renderer now produces valid full-frame 1024×768 title, scores, friends,
-  enemies and options references via `scripts/capture-original.sh`; capture
-  mode bypasses all legacy configuration and high-score I/O. A persistence-free
-  Swift capture catalog covers 87 fixed states via
-  `scripts/capture-screens.sh`. Enemy pages reproduce the original individual rotation, pulse and
-  squash rates, while the score and friend pages retain their delayed colour
-  trails instead of applying a uniform palette tint.
+  renderer now produces 67 valid full-frame 1024×768 attract/options, gameplay,
+  HUD, entity, generator, power-up, grid, particle, and graphics-set references
+  via `scripts/capture-original.sh`; capture mode bypasses all legacy
+  configuration and high-score I/O. A persistence-free Swift capture catalog
+  covers 87 fixed states via `scripts/capture-screens.sh`, and
+  `scripts/compare-captures.sh` measures every available matching pair. Enemy
+  pages reproduce the original individual rotation, pulse and squash rates,
+  while the score and friend pages retain their delayed colour trails instead
+  of applying a uniform palette tint.
 - Persistence and legacy data: `control.bmx:218-872`,
   `gridwars.bmx:3275-3610`, and `utils.bmx:46-74` map to
   `LegacyPersistence`, the high-score presentation in `GameScene` and
@@ -119,7 +124,7 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   archived legacy `Language/Data types.bbdoc` documents the implicit numeric
   conversions used by the original. Swift random ranges and intentional
   integer truncations follow those references.
-- Build evidence (2026-08-24): the macOS unit-test action (62 tests) and generic
+- Build evidence (2026-08-24): the macOS unit-test action (64 tests) and generic
   iOS Simulator Debug build both pass. The rule suite
   covers initial difficulty, motion, weapons, scoring, upgrades, spawn timing,
   triangle bonds, snake following, black-hole integer conversions,
