@@ -678,6 +678,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             updateHUD()
         case let .menu(menu):
             configureMenuCapture(menu)
+            menuPresentationPage = menuModel.page
+            menuPresentationFrame = 20
         }
 
         renderPresentation()
@@ -775,6 +777,10 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     private func configureMenuCapture(_ capture: OriginalMenuCapture) {
+        menuModel.settings.windowed = true
+        menuModel.settings.screenSizeIndex = 8
+        menuModel.settings.screenWidth = 1_024
+        menuModel.settings.screenHeight = 768
         let duringGame = capture == .optionsGame || capture == .confirmEndGame
         if duringGame {
             prepareGameplayCapture(includeSamples: true)
@@ -1172,7 +1178,18 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             gridLayer.zPosition = showsVideoPreview ? 201 : -10
             gridLayer.isHidden = !showsVideoPreview && screenFlow.phase != .playing && screenFlow.phase != .gameOver
             particleRenderer.node.zPosition = showsVideoPreview ? 201 : 5
-            screenRenderer.renderMenu(menuModel, frame: menuPresentationFrame, size: size)
+            gridLayer.childNode(withName: "arenaBorder")?.isHidden = showsVideoPreview
+            for (index, star) in starNodes.enumerated() {
+                star.isHidden = showsVideoPreview
+                    || menuModel.settings.starCount == 0
+                    || index > menuModel.settings.starCount
+            }
+            screenRenderer.renderMenu(
+                menuModel,
+                frame: menuPresentationFrame,
+                size: size,
+                capturePointerYFromTop: captureRequest == nil ? nil : 0
+            )
             if showsVideoPreview {
                 renderGrid()
                 particleRenderer.render(particleSimulation, style: menuModel.settings.particleStyle)
@@ -1181,6 +1198,10 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         }
 
         gridLayer.zPosition = -10
+        gridLayer.childNode(withName: "arenaBorder")?.isHidden = false
+        for (index, star) in starNodes.enumerated() {
+            star.isHidden = menuModel.settings.starCount == 0 || index > menuModel.settings.starCount
+        }
         if case .attract = screenFlow.phase {
             gridLayer.isHidden = true
         } else {
@@ -1660,8 +1681,27 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     private func renderGrid() {
+        let simulation: GridSimulation
+        if menuModel.isOpen, menuModel.page == .video {
+            let sourceOffset = CGPoint(x: size.width / 8, y: size.height / 8)
+            let columns = Int(sourceOffset.x / gridSimulation.spacing) * 6
+            let rows = Int(sourceOffset.y / gridSimulation.spacing) * 6
+            let sceneOffset = CGPoint(
+                x: sourceOffset.x,
+                y: size.height - sourceOffset.y
+                    - CGFloat(max(0, rows - 1)) * gridSimulation.spacing
+            )
+            simulation = gridSimulation.renderWindow(
+                canvasSize: size,
+                columns: columns,
+                rows: rows,
+                offset: sceneOffset
+            )
+        } else {
+            simulation = gridSimulation
+        }
         gridRenderer.render(
-            simulation: gridSimulation,
+            simulation: simulation,
             style: gridStyle,
             solidColor: SKColor(
                 red: CGFloat(menuModel.settings.gridRed) / 255,

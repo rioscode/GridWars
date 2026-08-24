@@ -111,6 +111,12 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   stick indicators, and the source's `1/128/255` scale values (while preserving
   its displayed `180` typo). Its normalized difference fell from 0.03857 to
   0.01011; the embedded font bytes have the same SHA-256 as the official file.
+  The Video Settings preview now uses `DrawGrid(..., True)`'s exact 48×36
+  source window at the `SCREENW/8`, `SCREENH/8` inset, hides the stars and arena
+  border that the original page never draws, exposes the original 35 screen
+  modes and their historical `/34` display, and preserves capture counter 20
+  plus the unmoved top-edge pointer. Its normalized difference fell from
+  0.02188 to 0.01316.
 - Graphics and HUD: `images.bmx:34-100`, `gridwars.bmx:3266-3272, 5911-5932`,
   and the deterministic fixed-frame original images in
   `docs/captures/original/` map to
@@ -173,7 +179,7 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   archived legacy `Language/Data types.bbdoc` documents the implicit numeric
   conversions used by the original. Swift random ranges and intentional
   integer truncations follow those references.
-- Build evidence (2026-08-24): the macOS unit-test action (67 tests) and generic
+- Build evidence (2026-08-24): the macOS unit-test action (69 tests) and generic
   iOS Simulator Debug build both pass. The rule suite
   covers initial difficulty, motion, weapons, scoring, upgrades, spawn timing,
   triangle bonds, snake following, black-hole integer conversions,

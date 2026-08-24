@@ -97,6 +97,11 @@ enum LegacyConfigCodec {
         }) {
             settings.playfieldSizeIndex = playfieldIndex
         }
+        if let screenIndex = OriginalRuntimeSettings.screenModes.lastIndex(where: {
+            Int($0.size.width) == settings.screenWidth && Int($0.size.height) == settings.screenHeight
+        }) {
+            settings.screenSizeIndex = screenIndex
+        }
         return settings
     }
 

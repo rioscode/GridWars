@@ -674,6 +674,21 @@ final class GameRulesTests: XCTestCase {
         XCTAssertEqual(grid[13, 9].velocity, .zero)
     }
 
+    func testVideoPreviewUsesOriginalSmallGridWindow() {
+        let grid = GridSimulation(arenaSize: CGSize(width: 1_024, height: 768))
+        let preview = grid.renderWindow(
+            canvasSize: CGSize(width: 1_024, height: 768),
+            columns: 48,
+            rows: 36,
+            offset: CGPoint(x: 128, y: 112)
+        )
+
+        XCTAssertEqual(preview.columns, 48)
+        XCTAssertEqual(preview.rows, 36)
+        XCTAssertEqual(preview[0, 0].position, CGPoint(x: 128, y: 112))
+        XCTAssertEqual(preview[47, 35].position, CGPoint(x: 880, y: 672))
+    }
+
     func testGridPullPushAndShockwaveMatchOriginalImpulses() {
         let center = CGPoint(x: 160, y: 160)
         var pulled = GridSimulation(arenaSize: CGSize(width: 320, height: 320))
@@ -950,6 +965,29 @@ final class GameRulesTests: XCTestCase {
         XCTAssertEqual(menu.page, .settings)
         XCTAssertEqual(menu.settings.playfieldSizeIndex, 0)
         XCTAssertEqual(menu.settings.gridStyle, 1)
+    }
+
+    func testVideoSettingsExposeAndCycleOriginalScreenModes() {
+        var menu = OriginalMenuModel()
+        menu.open(duringGame: false)
+        menu.select(1)
+        _ = menu.activate()
+        menu.select(1)
+        _ = menu.activate()
+
+        XCTAssertEqual(
+            menu.lines[1],
+            "Screen Size: 9/34 XGA (1024X768)"
+        )
+        XCTAssertEqual(
+            menu.lines[2],
+            "Playfield Size: 1/34 1024X768"
+        )
+        menu.select(1)
+        _ = menu.adjust(by: 1)
+        XCTAssertEqual(menu.settings.screenSizeIndex, 9)
+        XCTAssertEqual(menu.settings.screenWidth, 1_152)
+        XCTAssertEqual(menu.settings.screenHeight, 864)
     }
 
     func testAcceptedGameSettingsEndAnActiveGameLikeOriginalReturnCodeTwo() {

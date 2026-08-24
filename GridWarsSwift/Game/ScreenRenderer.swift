@@ -278,7 +278,12 @@ final class OriginalScreenRenderer {
         #endif
     }
 
-    func renderMenu(_ menu: OriginalMenuModel, frame: Int, size: CGSize) {
+    func renderMenu(
+        _ menu: OriginalMenuModel,
+        frame: Int,
+        size: CGSize,
+        capturePointerYFromTop: CGFloat? = nil
+    ) {
         prepare(size: size, backgroundAlpha: 1)
         renderCapturedMenuBackground(for: menu, size: size)
         if menu.page == .dualAnalog {
@@ -337,7 +342,7 @@ final class OriginalScreenRenderer {
             )
         }
         renderMenuMeters(menu, lineYs: layout.lineYs, frame: frame, size: size)
-        let targetY = layout.lineYs[menu.selection] + 20
+        let targetY = capturePointerYFromTop ?? layout.lineYs[menu.selection] + 20
         addTarget(
             at: CGPoint(x: size.width / 2 - 300, y: size.height - targetY),
             frame: frame,

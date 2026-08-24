@@ -221,6 +221,11 @@ struct OriginalJoyPortSettings: Equatable, Codable {
 }
 
 struct OriginalRuntimeSettings: Equatable, Codable {
+    struct ScreenMode: Equatable {
+        let description: String
+        let size: CGSize
+    }
+
     static let maximumStars = 10_000
     static let playfieldSizes: [CGSize] = [
         CGSize(width: 1_024, height: 768),
@@ -260,8 +265,19 @@ struct OriginalRuntimeSettings: Equatable, Codable {
         CGSize(width: 5_120, height: 4_096),
     ]
 
+    static let screenModes: [ScreenMode] = zip([
+        "USER", "BWMac", "VGA", "????", "NTSCDVD", "PALDVD", "SVGA",
+        "XGA-", "XGA", "XGA+", "XGA++", "720p", "WXGA", "WXGA+",
+        "WXGA++", "WXGA+++", "SXGA", "WSXGA", "SXGA+", "WSXGA",
+        "UXGA", "UXGA+", "WSXGA+", "?????", "1080p", "WUXGA", "DUALW",
+        "QXGA", "DUALW+", "WQXGA", "QSXGA", "WQSXGA", "QUXGA", "WQUXGA",
+        "HSXGA",
+    ], playfieldSizes).map {
+        ScreenMode(description: $0.0, size: $0.1)
+    }
+
     var scroll = false
-    var screenSizeIndex = 0
+    var screenSizeIndex = 8
     var playfieldSizeIndex = 0
     var screenWidth = 1_024
     var screenHeight = 768
@@ -660,13 +676,18 @@ struct OriginalMenuModel: Equatable {
         case .settings:
             return ["Audio", "Video", "Controls", "Game", "Done"]
         case .video:
+            let screenModeIndex = min(
+                max(0, settings.screenSizeIndex),
+                OriginalRuntimeSettings.screenModes.count - 1
+            )
+            let screenMode = OriginalRuntimeSettings.screenModes[screenModeIndex]
             let playfield = Self.sizeText(
                 OriginalRuntimeSettings.playfieldSizes[settings.playfieldSizeIndex]
             )
             return [
                 "Scroll: \(onOff(settings.scroll))",
-                "Screen Size: 1/1 \(Self.sizeText(CGSize(width: 1_024, height: 768)))",
-                "Playfield Size: \(settings.playfieldSizeIndex + 1)/\(OriginalRuntimeSettings.playfieldSizes.count) \(playfield)",
+                "Screen Size: \(screenModeIndex + 1)/\(OriginalRuntimeSettings.screenModes.count - 1) \(screenMode.description) (\(Self.sizeText(screenMode.size)))",
+                "Playfield Size: \(settings.playfieldSizeIndex + 1)/\(OriginalRuntimeSettings.playfieldSizes.count - 1) \(playfield)",
                 "Gfx Set: \(["Solid", "Low", "Med", "High", "User"][settings.graphicsSetIndex])",
                 "Windowed: \(onOff(settings.windowed))",
                 "Grid Style: \(settings.gridStyle)",
@@ -884,7 +905,14 @@ struct OriginalMenuModel: Equatable {
     private mutating func adjustVideo(by direction: Int) {
         switch selection {
         case 0: settings.scroll.toggle()
-        case 1: break
+        case 1:
+            settings.screenSizeIndex = wrapped(
+                settings.screenSizeIndex + direction,
+                count: OriginalRuntimeSettings.screenModes.count
+            )
+            let mode = OriginalRuntimeSettings.screenModes[settings.screenSizeIndex]
+            settings.screenWidth = Int(mode.size.width)
+            settings.screenHeight = Int(mode.size.height)
         case 2:
             settings.playfieldSizeIndex = wrapped(
                 settings.playfieldSizeIndex + direction,

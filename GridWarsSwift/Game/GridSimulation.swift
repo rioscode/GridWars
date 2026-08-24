@@ -30,6 +30,55 @@ struct GridSimulation: Equatable {
         }
     }
 
+    private init(
+        arenaSize: CGSize,
+        spacing: CGFloat,
+        columns: Int,
+        rows: Int,
+        points: [GridPointState]
+    ) {
+        self.arenaSize = arenaSize
+        self.spacing = spacing
+        self.columns = columns
+        self.rows = rows
+        self.points = points
+    }
+
+    func renderWindow(
+        canvasSize: CGSize,
+        columns requestedColumns: Int,
+        rows requestedRows: Int,
+        offset: CGPoint
+    ) -> GridSimulation {
+        let visibleColumns = min(columns, max(0, requestedColumns))
+        let visibleRows = min(rows, max(0, requestedRows))
+        var visiblePoints: [GridPointState] = []
+        visiblePoints.reserveCapacity((visibleColumns + 1) * (visibleRows + 1))
+        for column in 0...visibleColumns {
+            for row in 0...visibleRows {
+                let source = self[column, row]
+                visiblePoints.append(GridPointState(
+                    origin: CGPoint(
+                        x: source.origin.x + offset.x,
+                        y: source.origin.y + offset.y
+                    ),
+                    position: CGPoint(
+                        x: source.position.x + offset.x,
+                        y: source.position.y + offset.y
+                    ),
+                    velocity: source.velocity
+                ))
+            }
+        }
+        return GridSimulation(
+            arenaSize: canvasSize,
+            spacing: spacing,
+            columns: visibleColumns,
+            rows: visibleRows,
+            points: visiblePoints
+        )
+    }
+
     subscript(column: Int, row: Int) -> GridPointState {
         points[index(column: column, row: row)]
     }
