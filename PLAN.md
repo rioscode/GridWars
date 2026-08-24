@@ -126,6 +126,8 @@ branch. Each major fidelity milestone has its own commit:
 - [x] BRL-seeded capture stars and initial entity transforms, vertical HUD
       icon frames, and cycling-colour power-up star
 - [x] Capture-specific arena-border visibility regression guard
+- [x] Source-equivalent 90-degree initial Snake tail rotation for the
+      zero-velocity first draw
 
 `FIDELITY.md` is the acceptance ledger. The isolated BlitzMax harness and the
 Swift port now each capture the same 87 attract, transition, gameplay, HUD,

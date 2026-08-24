@@ -3052,6 +3052,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             segment.color = .white
             segment.colorBlendFactor = 0
             segment.position = head.position
+            segment.zRotation = SnakeSegmentRule.zeroVelocityDrawRotation
             segment.physicsBody = SKPhysicsBody(circleOfRadius: sqrt(CGFloat(81 + originalFrame)))
             segment.physicsBody?.affectedByGravity = false
             segment.physicsBody?.allowsRotation = false

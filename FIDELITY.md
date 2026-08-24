@@ -43,8 +43,11 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   now converted to SpriteKit coordinates, improving all ten enemy captures by
   2.6–3.4%. The Snake fixture also reproduces `Sin(segmentIndex*20)` in degrees,
   with the source tail index and inverted scene Y; its normalized difference
-  fell from 0.02209 to 0.01977. Pairwise visual correction is still in progress,
-  so the broad enemy checklist entries stay open.
+  fell from 0.02209 to 0.01977. Matching BlitzMax's `ATan2(0,0)+90` first-draw
+  result now gives every initially stationary tail segment a 90-degree
+  rotation; the current catalog difference fell again from 0.01896 to 0.01830.
+  Pairwise visual correction is still in progress, so the broad enemy
+  checklist entries stay open.
 - Grid and particle simulation: `gridparttrail.bmx:494-2017` maps to
   `GridSimulation`, `GridRenderer`, `ParticleSimulation`, and
   `ParticleRenderer`. The port has all 21 grid-style selectors, the original

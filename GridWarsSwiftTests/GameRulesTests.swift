@@ -578,6 +578,11 @@ final class GameRulesTests: XCTestCase {
     }
 
     func testSnakeTailUsesOriginalFifteenPixelFollowingRule() {
+        XCTAssertEqual(
+            SnakeSegmentRule.zeroVelocityDrawRotation,
+            CGFloat.pi / 2,
+            accuracy: 0.0001
+        )
         let farVelocity = SnakeSegmentRule.velocity(
             from: .zero,
             toward: CGPoint(x: 30, y: 0),

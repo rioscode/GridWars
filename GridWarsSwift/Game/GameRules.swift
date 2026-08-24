@@ -620,6 +620,8 @@ struct TriangleBondState: Equatable {
 }
 
 enum SnakeSegmentRule {
+    static let zeroVelocityDrawRotation = CGFloat.pi / 2
+
     static func velocity(
         from position: CGPoint,
         toward precedingPosition: CGPoint,
