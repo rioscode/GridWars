@@ -85,8 +85,10 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   from 0.01175/0.00878 to 0.00294/0.00213, gameplay from 0.01594 to 0.00584,
   and Game Over from 0.01671 to 0.00663. Stroked OpenGL vertices require the
   complementary pixel-center translation `(x+0.5,y-0.5)` after scene-Y
-  inversion; applying it to the stretched checker and diagonal paths lowers
-  styles 11 and 12 from 0.03442/0.02091 to 0.02681/0.01539.
+  inversion. Limiting it to the direct OpenGL-derived stretched edge, checker,
+  and diagonal paths lowers style 10 from 0.02550 to 0.01946, style 11 from
+  0.03442 to 0.02676, and style 12 from 0.02091 to 0.01539; applying the shift
+  to the Max2D-backed line styles was measured and rejected as a regression.
 - Screens and runtime controls: `gridwars.bmx:3622-4319, 5383-5439` and
   `control.bmx:889-2570` map to `OriginalScreenFlow`, `OriginalMenuModel`,
   `OriginalVectorFont`, `OriginalScreenRenderer`, and the presentation/input

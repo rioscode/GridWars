@@ -350,8 +350,20 @@ final class GridRenderer {
             let intensity = bucketIntensity(bucket)
             let color = blueStretchColor(intensity)
             let lineWidth = 1 + intensity * 1.5
-            addShape(path: regular[bucket], stroke: color, alpha: 0.5, lineWidth: lineWidth)
-            addShape(path: highlighted[bucket], stroke: color, alpha: 1, lineWidth: lineWidth)
+            addShape(
+                path: regular[bucket],
+                stroke: color,
+                alpha: 0.5,
+                lineWidth: lineWidth,
+                pixelAlignedStroke: true
+            )
+            addShape(
+                path: highlighted[bucket],
+                stroke: color,
+                alpha: 1,
+                lineWidth: lineWidth,
+                pixelAlignedStroke: true
+            )
         }
     }
 
@@ -359,9 +371,7 @@ final class GridRenderer {
         let paths = (0..<16).map { _ in CGMutablePath() }
         for column in 0..<grid.columns {
             for row in 0..<grid.rows where isAlternatingCell(column, row, rows: grid.rows) {
-                let points = cellPoints(grid, column: column, row: row).map {
-                    OriginalLineRasterRule.scenePixelCenter($0)
-                }
+                let points = cellPoints(grid, column: column, row: row)
                 let path = paths[stretchBucket(points)]
                 if diagonals {
                     path.move(to: points[0])
@@ -379,7 +389,8 @@ final class GridRenderer {
                 path: path,
                 stroke: diagonals ? raspberryStretchColor(intensity) : blueStretchColor(intensity),
                 alpha: diagonals ? 0.6 + intensity * 0.2 : 1 - intensity * 0.3,
-                lineWidth: 1 + intensity * (diagonals ? 1.5 : 2)
+                lineWidth: 1 + intensity * (diagonals ? 1.5 : 2),
+                pixelAlignedStroke: true
             )
         }
     }
@@ -769,7 +780,8 @@ final class GridRenderer {
         fill: SKColor = .clear,
         alpha: CGFloat,
         lineWidth: CGFloat = 1,
-        glowWidth: CGFloat = 0
+        glowWidth: CGFloat = 0,
+        pixelAlignedStroke: Bool = false
     ) {
         let shape = SKShapeNode(path: path)
         shape.strokeColor = stroke
@@ -778,6 +790,9 @@ final class GridRenderer {
         shape.lineWidth = lineWidth
         shape.glowWidth = glowWidth
         shape.blendMode = .add
+        if pixelAlignedStroke {
+            shape.position = OriginalLineRasterRule.scenePixelCenter(.zero)
+        }
         node.addChild(shape)
     }
 }

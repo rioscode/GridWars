@@ -132,8 +132,8 @@ branch. Each major fidelity milestone has its own commit:
       retaining the overlapping title's stable smooth SpriteKit raster
 - [x] BlitzMax top-left `DrawRect` anchoring for point grids after SpriteKit Y
       conversion
-- [x] OpenGL-to-SpriteKit pixel-center alignment for stretched checker and
-      diagonal grid lines
+- [x] OpenGL-to-SpriteKit pixel-center alignment for stretched edge, checker,
+      and diagonal grid lines
 
 `FIDELITY.md` is the acceptance ledger. The isolated BlitzMax harness and the
 Swift port now each capture the same 87 attract, transition, gameplay, HUD,
