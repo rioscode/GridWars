@@ -65,6 +65,13 @@ enum OriginalCaptureSubject: Equatable {
     case hudDefault
     case hudUpgraded
     case menu(OriginalMenuCapture)
+
+    var hidesArenaBorder: Bool {
+        switch self {
+        case .grid, .particleStyle: true
+        default: false
+        }
+    }
 }
 
 struct OriginalCaptureScenario: Equatable {

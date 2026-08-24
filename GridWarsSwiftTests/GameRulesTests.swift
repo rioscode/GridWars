@@ -1395,6 +1395,13 @@ final class GameRulesTests: XCTestCase {
         XCTAssertEqual(menus, OriginalMenuCapture.allCases.count)
     }
 
+    func testOnlyIsolatedGridAndParticleCapturesHideArenaBorder() {
+        XCTAssertTrue(OriginalCaptureScenario(name: "grid-00")!.subject.hidesArenaBorder)
+        XCTAssertTrue(OriginalCaptureScenario(name: "particle-0")!.subject.hidesArenaBorder)
+        XCTAssertFalse(OriginalCaptureScenario(name: "gameplay")!.subject.hidesArenaBorder)
+        XCTAssertFalse(OriginalCaptureScenario(name: "video")!.subject.hidesArenaBorder)
+    }
+
     func testCaptureRandomGeneratorIsRepeatableWhenSeeded() {
         var first = GameRandomNumberGenerator(seed: 42)
         var second = GameRandomNumberGenerator(seed: 42)

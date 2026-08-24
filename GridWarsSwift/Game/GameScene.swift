@@ -1230,7 +1230,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         }
 
         gridLayer.zPosition = -10
-        gridLayer.childNode(withName: "arenaBorder")?.isHidden = false
+        let isolatedRendererCapture = captureRequest?.scenario.subject.hidesArenaBorder ?? false
+        gridLayer.childNode(withName: "arenaBorder")?.isHidden = isolatedRendererCapture
         for (index, star) in starNodes.enumerated() {
             star.isHidden = menuModel.settings.starCount == 0 || index > menuModel.settings.starCount
         }
