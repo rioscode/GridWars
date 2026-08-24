@@ -1,10 +1,5 @@
 @preconcurrency import SpriteKit
-
-#if os(iOS)
-import UIKit
-#elseif os(macOS)
-import AppKit
-#endif
+import ImageIO
 
 enum OriginalGraphicsSet: Int, CaseIterable, Sendable, Equatable {
     case solid
@@ -50,14 +45,8 @@ enum OriginalGraphics {
             forResource: name,
             withExtension: "png",
             subdirectory: "gfx"
-        ) {
-            #if os(iOS)
-            texture = UIImage(contentsOfFile: url.path).map(SKTexture.init(image:))
-                ?? SKTexture(imageNamed: name)
-            #elseif os(macOS)
-            texture = NSImage(contentsOf: url).map(SKTexture.init(image:))
-                ?? SKTexture(imageNamed: name)
-            #endif
+        ), let loadedTexture = loadTexture(contentsOf: url) {
+            texture = loadedTexture
         } else {
             texture = SKTexture(imageNamed: name)
         }
@@ -72,20 +61,8 @@ enum OriginalGraphics {
             forResource: name,
             withExtension: "png",
             subdirectory: "gfx/\(set.folderName)"
-        ) {
-            #if os(iOS)
-            if let image = UIImage(contentsOfFile: url.path) {
-                texture = SKTexture(image: image)
-            } else {
-                texture = SKTexture(imageNamed: name)
-            }
-            #elseif os(macOS)
-            if let image = NSImage(contentsOf: url) {
-                texture = SKTexture(image: image)
-            } else {
-                texture = SKTexture(imageNamed: name)
-            }
-            #endif
+        ), let loadedTexture = loadTexture(contentsOf: url) {
+            texture = loadedTexture
         } else {
             // The top-level High assets remain a compatibility fallback for
             // test hosts and older builds made before all five sets shipped.
@@ -93,6 +70,14 @@ enum OriginalGraphics {
         }
         texture.filteringMode = .linear
         return texture
+    }
+
+    private static func loadTexture(contentsOf url: URL) -> SKTexture? {
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+              let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
+            return nil
+        }
+        return SKTexture(cgImage: image)
     }
 
     static func frameTexture(

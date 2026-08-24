@@ -76,9 +76,11 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   `OriginalGraphics`, `OriginalHUDRenderer`, `OriginalScreenRenderer`, and the
   live texture-reload path in `GameScene`. All five original graphics folders
   are bundled without flattening, icon/snake animation sheets retain their
-  set-specific frame sizes, white entity art is no longer palette-tinted, and
-  the score, high score, multiplier, lives and bomb indicators use the original
-  vector font, coordinates, alpha and icon frames. The isolated original
+  set-specific frame sizes, and textures load by CGImage pixel dimensions so
+  the 120-DPI metadata in Solid/Low assets cannot shrink game sprites. White
+  entity art is no longer palette-tinted, and the score, high score, multiplier,
+  lives and bomb indicators use the original vector font, coordinates, alpha
+  and icon frames. The isolated original
   renderer now produces 67 valid full-frame 1024×768 attract/options, gameplay,
   HUD, entity, generator, power-up, grid, particle, and graphics-set references
   via `scripts/capture-original.sh`; capture mode bypasses all legacy
