@@ -138,6 +138,8 @@ branch. Each major fidelity milestone has its own commit:
       premultiplication compensation
 - [x] RGB-split raw-OpenGL alpha, scene-inverted red-channel offset, and finer
       per-vertex colour approximation
+- [x] 64-level per-cell colour/alpha approximation for stretched and sine
+      filled grid quads
 
 `FIDELITY.md` is the acceptance ledger. The isolated BlitzMax harness and the
 Swift port now each capture the same 87 attract, transition, gameplay, HUD,

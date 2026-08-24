@@ -96,7 +96,10 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   0.02865/0.00811. RGB-split style 13 likewise uses alpha 1, converts its red
   source offset from `(-4,-4)` to scene `(-4,+4)`, and uses 64 colour buckets
   to approximate the original per-vertex interpolation; its difference falls
-  from 0.03046 to 0.02549.
+  from 0.03046 to 0.02549. Increasing only the per-cell source-value
+  approximation for filled stretched/sine quads from 16 to 64 levels lowers
+  styles 16 and 17 from 0.02980/0.01852 to 0.02924/0.01746; changing their
+  SpriteKit fill alpha was measured and rejected as a regression.
 - Screens and runtime controls: `gridwars.bmx:3622-4319, 5383-5439` and
   `control.bmx:889-2570` map to `OriginalScreenFlow`, `OriginalMenuModel`,
   `OriginalVectorFont`, `OriginalScreenRenderer`, and the presentation/input
