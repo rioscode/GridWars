@@ -32,6 +32,9 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   harness now preserve that order, including applying the ring pull before both
   updates; the current ring difference falls from 0.01628 to 0.01009 while the
   title frame remains unchanged at 0.00558 after the shared Grid-anchor fixes.
+  The midpoint-circle `Plot` pixels also reuse the tested top-left `DrawRect`
+  conversion (`sceneY = -sourceY-1` for a relative 1×1 point), lowering the
+  ring frame again from 0.01009 to 0.00725.
 - Gameplay entity audit: `gridwars.bmx:190-3167, 4752-4977, 5691-5777` maps to
   `SpawnDirector`, `TriangleBondState`, `SnakeSegmentRule`, `BlackHoleRule`,
   `InterceptorShieldGeometry`, and the generator/enemy/power-up/projectile

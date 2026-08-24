@@ -4788,7 +4788,11 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         guard radius > 0 else { return path }
 
         func plot(_ x: Int, _ y: Int) {
-            path.addRect(CGRect(x: x, y: y, width: 1, height: 1))
+            path.addRect(OriginalDrawRectRule.sceneRect(
+                at: CGPoint(x: x, y: -y),
+                width: 1,
+                height: 1
+            ))
         }
         func plotOctants(x: Int, y: Int) {
             plot(x, y)
