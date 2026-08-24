@@ -144,6 +144,8 @@ branch. Each major fidelity milestone has its own commit:
       pull-before-update ordering
 - [x] Top-left 1×1 `Plot` pixel anchoring for midpoint-circle Get Ready rings
 - [x] OpenGL pixel-center anchoring for one-pixel particle line style 0
+- [x] OpenGL pixel-center anchoring and additive-alpha compensation for the
+      wide particle line styles 1 and 3
 
 `FIDELITY.md` is the acceptance ledger. The isolated BlitzMax harness and the
 Swift port now each capture the same 87 attract, transition, gameplay, HUD,
