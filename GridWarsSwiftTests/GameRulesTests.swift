@@ -1375,6 +1375,17 @@ final class GameRulesTests: XCTestCase {
         XCTAssertEqual(node.lineWidth, 2)
     }
 
+    func testGridDrawRectConvertsBlitzMaxTopLeftAnchor() {
+        XCTAssertEqual(
+            OriginalDrawRectRule.sceneRect(
+                at: CGPoint(x: 128.25, y: 639.75),
+                width: 3,
+                height: 3
+            ),
+            CGRect(x: 128.25, y: 636.75, width: 3, height: 3)
+        )
+    }
+
     func testCaptureCatalogCoversEveryFidelityCategory() {
         let scenarios = OriginalCaptureScenario.all
         XCTAssertEqual(scenarios.count, 87)

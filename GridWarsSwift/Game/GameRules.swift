@@ -1,6 +1,21 @@
 import CoreGraphics
 import Foundation
 
+enum OriginalDrawRectRule {
+    static func sceneRect(
+        at scenePoint: CGPoint,
+        width: CGFloat,
+        height: CGFloat
+    ) -> CGRect {
+        CGRect(
+            x: scenePoint.x,
+            y: scenePoint.y - height,
+            width: width,
+            height: height
+        )
+    }
+}
+
 enum OriginalCameraRule {
     static let edgeThreshold: CGFloat = 500
     static let overscroll: CGFloat = 80

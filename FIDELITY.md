@@ -79,6 +79,11 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   now apply the algebraic Y inversion of BlitzMax's top-down comparisons before
   updating SpriteKit coordinates; a focused two-edge test locks both reflected
   velocities, and the title difference improved from 0.021183 to 0.021162.
+  Point-grid rectangles now preserve BlitzMax `DrawRect(x,y,w,h)`'s top-left
+  anchor instead of centering SpriteKit paths around `(x,y)`; the scene-space Y
+  origin is therefore `point.y-height`. This lowers isolated styles 0 and 1
+  from 0.01175/0.00878 to 0.00294/0.00213, gameplay from 0.01594 to 0.00584,
+  and Game Over from 0.01671 to 0.00663.
 - Screens and runtime controls: `gridwars.bmx:3622-4319, 5383-5439` and
   `control.bmx:889-2570` map to `OriginalScreenFlow`, `OriginalMenuModel`,
   `OriginalVectorFont`, `OriginalScreenRenderer`, and the presentation/input
@@ -199,7 +204,7 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   archived legacy `Language/Data types.bbdoc` documents the implicit numeric
   conversions used by the original. Swift random ranges and intentional
   integer truncations follow those references.
-- Build evidence (2026-08-24): the macOS unit-test action (72 tests) and generic
+- Build evidence (2026-08-24): the macOS unit-test action (73 tests) and generic
   iOS Simulator Debug build both pass. The rule suite
   covers initial difficulty, motion, weapons, scoring, upgrades, spawn timing,
   triangle bonds, snake following, black-hole integer conversions,

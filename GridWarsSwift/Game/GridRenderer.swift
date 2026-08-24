@@ -121,15 +121,15 @@ final class GridRenderer {
         for column in 0..<grid.columns {
             for row in 0..<grid.rows {
                 let point = grid[column, row].position
-                base.addRect(CGRect(x: point.x - 1, y: point.y - 1, width: 2, height: 2))
+                base.addRect(OriginalDrawRectRule.sceneRect(at: point, width: 2, height: 2))
                 if column.isMultiple(of: 4) {
                     columnHighlights.addRect(
-                        CGRect(x: point.x - 1.5, y: point.y - 1.5, width: 3, height: 3)
+                        OriginalDrawRectRule.sceneRect(at: point, width: 3, height: 3)
                     )
                 }
                 if row.isMultiple(of: 4) {
                     rowHighlights.addRect(
-                        CGRect(x: point.x - 1.5, y: point.y - 1.5, width: 3, height: 3)
+                        OriginalDrawRectRule.sceneRect(at: point, width: 3, height: 3)
                     )
                 }
             }
