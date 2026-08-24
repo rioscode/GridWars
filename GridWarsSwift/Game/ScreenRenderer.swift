@@ -1029,15 +1029,21 @@ final class OriginalScreenRenderer {
         size: CGSize,
         lineWidth: CGFloat = 1
     ) {
-        let rectangle = SKShapeNode(rect: CGRect(
+        let sourceOrigin = CGPoint(
             x: x,
-            y: size.height - yFromTop - height,
-            width: width,
-            height: height
+            y: size.height - yFromTop - height
+        )
+        let sceneOrigin = filled
+            ? sourceOrigin
+            : OriginalLineRasterRule.scenePixelCenter(sourceOrigin)
+        let rectangle = SKShapeNode(rect: CGRect(
+            origin: sceneOrigin,
+            size: CGSize(width: width, height: height)
         ))
         rectangle.fillColor = filled ? color : .clear
         rectangle.strokeColor = filled ? .clear : color
         rectangle.lineWidth = lineWidth
+        rectangle.isAntialiased = false
         content.addChild(rectangle)
     }
 

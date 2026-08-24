@@ -153,18 +153,24 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   direct 8-bit text/fill colours, the original outlined command boxes and oval
   stick indicators, and the source's `1/128/255` scale values (while preserving
   its displayed `180` typo). Its normalized difference fell from 0.03857 to
-  0.01011; the embedded font bytes have the same SHA-256 as the official file.
+  0.00881; the embedded font bytes have the same SHA-256 as the official file.
+  Classic `Rect(...,0)` outlines now use hard, non-antialiased OpenGL pixel
+  centers. A complete 16-menu regression pass worsened no capture: Game falls
+  from 0.00521 to 0.00480, Hybrid from 0.00720 to 0.00691, Audio from 0.00375
+  to 0.00366, and Joypad from 0.00423 to 0.00399; unaffected pages remain
+  byte-identical to the preceding Swift catalog.
   The Video Settings preview now uses `DrawGrid(..., True)`'s exact 48×36
   source window at the `SCREENW/8`, `SCREENH/8` inset, hides the stars and arena
   border that the original page never draws, exposes the original 35 screen
   modes and their historical `/34` display, and preserves capture counter 20
   plus the unmoved top-edge pointer. Its normalized difference fell from
-  0.02188 to 0.01316. Normal vector-font strokes now disable SpriteKit
+  0.02188 to 0.00877. Normal vector-font strokes now disable SpriteKit
   antialiasing and use the rectangular caps and miter joins of the original
   OpenGL line path. The multiply-overdrawn animated title keeps its stable
-  smooth SpriteKit approximation; its metric remains 0.02116. Across the new
+  smooth SpriteKit approximation; after the particle-line pixel correction its
+  metric is 0.02025. Across the new
   87-state catalog this common correction improves screens including top
-  scores (0.00708 to 0.00668), options (0.00194 to 0.00151), and high-score
+  scores (0.00708 to 0.00641), options (0.00194 to 0.00151), and high-score
   entry (0.01006 to 0.00819). Two independently rendered high-score-entry
   captures have identical SHA-256 hashes.
 - Graphics and HUD: `images.bmx:34-100`, `gridwars.bmx:3266-3272, 5911-5932`,
