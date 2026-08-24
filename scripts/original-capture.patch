@@ -1,0 +1,149 @@
+--- gridwars.bmx
++++ gridwars.bmx
+@@ -39,15 +39,25 @@
+ 
+ JoyCount() ' needed to init the joystick stuff
+ 
++Global captureMode$ = ""
++If AppArgs.length > 1 Then captureMode = AppArgs[1]
++Global captureDir$ = AppDir
++If AppArgs.length > 2 Then captureDir = AppArgs[2]
+ Global cheat:Int = False
+ Global nokillme:Int = False
+ Global valid:Int = True
+ Global mxaim# = 0
+ Global myaim# = 0
+ 
+-CheckConfDir()
+-LoadConfig() ' see control.bmx for more global settings
+-LoadColours()
++If captureMode = ""
++	CheckConfDir()
++	LoadConfig() ' see control.bmx for more global settings
++	LoadColours()
++Else
++	windowed = True
++	screensizew = 1024
++	screensizeh = 768
++EndIf
+ GetGfxModes()
+ FindSetting()
+ SetController()
+@@ -56,7 +66,11 @@
+ LoadSounds()
+ 
+ 
+-SeedRnd(MilliSecs())
++If captureMode = ""
++	SeedRnd(MilliSecs())
++Else
++	SeedRnd(1)
++EndIf
+ 
+ Global px# = 512
+ Global py# = 384
+@@ -165,13 +179,19 @@
+ Global score_list:Tlist = New Tlist
+ 
+ 
+-score.LoadScores()
++If captureMode = ""
++	score.LoadScores()
++Else
++	score.SetDefault()
++EndIf
+ HideMouse()
+ Main()
+ ShowMouse()
+-SaveConfig()
+-SaveColours() 'only needed once
+-score.SaveScores()
++If captureMode = ""
++	SaveConfig()
++	SaveColours() 'only needed once
++	score.SaveScores()
++EndIf
+ 
+ End
+ 
+@@ -3625,6 +3645,10 @@
+ 	Local done:Int,f:Int
+ 
+ 	part.CreateAll()
++	If captureMode = "scores" Then ShowScores();Return
++	If captureMode = "friends" Then ShowFriends();Return
++	If captureMode = "enemies" Then ShowEnemies();Return
++	If captureMode = "options" Then Options(False);Return
+ 
+ 	FlushKeys()
+ 	done = False
+@@ -3943,6 +3967,10 @@
+ 		If counter Mod 50 > 25
+ 			DrawString("Press BOMB Button to Start",SCREENW/2-250,SCREENH-32,4)
+ 		EndIf
++		If captureMode = "friends" And counter = 600
++			SaveScreenshot(captureDir+"/friends-600.png")
++			End
++		EndIf
+ 
+ '		DrawLine 0,0,SCREENW,0
+ '		DrawLine 0,0,0,SCREENH
+@@ -4098,6 +4126,10 @@
+ 		If counter Mod 50 > 25
+ 			DrawString("Press BOMB Button to Start",SCREENW/2-250,SCREENH-32,4)
+ 		EndIf
++		If captureMode = "enemies" And counter = 600
++			SaveScreenshot(captureDir+"/enemies-600.png")
++			End
++		EndIf
+ 		Flip 1
+ 		tim = MilliSecs() - tim
+ 		If tim < 20 And tim > 0
+@@ -4202,6 +4234,10 @@
+ 		If counter Mod 50 > 25
+ 			DrawString("Press BOMB Button to Start",SCREENW/2-250,SCREENH-32,4)
+ 		EndIf
++		If captureMode = "scores" And counter = 600
++			SaveScreenshot(captureDir+"/scores-600.png")
++			End
++		EndIf
+ 		Flip 1
+ 		tim = MilliSecs() - tim
+ 		If tim < 20 And tim > 0
+@@ -4294,6 +4330,10 @@
+ 		If counter Mod 60 > 29
+ 			DrawString("Press BOMB Button to Start",SCREENW/2-26/2*5*4*shrink,SCREENH-32,4*shrink)
+ 		EndIf
++		If captureMode = "title" And counter = 600
++			SaveScreenshot(captureDir+"/title-600.png")
++			End
++		EndIf
+ 		Flip 1
+ 		tim = MilliSecs() - tim
+ 		If tim < 20 And tim > 0
+--- control.bmx
++++ control.bmx
+@@ -923,6 +923,10 @@
+ 			DrawString("Continue",SCREENW/2-280,SCREENH/2+lsp,4)
+ 		EndIf
+ 		DrawTarget(SCREENW/2-280-20,yy,cnt,4)
++		If AppArgs.length > 1 And AppArgs[1] = "options" And cnt = 20
++			SaveScreenshot(AppArgs[2]+"/options-20.png")
++			End
++		EndIf
+ 		Flip 1
+ 		cnt:+1
+ 		tim = MilliSecs() - tim
+--- gridparttrail.bmx
++++ gridparttrail.bmx
+@@ -228,7 +228,9 @@
+ 
+ 	SetDimensions()
+ 
+-	If windowed
++	If AppArgs.length > 1
++		Graphics(SCREENW, SCREENH, 0)
++	ElseIf windowed
+ 		If GraphicsModeExists( SCREENW,SCREENH )
+ 			Graphics(SCREENW, SCREENH, 0)
+ 		Else

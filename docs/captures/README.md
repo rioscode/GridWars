@@ -5,29 +5,43 @@ original GridWars 5.4 renderer.
 
 ## Original renderer
 
-`original/` contains fixed-frame PNGs rendered from a temporary, instrumented
-copy of the repository's BlitzMax source. The repository source itself was not
-modified. The reference executable was built with the official BlitzMax NG
-macOS arm64 release `v0.165.3.61.macos.arm64`, archived under `docs/bb/` by URL
-and checksum.
+`original/` contains deterministic fixed-frame PNGs rendered from an isolated,
+instrumented copy of the repository's BlitzMax source. The repository source
+itself is never modified. The reference executable was built with the official
+BlitzMax NG macOS arm64 release `v0.165.3.61.macos.arm64`.
 
-The modern compiler required compatibility-only edits in the temporary copy:
+The reproducible harness is `scripts/capture-original.sh`; its small source
+instrumentation lives in `scripts/original-capture.patch`. The modern compiler
+requires compatibility-only edits in the temporary copy:
 
 - rename the game's `Rect` helper to avoid the newer `BRL.Max2D.Rect` symbol;
 - remove a duplicate legacy framework declaration;
-- enable the compiler's legacy numeric-conversion mode.
+- use the original implicit numeric conversions, which BlitzMax NG reports as
+  warnings;
+- bypass the modern `GraphicsModeExists` window-mode rejection for the fixed
+  1024×768 capture window;
+- disable Retina backing so `GrabPixmap` returns the complete logical frame
+  instead of one quadrant of the 2× framebuffer.
 
-The capture hook changes only the selected presentation page, the 1024×768
+Capture mode uses the original compiled renderer and assets, fixes the random
+seed, installs default scores and colours, and skips all reads and writes under
+`~/.config/gridwars`. It changes only the selected presentation page, fixed
 window mode, and PNG export after the named frame. Available references are:
 
 - `title-600.png`
 - `scores-600.png`
 - `friends-600.png`
+- `enemies-600.png`
+- `options-20.png`
 
-Further launches of the legacy executable were denied by the workspace safety
-policy because it may write configuration files. Enemy and options layouts are
-therefore audited directly against `gridwars.bmx` and `control.bmx` until those
-captures can be produced in an isolated user-approved environment.
+`original/SHA256SUMS` pins the exact reference artifacts. To regenerate them:
+
+```sh
+./scripts/capture-original.sh /path/to/BlitzMax
+```
+
+The script copies source and assets to a `mktemp` directory, patches and builds
+only that copy, captures the five states, then deletes the temporary build.
 
 ## Swift renderer
 

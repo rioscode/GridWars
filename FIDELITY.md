@@ -68,16 +68,19 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   conversion, and depth-divided star parallax. Matching visual captures are still required
   before checking the broad screen and menu entries.
 - Graphics and HUD: `images.bmx:34-100`, `gridwars.bmx:3266-3272, 5911-5932`,
-  and the fixed-frame original images in `docs/captures/original/` map to
+  and the deterministic fixed-frame original images in
+  `docs/captures/original/` map to
   `OriginalGraphics`, `OriginalHUDRenderer`, `OriginalScreenRenderer`, and the
   live texture-reload path in `GameScene`. All five original graphics folders
   are bundled without flattening, icon/snake animation sheets retain their
   set-specific frame sizes, white entity art is no longer palette-tinted, and
   the score, high score, multiplier, lives and bomb indicators use the original
-  vector font, coordinates, alpha and icon frames. A persistence-free macOS
-  capture catalog covers seventeen representative and menu states via
-  `scripts/capture-screens.sh`; image export requires an active unlocked window
-  session. Enemy pages reproduce the original individual rotation, pulse and
+  vector font, coordinates, alpha and icon frames. The isolated original
+  renderer now produces valid full-frame 1024×768 title, scores, friends,
+  enemies and options references via `scripts/capture-original.sh`; capture
+  mode bypasses all legacy configuration and high-score I/O. A persistence-free
+  Swift capture catalog covers seventeen representative and menu states via
+  `scripts/capture-screens.sh`. Enemy pages reproduce the original individual rotation, pulse and
   squash rates, while the score and friend pages retain their delayed colour
   trails instead of applying a uniform palette tint.
 - Persistence and legacy data: `control.bmx:218-872`,
