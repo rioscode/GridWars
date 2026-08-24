@@ -2,6 +2,8 @@
 
 #if os(iOS)
 import UIKit
+#elseif os(macOS)
+import AppKit
 #endif
 
 @MainActor
@@ -89,6 +91,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private let gridLayer = SKNode()
     private let gridRenderer = GridRenderer()
     private let particleRenderer = ParticleRenderer()
+    private let screenRenderer = OriginalScreenRenderer()
     private let enemyLayer = SKNode()
     private let projectileLayer = SKNode()
     private let pickupLayer = SKNode()
@@ -101,6 +104,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private let helpLabel = SKLabelNode(fontNamed: "Menlo")
     private let messageLabel = SKLabelNode(fontNamed: "Menlo-Bold")
     private let bombButton = SKShapeNode(circleOfRadius: 38)
+    private let optionsButton = SKShapeNode(circleOfRadius: 30)
     private let movementStick = VirtualStickNode()
     private let aimingStick = VirtualStickNode()
     private let playerShield = SKShapeNode(circleOfRadius: 8)
@@ -123,6 +127,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private var gridSimulation = GridSimulation(arenaSize: CGSize(width: 1_024, height: 768))
     private var particleSimulation = ParticleSimulation(arenaSize: CGSize(width: 1_024, height: 768))
     private var gridStyle = GridStyle.pointsSolid
+    private var screenFlow = OriginalScreenFlow()
+    private var menuModel = OriginalMenuModel()
+    private var gameplayPaused = false
 
     private var lastUpdateTime: TimeInterval = 0
     private var shotTimerFrames = 0
@@ -174,7 +181,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         setupArena()
         setupPlayer()
         setupHUD()
-        restartGame()
+        prepareAttractMode()
     }
 
     private func setupLayers() {
@@ -186,6 +193,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         worldLayer.addChild(pickupLayer)
         worldLayer.addChild(effectLayer)
         addChild(hudLayer)
+        addChild(screenRenderer.node)
 
         gridLayer.zPosition = -10
         gridLayer.addChild(gridRenderer.node)
@@ -195,6 +203,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         pickupLayer.zPosition = 15
         effectLayer.zPosition = 30
         hudLayer.zPosition = 100
+        screenRenderer.node.zPosition = 200
     }
 
     private func setupArena() {
@@ -207,6 +216,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             star.fillColor = SKColor(white: brightness, alpha: 1)
             star.strokeColor = .clear
             star.alpha = 0.8
+            star.name = "star"
             star.position = CGPoint(
                 x: CGFloat(Int.random(in: -100...Int(size.width + 100))),
                 y: CGFloat(Int.random(in: -100...Int(size.height + 100)))
@@ -309,6 +319,21 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         bombButton.addChild(bombText)
         hudLayer.addChild(bombButton)
 
+        optionsButton.position = CGPoint(x: 48, y: size.height - 52)
+        optionsButton.fillColor = SKColor(red: 0.08, green: 0.25, blue: 0.18, alpha: 0.7)
+        optionsButton.strokeColor = SKColor(red: 0.3, green: 1, blue: 0.6, alpha: 1)
+        optionsButton.lineWidth = 2
+        #if os(macOS)
+        optionsButton.isHidden = true
+        #endif
+        let optionsText = SKLabelNode(fontNamed: "Menlo-Bold")
+        optionsText.text = "OPT"
+        optionsText.fontSize = 11
+        optionsText.verticalAlignmentMode = .center
+        optionsText.fontColor = .white
+        optionsButton.addChild(optionsText)
+        hudLayer.addChild(optionsButton)
+
         hudLayer.addChild(movementStick)
         hudLayer.addChild(aimingStick)
     }
@@ -319,7 +344,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         pickupLayer.removeAllChildren()
         effectLayer.removeAllChildren()
 
-        session.restart()
+        session.restart(difficulty: menuModel.settings.difficulty)
         spawnDirector.reset()
         destroyedEnemyCount = 0
         lastUpdateTime = 0
@@ -350,28 +375,186 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         startGetReadySequence()
     }
 
+    private func prepareAttractMode() {
+        enemyLayer.removeAllChildren()
+        projectileLayer.removeAllChildren()
+        pickupLayer.removeAllChildren()
+        effectLayer.removeAllChildren()
+        particleSimulation.reset()
+        screenFlow.returnToTitle()
+        gameplayPaused = false
+        gridLayer.isHidden = true
+        enemyLayer.isHidden = true
+        projectileLayer.isHidden = true
+        pickupLayer.isHidden = true
+        effectLayer.isHidden = true
+        hudLayer.isHidden = true
+        player.isHidden = true
+        playerShield.isHidden = true
+        readyRings.forEach { $0.isHidden = true }
+        particleRenderer.node.zPosition = 201
+        renderPresentation()
+    }
+
+    private func beginGame() {
+        menuModel.close()
+        screenFlow.startGame()
+        screenRenderer.hide()
+        particleSimulation.reset()
+        particleRenderer.node.zPosition = 5
+        gridLayer.isHidden = false
+        enemyLayer.isHidden = false
+        projectileLayer.isHidden = false
+        pickupLayer.isHidden = false
+        effectLayer.isHidden = false
+        hudLayer.isHidden = false
+        applyRuntimeSettings()
+        restartGame()
+    }
+
     override func update(_ currentTime: TimeInterval) {
         if lastUpdateTime == 0 {
             lastUpdateTime = currentTime
-            renderGrid()
-            particleRenderer.render(particleSimulation)
+            renderPresentation()
             return
         }
 
         let deltaTime = min(0.1, currentTime - lastUpdateTime)
         lastUpdateTime = currentTime
-        guard !session.isGameOver else {
-            renderGrid()
-            particleRenderer.render(particleSimulation)
-            return
-        }
         fixedTimeAccumulator += deltaTime
         while fixedTimeAccumulator >= 0.02 {
-            simulateFrame()
+            if !menuModel.isOpen, !gameplayPaused {
+                switch screenFlow.phase {
+                case .attract:
+                    advanceAttractFrame()
+                case .playing:
+                    simulateFrame()
+                case .gameOver:
+                    advanceGameOverFrame()
+                }
+            }
             fixedTimeAccumulator -= 0.02
         }
-        renderGrid()
-        particleRenderer.render(particleSimulation)
+        renderPresentation()
+    }
+
+    private func advanceAttractFrame() {
+        cycleColors()
+        if case let .attract(page) = screenFlow.phase {
+            let chance: Int = switch page {
+            case .title, .scores: 90
+            case .friends, .enemies: 94
+            }
+            let cutoff: Int = switch page {
+            case .title, .friends, .enemies: 850
+            case .scores: 700
+            }
+            if screenFlow.frame < cutoff,
+               page != .title || screenFlow.persistentTitleFrame > 350,
+               Int.random(in: 0...100) > chance {
+                emitFirework(style: page == .title ? 0 : 1)
+            }
+        }
+        particleSimulation.update()
+        _ = screenFlow.advance()
+    }
+
+    private func advanceGameOverFrame() {
+        updateParticleSimulation()
+        gridSimulation.update()
+        if screenFlow.advance() {
+            enterAttractPresentation()
+        }
+    }
+
+    private func renderPresentation() {
+        let cyclingColor = SKColor(
+            red: CGFloat(cyclingRed) / 255,
+            green: CGFloat(cyclingGreen) / 255,
+            blue: CGFloat(cyclingBlue) / 255,
+            alpha: 1
+        )
+        if menuModel.isOpen {
+            particleRenderer.node.zPosition = 201
+            screenRenderer.renderMenu(menuModel, size: size)
+            particleRenderer.render(particleSimulation, style: menuModel.settings.particleStyle)
+            return
+        }
+
+        switch screenFlow.phase {
+        case let .attract(page):
+            particleRenderer.node.zPosition = 201
+            screenRenderer.renderAttract(
+                page: page,
+                frame: screenFlow.frame,
+                persistentTitleFrame: screenFlow.persistentTitleFrame,
+                size: size,
+                cyclingColor: cyclingColor
+            )
+            particleRenderer.render(particleSimulation, style: menuModel.settings.particleStyle)
+        case .playing:
+            particleRenderer.node.zPosition = 5
+            if gameplayPaused {
+                menuModel.open(duringGame: true)
+                screenRenderer.renderMenu(menuModel, size: size)
+            } else {
+                screenRenderer.hide()
+            }
+            renderGrid()
+            particleRenderer.render(particleSimulation, style: menuModel.settings.particleStyle)
+        case .gameOver:
+            particleRenderer.node.zPosition = 5
+            renderGrid()
+            particleRenderer.render(particleSimulation, style: menuModel.settings.particleStyle)
+            screenRenderer.renderGameOver(counter: 2 + screenFlow.frame * 2, size: size)
+        }
+    }
+
+    private func enterAttractPresentation() {
+        enemyLayer.removeAllChildren()
+        projectileLayer.removeAllChildren()
+        pickupLayer.removeAllChildren()
+        effectLayer.removeAllChildren()
+        gridLayer.isHidden = true
+        enemyLayer.isHidden = true
+        projectileLayer.isHidden = true
+        pickupLayer.isHidden = true
+        effectLayer.isHidden = true
+        hudLayer.isHidden = true
+        player.isHidden = true
+        playerShield.isHidden = true
+        readyRings.forEach { $0.isHidden = true }
+        particleRenderer.node.zPosition = 201
+    }
+
+    private func emitFirework(style: Int) {
+        let color = ParticleColor(
+            red: Int.random(in: 0...3) * 64,
+            green: Int.random(in: 0...3) * 64,
+            blue: Int.random(in: 0...3) * 64
+        )
+        let position: CGPoint
+        if style == 1 {
+            if Bool.random() {
+                position = CGPoint(
+                    x: CGFloat(Int.random(in: 100...max(100, Int(size.width) - 100))),
+                    y: Bool.random() ? 16 : size.height - 16
+                )
+            } else {
+                position = CGPoint(
+                    x: Bool.random() ? 16 : size.width - 16,
+                    y: CGFloat(Int.random(in: 50...max(50, Int(size.height) - 50)))
+                )
+            }
+        } else if style == 2 {
+            position = CGPoint(x: size.width / 2, y: size.height / 2)
+        } else {
+            position = CGPoint(
+                x: CGFloat(Int.random(in: 100...max(100, Int(size.width) - 100))),
+                y: CGFloat(Int.random(in: 50...max(50, Int(size.height) - 50)))
+            )
+        }
+        emitParticles(count: 64, at: position, kind: .random, color: color)
     }
 
     private func simulateFrame() {
@@ -446,8 +629,16 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 blue: CGFloat(cyclingBlue) / 255,
                 alpha: 1
             ),
-            opacity: 0.85
+            opacity: menuModel.settings.gridOpacity
         )
+    }
+
+    private func applyRuntimeSettings() {
+        gridStyle = GridStyle(rawValue: menuModel.settings.gridStyle) ?? .pointsSolid
+        let stars = gridLayer.children.filter { $0.name == "star" }
+        for (index, star) in stars.enumerated() {
+            star.isHidden = index > menuModel.settings.starCount
+        }
     }
 
     private func updateParticleSimulation() {
@@ -476,7 +667,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         let result = playerMotion.advance(
             from: player.position,
             input: combined,
-            arenaSize: size
+            arenaSize: size,
+            inertia: menuModel.settings.inertia
         )
         player.position = result.position
         if result.movement.length > 0 {
@@ -585,17 +777,22 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         let arrowAim = keyboardAim
         if arrowAim.length > 0 {
             currentAim = arrowAim.normalized
-            keyboardAutofireArmed = true
-        } else if touchAim.length > 0 {
-            currentAim = touchAim.normalized
-        } else if hasPointerLocation, mouseIsFiring {
-            let pointerAim = CGVector(
-                dx: pointerLocation.x - player.position.x,
-                dy: pointerLocation.y - player.position.y
-            )
-            if pointerAim.length > 2 {
-                currentAim = pointerAim.normalized
-                mouseAutofireArmed = true
+            keyboardAutofireArmed = menuModel.settings.autoFire
+        } else {
+            if !menuModel.settings.autoFire { keyboardAutofireArmed = false }
+            if touchAim.length > 0 {
+                currentAim = touchAim.normalized
+            } else if hasPointerLocation, mouseIsFiring {
+                let pointerAim = CGVector(
+                    dx: pointerLocation.x - player.position.x,
+                    dy: pointerLocation.y - player.position.y
+                )
+                if pointerAim.length > 2 {
+                    currentAim = pointerAim.normalized
+                    mouseAutofireArmed = menuModel.settings.autoFire
+                }
+            } else if !menuModel.settings.autoFire {
+                mouseAutofireArmed = false
             }
         }
 
@@ -2844,12 +3041,15 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         deathFramesRemaining -= 1
         guard deathFramesRemaining == 0 else { return }
 
-        enemyLayer.removeAllChildren()
-        projectileLayer.removeAllChildren()
-        pickupLayer.removeAllChildren()
-        effectLayer.removeAllChildren()
-        gridSimulation.reset()
-        particleSimulation.reset()
+        let isFinalLife = session.lives == 1
+        if !isFinalLife {
+            enemyLayer.removeAllChildren()
+            projectileLayer.removeAllChildren()
+            pickupLayer.removeAllChildren()
+            effectLayer.removeAllChildren()
+            gridSimulation.reset()
+            particleSimulation.reset()
+        }
         session.registerPlayerHit()
         updateHUD()
         player.position = CGPoint(x: size.width / 2, y: size.height / 2)
@@ -2860,11 +3060,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             playerShield.isHidden = true
             mouseIsFiring = false
             touchIsFiring = false
-            messageLabel.position = CGPoint(x: size.width / 2, y: size.height / 2)
-            messageLabel.setScale(1)
-            messageLabel.fontColor = .white
-            messageLabel.text = "GAME OVER\nPunkte: \(session.score)\nR oder Tippen zum Neustart"
-            messageLabel.isHidden = false
+            messageLabel.isHidden = true
+            screenFlow.showGameOver()
             run(.playSoundFileNamed("gameover.wav", waitForCompletion: false))
         } else {
             touchAim = .zero
@@ -2970,21 +3167,49 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         }
 
         guard pressed, !isRepeat else { return }
+        if menuModel.isOpen {
+            switch keyCode {
+            case 126: menuModel.moveSelection(by: -1)
+            case 125: menuModel.moveSelection(by: 1)
+            case 123: handleMenuOutcome(menuModel.adjust(by: -1))
+            case 124: handleMenuOutcome(menuModel.adjust(by: 1))
+            case 36, 49: handleMenuOutcome(menuModel.activate())
+            case 53: handleMenuOutcome(menuModel.back())
+            default: break
+            }
+            applyRuntimeSettings()
+            renderPresentation()
+            return
+        }
+
+        if keyCode == 53 {
+            openOptions()
+            return
+        }
         if keyCode == 49 {
             triggerBomb()
-        } else if keyCode == 15, session.isGameOver {
-            restartGame()
+        } else if keyCode == 15, screenFlow.phase == .gameOver {
+            screenFlow.skipGameOver()
+            enterAttractPresentation()
         }
     }
 
     func setPointerLocation(_ location: CGPoint) {
         pointerLocation = location
         hasPointerLocation = true
+        if menuModel.isOpen, let index = screenRenderer.menuIndex(at: location) {
+            menuModel.select(index)
+        }
     }
 
     func setMouseFiring(_ firing: Bool) {
-        if firing, session.isGameOver {
-            restartGame()
+        if firing, menuModel.isOpen {
+            if let index = screenRenderer.menuIndex(at: pointerLocation) {
+                menuModel.select(index)
+            }
+            handleMenuOutcome(menuModel.activate())
+            applyRuntimeSettings()
+            renderPresentation()
             return
         }
         mouseIsFiring = firing
@@ -2993,11 +3218,28 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     func setMouseBomb(_ pressed: Bool) {
         mouseBombIsHeld = pressed
         if pressed {
+            if menuModel.isOpen {
+                handleMenuOutcome(menuModel.adjust(by: 1))
+                applyRuntimeSettings()
+                renderPresentation()
+                return
+            }
             triggerBomb()
         }
     }
 
     func triggerBomb() {
+        switch screenFlow.phase {
+        case .attract:
+            beginGame()
+            return
+        case .gameOver:
+            screenFlow.skipGameOver()
+            enterAttractPresentation()
+            return
+        case .playing:
+            break
+        }
         if getReadyFrame >= 0 {
             getReadyFrame = getReadyFrame < 60 ? 60 : 99
             return
@@ -3042,6 +3284,39 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         updateHUD()
     }
 
+    private func openOptions() {
+        let duringGame = screenFlow.phase == .playing || screenFlow.phase == .gameOver
+        menuModel.open(duringGame: duringGame)
+        mouseIsFiring = false
+        touchIsFiring = false
+        particleRenderer.node.zPosition = 201
+        renderPresentation()
+    }
+
+    private func handleMenuOutcome(_ outcome: OriginalMenuOutcome) {
+        switch outcome {
+        case .none:
+            break
+        case .close:
+            menuModel.close()
+            particleRenderer.node.zPosition = screenFlow.phase == .playing ? 5 : 201
+        case .endGame:
+            menuModel.close()
+            screenFlow.returnToTitle()
+            particleSimulation.reset()
+            enterAttractPresentation()
+        case .exitApplication:
+            #if os(macOS)
+            NSApplication.shared.terminate(nil)
+            #else
+            menuModel.close()
+            screenFlow.returnToTitle()
+            particleSimulation.reset()
+            enterAttractPresentation()
+            #endif
+        }
+    }
+
     private var keyboardMovement: CGVector {
         var vector = CGVector.zero
         if pressedKeys.contains(0) || pressedKeys.contains(123) && pressedKeys.contains(56) {
@@ -3070,14 +3345,36 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
     #if os(iOS)
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
-        if session.isGameOver {
-            restartGame()
+        if menuModel.isOpen {
+            if let touch = touches.first {
+                let location = touch.location(in: self)
+                if let index = screenRenderer.menuIndex(at: location) {
+                    menuModel.select(index)
+                    handleMenuOutcome(menuModel.activate())
+                    applyRuntimeSettings()
+                    renderPresentation()
+                }
+            }
             return
+        }
+
+        switch screenFlow.phase {
+        case .attract:
+            beginGame()
+            return
+        case .gameOver:
+            screenFlow.skipGameOver()
+            enterAttractPresentation()
+            return
+        case .playing:
+            break
         }
 
         for touch in touches {
             let location = touch.location(in: self)
-            if bombButton.contains(location) {
+            if optionsButton.contains(location) {
+                openOptions()
+            } else if bombButton.contains(location) {
                 triggerBomb()
             } else if location.x < size.width / 2, movementTouch == nil {
                 movementTouch = touch

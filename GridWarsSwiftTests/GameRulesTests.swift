@@ -482,4 +482,71 @@ final class GameRulesTests: XCTestCase {
         particles.applyBlackHole(at: CGPoint(x: 200, y: 100), size: 20, frame: 1)
         XCTAssertEqual(particles.particles[1].activeFrames, 27)
     }
+
+    func testAttractModeUsesOriginalPageDurationsAndOrder() {
+        var flow = OriginalScreenFlow()
+        XCTAssertEqual(flow.phase, .attract(.title))
+
+        for _ in 0..<899 { XCTAssertFalse(flow.advance()) }
+        XCTAssertTrue(flow.advance())
+        XCTAssertEqual(flow.phase, .attract(.scores))
+
+        for _ in 0..<750 { _ = flow.advance() }
+        XCTAssertEqual(flow.phase, .attract(.friends))
+        for _ in 0..<900 { _ = flow.advance() }
+        XCTAssertEqual(flow.phase, .attract(.enemies))
+        for _ in 0..<900 { _ = flow.advance() }
+        XCTAssertEqual(flow.phase, .attract(.title))
+        XCTAssertEqual(flow.persistentTitleFrame, 600)
+    }
+
+    func testGameOverRunsOriginal179DisplayFramesBeforeScores() {
+        var flow = OriginalScreenFlow()
+        flow.startGame()
+        flow.showGameOver()
+
+        for _ in 0..<178 { XCTAssertFalse(flow.advance()) }
+        XCTAssertTrue(flow.advance())
+        XCTAssertEqual(flow.phase, .attract(.scores))
+    }
+
+    func testMenuMatchesOriginalHierarchyAndAdjustsSettings() {
+        var menu = OriginalMenuModel()
+        menu.open(duringGame: true)
+        XCTAssertEqual(menu.lines, ["Exit Program", "Settings", "End Game", "Continue"])
+        XCTAssertEqual(menu.selection, 3)
+
+        menu.select(1)
+        XCTAssertEqual(menu.activate(), .none)
+        XCTAssertEqual(menu.page, .settings)
+        menu.select(3)
+        XCTAssertEqual(menu.activate(), .none)
+        XCTAssertEqual(menu.page, .game)
+        menu.select(0)
+        XCTAssertEqual(menu.adjust(by: 1), .none)
+        XCTAssertEqual(menu.settings.difficulty, .hard)
+        menu.select(4)
+        _ = menu.adjust(by: 1)
+        XCTAssertEqual(menu.settings.inertia, 0.05, accuracy: 0.0001)
+    }
+
+    func testOriginalHardAwardThresholdsMatchControlDefaults() {
+        XCTAssertEqual(GameDifficulty.hard.extraLifeThreshold, 200_000)
+        XCTAssertEqual(GameDifficulty.hard.extraBombThreshold, 250_000)
+    }
+
+    func testVectorFontParserReadsOriginalDefDataLayout() {
+        let source = """
+        ignored
+        #letterdata
+        DefData 0
+        DefData 2, 2,0, 2,4, 2,5, 2,6
+        """
+        let font = OriginalVectorFontData.parse(source)
+
+        XCTAssertEqual(font.glyphs[32], [])
+        XCTAssertEqual(font.glyphs[33]?.count, 2)
+        XCTAssertEqual(font.glyphs[33]?.first?.start, CGPoint(x: 2, y: 0))
+        XCTAssertEqual(font.glyphs[33]?.last?.end, CGPoint(x: 2, y: 6))
+    }
 }

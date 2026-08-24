@@ -51,7 +51,7 @@ enum GameDifficulty: Int, CaseIterable, Codable {
         switch self {
         case .easy: 75_000
         case .medium: 100_000
-        case .hard: 150_000
+        case .hard: 200_000
         }
     }
 
@@ -59,7 +59,7 @@ enum GameDifficulty: Int, CaseIterable, Codable {
         switch self {
         case .easy: 100_000
         case .medium: 150_000
-        case .hard: 200_000
+        case .hard: 250_000
         }
     }
 }
