@@ -98,6 +98,16 @@ enum OriginalControllerType: Int, CaseIterable, Codable {
     }
 }
 
+struct OriginalJoyPortSettings: Equatable, Codable {
+    var axes = [1, 2, 4, 3]
+    var inversion = [1, 1, 1, 1]
+    var scale: [CGFloat] = [1, 1, 1, 1]
+    var center: [CGFloat] = [0, 0, 0, 0]
+    var deadZone: [CGFloat] = [0, 0, 0, 0]
+    var optionButton = 1
+    var bombButton = 2
+}
+
 struct OriginalRuntimeSettings: Equatable, Codable {
     static let maximumStars = 10_000
     static let playfieldSizes: [CGSize] = [
@@ -141,6 +151,10 @@ struct OriginalRuntimeSettings: Equatable, Codable {
     var scroll = false
     var screenSizeIndex = 0
     var playfieldSizeIndex = 0
+    var screenWidth = 1_024
+    var screenHeight = 768
+    var playfieldWidth = 1_024
+    var playfieldHeight = 768
     var graphicsSetIndex = 0
     var windowed = false
     var gridStyle = 0
@@ -152,6 +166,12 @@ struct OriginalRuntimeSettings: Equatable, Codable {
     var gridBlue = 200
     var gridBrightness = 102
     var gridOpacity: CGFloat = 0.85
+    var gridSpacing = 2
+    var fullGrid = true
+    var particleCount = 2_048
+    var particleLife = 40
+    var particleGravity = true
+    var particleDecay: CGFloat = 0.95
 
     var difficulty = GameDifficulty.medium
     var extraLifeScores = [75_000, 100_000, 200_000]
@@ -172,14 +192,52 @@ struct OriginalRuntimeSettings: Equatable, Codable {
     var joypadButtons = [0, 1, 2, 3]
     var joypadBombButton = 4
     var joypadOptionButton = 0
+    var keyBomb = 32
+    var keyMoveLeft = 83
+    var keyMoveRight = 68
+    var keyMoveUp = 69
+    var keyMoveDown = 88
+    var keyFireLeft = 37
+    var keyFireRight = 39
+    var keyFireUp = 38
+    var keyFireDown = 40
     var dualAnalogPort = 0
-    var dualAnalogAxes = [1, 2, 4, 3]
-    var dualAnalogInverted = [false, false, false, false]
-    var dualAnalogScale: [CGFloat] = [1, 1, 1, 1]
-    var dualAnalogCenter: [CGFloat] = [0, 0, 0, 0]
-    var dualAnalogDeadZone: [CGFloat] = [0.05, 0.05, 0.05, 0.05]
-    var dualAnalogOptionButton = 1
-    var dualAnalogBombButton = 2
+    var joyPorts = Array(repeating: OriginalJoyPortSettings(), count: 4)
+
+    var dualAnalogAxes: [Int] {
+        get { joyPorts[activeJoyPortIndex].axes }
+        set { joyPorts[activeJoyPortIndex].axes = newValue }
+    }
+
+    var dualAnalogInverted: [Bool] {
+        get { joyPorts[activeJoyPortIndex].inversion.map { $0 == -1 } }
+        set { joyPorts[activeJoyPortIndex].inversion = newValue.map { $0 ? -1 : 1 } }
+    }
+
+    var dualAnalogScale: [CGFloat] {
+        get { joyPorts[activeJoyPortIndex].scale }
+        set { joyPorts[activeJoyPortIndex].scale = newValue }
+    }
+
+    var dualAnalogCenter: [CGFloat] {
+        get { joyPorts[activeJoyPortIndex].center }
+        set { joyPorts[activeJoyPortIndex].center = newValue }
+    }
+
+    var dualAnalogDeadZone: [CGFloat] {
+        get { joyPorts[activeJoyPortIndex].deadZone }
+        set { joyPorts[activeJoyPortIndex].deadZone = newValue }
+    }
+
+    var dualAnalogOptionButton: Int {
+        get { joyPorts[activeJoyPortIndex].optionButton }
+        set { joyPorts[activeJoyPortIndex].optionButton = newValue }
+    }
+
+    var dualAnalogBombButton: Int {
+        get { joyPorts[activeJoyPortIndex].bombButton }
+        set { joyPorts[activeJoyPortIndex].bombButton = newValue }
+    }
 
     mutating func cycleGridStyle(by direction: Int = 1) {
         gridStyle = wrappedValue(gridStyle + direction, count: 21)
@@ -200,6 +258,10 @@ struct OriginalRuntimeSettings: Equatable, Codable {
 
     private func wrappedValue(_ value: Int, count: Int) -> Int {
         (value % count + count) % count
+    }
+
+    private var activeJoyPortIndex: Int {
+        min(3, max(0, dualAnalogPort))
     }
 }
 
@@ -518,6 +580,9 @@ struct OriginalMenuModel: Equatable {
                 settings.playfieldSizeIndex + direction,
                 count: OriginalRuntimeSettings.playfieldSizes.count
             )
+            let size = OriginalRuntimeSettings.playfieldSizes[settings.playfieldSizeIndex]
+            settings.playfieldWidth = Int(size.width)
+            settings.playfieldHeight = Int(size.height)
         case 3: settings.graphicsSetIndex = wrapped(settings.graphicsSetIndex + direction, count: 5)
         case 4: settings.windowed.toggle()
         case 5: settings.cycleGridStyle(by: direction)

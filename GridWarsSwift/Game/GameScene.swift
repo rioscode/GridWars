@@ -9,6 +9,13 @@ import AppKit
 
 @MainActor
 final class GameScene: SKScene, SKPhysicsContactDelegate {
+    private struct PendingHighScore {
+        let score: Int
+        let playTime: String
+        let difficulty: GameDifficulty
+        let settings: String
+    }
+
     private enum Category {
         static let player: UInt32 = 1 << 0
         static let projectile: UInt32 = 1 << 1
@@ -138,6 +145,14 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private var debugEnabled = false
     private var starNodes: [SKShapeNode] = []
     private var appliedGridColorPosition = 0
+    private let persistenceStore = GridWarsPersistenceStore.applicationDefault()
+    private var colorPalette = OriginalColorPalette()
+    private var highScores = LegacyHighScoreTable()
+    private var highScoreNameEntry: OriginalHighScoreNameEntry?
+    private var pendingHighScore: PendingHighScore?
+    private var scorePageDifficulty: GameDifficulty?
+    private var highlightedScorePosition: Int?
+    private var unrankedScoreEntry: LegacyHighScoreEntry?
 
     private var lastUpdateTime: TimeInterval = 0
     private var shotTimerFrames = 0
@@ -185,11 +200,36 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
         physicsWorld.gravity = .zero
         physicsWorld.contactDelegate = nil
+        loadPersistentState()
         setupLayers()
         setupArena()
         setupPlayer()
         setupHUD()
         prepareAttractMode()
+    }
+
+    private func loadPersistentState() {
+        guard let persistenceStore, let state = try? persistenceStore.load() else { return }
+        menuModel.settings = state.settings
+        colorPalette = state.colours
+        highScores = state.highScores
+        particleGravityEnabled = state.settings.particleGravity
+        particleSimulation = ParticleSimulation(
+            arenaSize: size,
+            capacity: max(1, state.settings.particleCount),
+            particleLife: state.settings.particleLife,
+            decay: state.settings.particleDecay
+        )
+    }
+
+    func persistState() {
+        guard let persistenceStore else { return }
+        let state = GridWarsPersistentState(
+            settings: menuModel.settings,
+            colours: colorPalette,
+            highScores: highScores
+        )
+        try? persistenceStore.save(state)
     }
 
     private func setupLayers() {
@@ -237,6 +277,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         player.name = "player"
         player.size = CGSize(width: 64, height: 64)
         player.blendMode = .add
+        player.color = skColor(colorPalette[.player])
+        player.colorBlendFactor = 1
         player.zPosition = 5
         player.physicsBody = SKPhysicsBody(circleOfRadius: 15)
         player.physicsBody?.affectedByGravity = false
@@ -263,7 +305,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         scoreLabel.horizontalAlignmentMode = .left
         scoreLabel.verticalAlignmentMode = .top
         scoreLabel.position = CGPoint(x: 22, y: size.height - 18)
-        scoreLabel.fontColor = .white
+        scoreLabel.fontColor = skColor(colorPalette[.score])
         hudLayer.addChild(scoreLabel)
 
         statusLabel.fontSize = 19
@@ -390,6 +432,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         effectLayer.removeAllChildren()
         particleSimulation.reset()
         screenFlow.returnToTitle()
+        clearScorePresentation()
         gameplayPaused = false
         gridLayer.isHidden = true
         enemyLayer.isHidden = true
@@ -405,6 +448,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     private func beginGame() {
+        clearScorePresentation()
         menuModel.close()
         screenFlow.startGame()
         screenRenderer.hide()
@@ -431,7 +475,13 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         lastUpdateTime = currentTime
         fixedTimeAccumulator += deltaTime
         while fixedTimeAccumulator >= 0.02 {
-            if !menuModel.isOpen, !gameplayPaused {
+            if highScoreNameEntry != nil {
+                cycleColors()
+                if Int.random(in: 0...100) > 90 {
+                    emitFirework(style: 2)
+                }
+                particleSimulation.update()
+            } else if !menuModel.isOpen, !gameplayPaused {
                 switch screenFlow.phase {
                 case .attract:
                     advanceAttractFrame()
@@ -464,15 +514,74 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             }
         }
         particleSimulation.update()
-        _ = screenFlow.advance()
+        let wasScorePage = screenFlow.phase == .attract(.scores)
+        if screenFlow.advance(), wasScorePage {
+            clearScorePresentation()
+        }
     }
 
     private func advanceGameOverFrame() {
         updateParticleSimulation()
         gridSimulation.update()
         if screenFlow.advance() {
+            preparePostGameScores()
             enterAttractPresentation()
         }
+    }
+
+    private func skipGameOverToScores() {
+        guard screenFlow.phase == .gameOver else { return }
+        screenFlow.skipGameOver()
+        preparePostGameScores()
+        enterAttractPresentation()
+    }
+
+    private func preparePostGameScores() {
+        let score = session.score
+        guard score > 0 else { return }
+        let playTime = LegacyHighScoreTable.playTime(frames: simulationFrame)
+        scorePageDifficulty = session.difficulty
+        highlightedScorePosition = nil
+        unrankedScoreEntry = nil
+
+        if session.isScoreValid, highScores.qualifies(score: score, difficulty: session.difficulty) {
+            pendingHighScore = PendingHighScore(
+                score: score,
+                playTime: playTime,
+                difficulty: session.difficulty,
+                settings: menuModel.settings.highScoreSettingsString()
+            )
+            highScoreNameEntry = OriginalHighScoreNameEntry()
+        } else {
+            unrankedScoreEntry = LegacyHighScoreEntry(
+                score: score,
+                playTime: playTime,
+                name: "        ",
+                settings: menuModel.settings.highScoreSettingsString()
+            )
+        }
+    }
+
+    private func finishHighScoreNameEntry() {
+        guard let entry = highScoreNameEntry, let pending = pendingHighScore else { return }
+        highlightedScorePosition = highScores.insert(
+            score: pending.score,
+            playTime: pending.playTime,
+            name: entry.name,
+            settings: pending.settings,
+            difficulty: pending.difficulty
+        )
+        highScoreNameEntry = nil
+        pendingHighScore = nil
+        persistState()
+    }
+
+    private func clearScorePresentation() {
+        highScoreNameEntry = nil
+        pendingHighScore = nil
+        scorePageDifficulty = nil
+        highlightedScorePosition = nil
+        unrankedScoreEntry = nil
     }
 
     private func renderPresentation() {
@@ -482,6 +591,18 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             blue: CGFloat(cyclingBlue) / 255,
             alpha: 1
         )
+        if let highScoreNameEntry, let pendingHighScore {
+            particleRenderer.node.zPosition = 201
+            screenRenderer.renderHighScoreEntry(
+                highScoreNameEntry,
+                score: pendingHighScore.score,
+                playTime: pendingHighScore.playTime,
+                difficulty: pendingHighScore.difficulty,
+                size: size
+            )
+            particleRenderer.render(particleSimulation, style: menuModel.settings.particleStyle)
+            return
+        }
         if menuModel.isOpen {
             particleRenderer.node.zPosition = 201
             screenRenderer.renderMenu(menuModel, size: size)
@@ -497,7 +618,13 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 frame: screenFlow.frame,
                 persistentTitleFrame: screenFlow.persistentTitleFrame,
                 size: size,
-                cyclingColor: cyclingColor
+                cyclingColor: cyclingColor,
+                colours: colorPalette,
+                highScores: highScores,
+                scorePageDifficulty: scorePageDifficulty,
+                highlightedScorePosition: highlightedScorePosition,
+                unrankedEntry: unrankedScoreEntry,
+                showScoreSettings: pressedKeys.contains(35)
             )
             particleRenderer.render(particleSimulation, style: menuModel.settings.particleStyle)
         case .playing:
@@ -649,6 +776,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
     private func applyRuntimeSettings() {
         gridStyle = GridStyle(rawValue: menuModel.settings.gridStyle) ?? .pointsSolid
+        particleGravityEnabled = menuModel.settings.particleGravity
+        particleSimulation.particleLife = menuModel.settings.particleLife
+        particleSimulation.decay = menuModel.settings.particleDecay
         ensureStarCapacity(through: menuModel.settings.starCount)
         for (index, star) in starNodes.enumerated() {
             star.isHidden = menuModel.settings.starCount == 0 || index > menuModel.settings.starCount
@@ -724,6 +854,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
     private func setParticleGravityEnabled(_ enabled: Bool) {
         particleGravityEnabled = enabled
+        menuModel.settings.particleGravity = enabled
         showStatusMessage("Particle Gravity \(enabled ? "ON" : "OFF")")
     }
 
@@ -831,11 +962,17 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     private func createPlayerTrail(movement: CGVector) {
+        let trailColor = colorPalette[.trail]
         for index in 0..<3 {
             let angle = CGFloat(simulationFrame * 12 + index * 45) * .pi / 180
             let trail = SKSpriteNode(imageNamed: "particle")
             trail.name = "playerTrail"
-            trail.color = SKColor(red: 240 / 255, green: 240 / 255, blue: 100 / 255, alpha: 1)
+            trail.color = SKColor(
+                red: CGFloat(trailColor.red) / 255,
+                green: CGFloat(trailColor.green) / 255,
+                blue: CGFloat(trailColor.blue) / 255,
+                alpha: 1
+            )
             trail.colorBlendFactor = 1
             trail.blendMode = .add
             trail.alpha = 0.23
@@ -848,9 +985,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 "trailActive": 40,
                 "trailDX": -movement.dx * 1.5,
                 "trailDY": -movement.dy * 1.5,
-                "trailR": 240,
-                "trailG": 240,
-                "trailB": 100,
+                "trailR": trailColor.red,
+                "trailG": trailColor.green,
+                "trailB": trailColor.blue,
             ])
             effectLayer.addChild(trail)
         }
@@ -1048,6 +1185,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         enemy.name = "enemy"
         enemy.size = kind.size
         enemy.blendMode = .add
+        enemy.color = skColor(particleColor(for: kind))
+        enemy.colorBlendFactor = 1
         enemy.position = safePosition(position, minimumPlayerDistance: closeToPlayer ? 40 : 160)
         enemy.physicsBody = SKPhysicsBody(circleOfRadius: min(kind.size.width, kind.size.height) * 0.38)
         enemy.physicsBody?.affectedByGravity = false
@@ -1292,18 +1431,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     private func generatorColor(for kind: EnemyKind) -> SKColor {
-        switch kind {
-        case .pinwheel: SKColor(red: 1, green: 0.2, blue: 0.75, alpha: 1)
-        case .diamond: SKColor(red: 0.2, green: 0.65, blue: 1, alpha: 1)
-        case .greenSquare: SKColor(red: 0.2, green: 1, blue: 0.3, alpha: 1)
-        case .cube: SKColor(red: 0.72, green: 0.25, blue: 1, alpha: 1)
-        case .seeker: SKColor(red: 0.2, green: 0.55, blue: 1, alpha: 1)
-        case .blackHole: SKColor(red: 1, green: 0.12, blue: 0.08, alpha: 1)
-        case .triangle: SKColor(red: 1, green: 0.55, blue: 0.08, alpha: 1)
-        case .snake: SKColor(red: 0.25, green: 1, blue: 0.5, alpha: 1)
-        case .interceptor: SKColor(red: 1, green: 0.18, blue: 0.22, alpha: 1)
-        case .butterfly: SKColor(red: 0.35, green: 0.3, blue: 1, alpha: 1)
-        }
+        skColor(particleColor(for: kind))
     }
 
     private func updateGenerators() {
@@ -1638,6 +1766,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             segment.name = "snakeTail"
             segment.size = CGSize(width: 56, height: 56)
             segment.blendMode = .add
+            segment.color = skColor(colorPalette[.snakeTail])
+            segment.colorBlendFactor = 1
             segment.position = head.position
             segment.physicsBody = SKPhysicsBody(circleOfRadius: sqrt(CGFloat(81 + originalFrame)))
             segment.physicsBody?.affectedByGravity = false
@@ -1762,7 +1892,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                         count: 8,
                         at: position,
                         kind: .random,
-                        color: OriginalParticleColor.snakeTail
+                        color: colorPalette[.snakeTail]
                     )
                     if nextMove < 50 {
                         run(.playSoundFileNamed("snakehit.wav", waitForCompletion: false))
@@ -2226,7 +2356,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 count: 36,
                 at: position,
                 kind: .random,
-                color: OriginalParticleColor.blackHole,
+                color: colorPalette[.blackHole],
                 positionForIndex: { index in
                     let angle = CGFloat(index * 10) * .pi / 180
                     return CGPoint(
@@ -2322,9 +2452,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     private var projectileParticleColor: ParticleColor {
-        if session.superShotFrames > 0 { return OriginalParticleColor.superShot }
-        if session.bouncyShotFrames > 0 { return OriginalParticleColor.bouncyShot }
-        return OriginalParticleColor.shot
+        if session.superShotFrames > 0 { return colorPalette[.superShot] }
+        if session.bouncyShotFrames > 0 { return colorPalette[.bouncyShot] }
+        return colorPalette[.shot]
     }
 
     private func createProjectileImpact(at position: CGPoint) {
@@ -2547,7 +2677,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 count: 8,
                 at: enemy.position,
                 kind: .random,
-                color: OriginalParticleColor.snakeTail
+                color: colorPalette[.snakeTail]
             )
             run(.playSoundFileNamed("tailhit.wav", waitForCompletion: false))
             return
@@ -2613,7 +2743,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 count: 4,
                 at: enemy.position,
                 kind: .random,
-                color: OriginalParticleColor.blackHole
+                color: colorPalette[.blackHole]
             )
             var blackHoleSize = CGFloat((enemy.userData?["blackHoleSize"] as? NSNumber)?.doubleValue ?? 20)
             let wasActive = (enemy.userData?["blackHoleActive"] as? NSNumber)?.boolValue ?? false
@@ -2757,14 +2887,14 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 count: 16,
                 at: position,
                 kind: .eightDirections,
-                color: OriginalParticleColor.greenSquare
+                color: colorPalette[.square]
             )
         case .pinwheel:
             emitParticles(
                 count: 16,
                 at: position,
                 kind: .eightDirections,
-                color: OriginalParticleColor.pinwheel,
+                color: colorPalette[.pinwheel],
                 rotation: { _ in rotation }
             )
         case .diamond:
@@ -2772,7 +2902,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 count: 16,
                 at: position,
                 kind: .fourDirections,
-                color: OriginalParticleColor.diamond,
+                color: colorPalette[.diamond],
                 positionForIndex: { _ in
                     CGPoint(
                         x: position.x + CGFloat(Int.random(in: -8...8)),
@@ -2785,7 +2915,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 count: 16,
                 at: position,
                 kind: .fourDirections,
-                color: OriginalParticleColor.cube,
+                color: colorPalette[.cube],
                 rotation: { _ in rotation }
             )
         case .seeker:
@@ -2793,7 +2923,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 count: 16,
                 at: position,
                 kind: .directed,
-                color: OriginalParticleColor.seeker,
+                color: colorPalette[.seeker],
                 rotation: { index in CGFloat(index * 24) + rotation }
             )
         case .blackHole:
@@ -2802,14 +2932,14 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                     count: 4,
                     at: position,
                     kind: .random,
-                    color: OriginalParticleColor.blackHole
+                    color: colorPalette[.blackHole]
                 )
             }
             emitParticles(
                 count: 32,
                 at: position,
                 kind: .random,
-                color: OriginalParticleColor.blackHole
+                color: colorPalette[.blackHole]
             )
         case .triangle:
             if !preHitParticlesEmitted {
@@ -2833,28 +2963,28 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 count: 32,
                 at: position,
                 kind: .threeDirections,
-                color: OriginalParticleColor.triangle
+                color: colorPalette[.triangle]
             )
         case .snake:
             emitParticles(
                 count: 32,
                 at: position,
                 kind: .random,
-                color: OriginalParticleColor.snake
+                color: colorPalette[.snake]
             )
         case .interceptor:
             emitParticles(
                 count: 16,
                 at: position,
                 kind: .eightDirections,
-                color: OriginalParticleColor.interceptor
+                color: colorPalette[.interceptor]
             )
         case .butterfly:
             emitParticles(
                 count: 9,
                 at: position,
                 kind: .threeDirections,
-                color: OriginalParticleColor.butterfly,
+                color: colorPalette[.butterfly],
                 rotation: { index in CGFloat(index * 120) + rotation }
             )
         }
@@ -2862,17 +2992,26 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
     private func particleColor(for kind: EnemyKind) -> ParticleColor {
         switch kind {
-        case .greenSquare: OriginalParticleColor.greenSquare
-        case .pinwheel: OriginalParticleColor.pinwheel
-        case .diamond: OriginalParticleColor.diamond
-        case .cube: OriginalParticleColor.cube
-        case .seeker: OriginalParticleColor.seeker
-        case .blackHole: OriginalParticleColor.blackHole
-        case .triangle: OriginalParticleColor.triangle
-        case .snake: OriginalParticleColor.snake
-        case .interceptor: OriginalParticleColor.interceptor
-        case .butterfly: OriginalParticleColor.butterfly
+        case .greenSquare: colorPalette[.square]
+        case .pinwheel: colorPalette[.pinwheel]
+        case .diamond: colorPalette[.diamond]
+        case .cube: colorPalette[.cube]
+        case .seeker: colorPalette[.seeker]
+        case .blackHole: colorPalette[.blackHole]
+        case .triangle: colorPalette[.triangle]
+        case .snake: colorPalette[.snake]
+        case .interceptor: colorPalette[.interceptor]
+        case .butterfly: colorPalette[.butterfly]
         }
+    }
+
+    private func skColor(_ color: ParticleColor) -> SKColor {
+        SKColor(
+            red: CGFloat(color.red) / 255,
+            green: CGFloat(color.green) / 255,
+            blue: CGFloat(color.blue) / 255,
+            alpha: 1
+        )
     }
 
     private func handleProgressionEvent(_ event: ProgressionEvent) {
@@ -3062,7 +3201,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                         count: 8,
                         at: position,
                         kind: .random,
-                        color: OriginalParticleColor.powerUp
+                        color: colorPalette[.powerUp]
                     )
                     continue
                 }
@@ -3074,7 +3213,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                     count: 8,
                     at: position,
                     kind: .random,
-                    color: OriginalParticleColor.powerUp
+                    color: colorPalette[.powerUp]
                 )
                 continue
             }
@@ -3118,7 +3257,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                     count: 15,
                     at: position,
                     kind: .directed,
-                    color: OriginalParticleColor.powerUp,
+                    color: colorPalette[.powerUp],
                     rotation: { index in CGFloat(index * 24) + rotation }
                 )
                 growBlackHole(blackHole, amount: 1)
@@ -3304,7 +3443,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             count: 256,
             at: player.position,
             kind: .random,
-            color: OriginalParticleColor.player
+            color: colorPalette[.player]
         )
         run(.playSoundFileNamed("die1.wav", waitForCompletion: false))
         return true
@@ -3334,11 +3473,40 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         statusLabel.text = "LEBEN \(session.lives)   BOMBEN \(session.bombs)"
     }
 
-    func setKey(_ keyCode: UInt16, pressed: Bool, isRepeat: Bool) {
+    func setKey(
+        _ keyCode: UInt16,
+        pressed: Bool,
+        isRepeat: Bool,
+        characters: String? = nil
+    ) {
         if pressed {
             pressedKeys.insert(keyCode)
         } else {
             pressedKeys.remove(keyCode)
+        }
+
+        if highScoreNameEntry != nil {
+            guard pressed, !isRepeat else { return }
+            var entry = highScoreNameEntry ?? OriginalHighScoreNameEntry()
+            switch keyCode {
+            case 123: entry.moveSelection(by: -1)
+            case 124: entry.moveSelection(by: 1)
+            case 126: entry.cycleCharacter(by: -1)
+            case 125: entry.cycleCharacter(by: 1)
+            case 36:
+                finishHighScoreNameEntry()
+                renderPresentation()
+                return
+            case 49: entry.setASCII(32)
+            default:
+                if let scalar = characters?.unicodeScalars.first,
+                   (33...126).contains(Int(scalar.value)) {
+                    entry.setASCII(Int(scalar.value))
+                }
+            }
+            highScoreNameEntry = entry
+            renderPresentation()
+            return
         }
 
         if keyCode == 35, cheatMode, screenFlow.phase == .playing { // P
@@ -3382,8 +3550,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         if keyCode == 49 {
             triggerBomb()
         } else if keyCode == 15, screenFlow.phase == .gameOver {
-            screenFlow.skipGameOver()
-            enterAttractPresentation()
+            skipGameOverToScores()
         }
     }
 
@@ -3411,6 +3578,11 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     func setMouseBomb(_ pressed: Bool) {
         mouseBombIsHeld = pressed
         if pressed {
+            if highScoreNameEntry != nil {
+                finishHighScoreNameEntry()
+                renderPresentation()
+                return
+            }
             if menuModel.isOpen {
                 handleMenuOutcome(menuModel.adjust(by: 1))
                 applyRuntimeSettings()
@@ -3427,8 +3599,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             beginGame()
             return
         case .gameOver:
-            screenFlow.skipGameOver()
-            enterAttractPresentation()
+            skipGameOverToScores()
             return
         case .playing:
             break
@@ -3445,13 +3616,13 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             particleSimulation.emit(
                 at: player.position,
                 kind: .radialBomb,
-                color: OriginalParticleColor.bomb,
+                color: colorPalette[.bomb],
                 rotationDegrees: CGFloat(angle)
             )
             particleSimulation.emit(
                 at: player.position,
                 kind: .bombInternal,
-                color: OriginalParticleColor.bomb
+                color: colorPalette[.bomb]
             )
         }
         let enemies = enemyLayer.children.filter { $0.name == "enemy" || $0.name == "generator" }
@@ -3493,12 +3664,16 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         case .close:
             menuModel.close()
             particleRenderer.node.zPosition = screenFlow.phase == .playing ? 5 : 201
+            persistState()
         case .endGame:
             menuModel.close()
+            persistState()
             screenFlow.returnToTitle()
             particleSimulation.reset()
+            clearScorePresentation()
             enterAttractPresentation()
         case .exitApplication:
+            persistState()
             #if os(macOS)
             NSApplication.shared.terminate(nil)
             #else
@@ -3538,6 +3713,24 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
     #if os(iOS)
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        if highScoreNameEntry != nil, let touch = touches.first {
+            let location = touch.location(in: self)
+            let control = min(4, max(0, Int(location.x / (size.width / 5))))
+            var entry = highScoreNameEntry ?? OriginalHighScoreNameEntry()
+            switch control {
+            case 0: entry.moveSelection(by: -1)
+            case 1: entry.moveSelection(by: 1)
+            case 2: entry.cycleCharacter(by: -1)
+            case 3: entry.cycleCharacter(by: 1)
+            default:
+                finishHighScoreNameEntry()
+                renderPresentation()
+                return
+            }
+            highScoreNameEntry = entry
+            renderPresentation()
+            return
+        }
         if menuModel.isOpen {
             if let touch = touches.first {
                 let location = touch.location(in: self)
@@ -3556,8 +3749,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             beginGame()
             return
         case .gameOver:
-            screenFlow.skipGameOver()
-            enterAttractPresentation()
+            skipGameOverToScores()
             return
         case .playing:
             break

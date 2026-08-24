@@ -50,17 +50,28 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   brightness, invalid-score state, 450-frame cheat grants, caps, and the
   original debug weapon patterns. Matching visual captures are still required
   before checking the broad screen and menu entries.
+- Persistence and legacy data: `control.bmx:218-872`,
+  `gridwars.bmx:3275-3610`, and `utils.bmx:46-74` map to
+  `LegacyPersistence`, the high-score presentation in `GameScene` and
+  `OriginalScreenRenderer`, and scene-phase saves in `GameView`. The Swift
+  codecs preserve the original 280-line configuration order, all 19 colour
+  records, all 30 score records and their byte-sum checksum, the strict
+  insertion rule, eight-character name entry, play-time text, and recorded
+  settings string. Fixture and store tests exercise round trips, corruption
+  reset, legacy import, and Application Support writes; the loaded colour
+  palette is applied to sprites, HUD, projectiles, generators, and particles.
 - Language semantics: `docs/bb/blitzmax-ng/brl/random.mod/random.bmx` confirms
   inclusive integer `Rand` and upper-exclusive floating-point `Rnd`; the
   archived legacy `Language/Data types.bbdoc` documents the implicit numeric
   conversions used by the original. Swift random ranges and intentional
   integer truncations follow those references.
-- Build evidence (2026-08-24): the macOS unit-test action (37 tests) and generic
+- Build evidence (2026-08-24): the macOS unit-test action (44 tests) and generic
   iOS device Debug build both pass with code signing disabled. The rule suite
   covers initial difficulty, motion, weapons, scoring, upgrades, spawn timing,
   triangle bonds, snake following, black-hole integer conversions,
   interceptor geometry, generator non-kill scoring, grid deformation and the
-  original particle ring.
+      original particle ring, legacy persistence, checksum handling, and
+      high-score name entry.
 
 ## Core loop and progression
 
@@ -147,12 +158,12 @@ the corresponding Swift implementation, and a test or visual/runtime check.
 
 ## Persistence and data compatibility
 
-- [ ] Parse and emit every original `Config.txt` field in original order.
-- [ ] Parse and emit `Colours.txt` entries.
-- [ ] Parse, validate, display, insert, and emit all 30 original high-score
+- [x] Parse and emit every original `Config.txt` field in original order.
+- [x] Parse and emit `Colours.txt` entries.
+- [x] Parse, validate, display, insert, and emit all 30 original high-score
       records and their checksum (`hiscores.dat`).
-- [ ] Eight-character high-score name entry and recorded settings string.
-- [ ] Use the platform application-support directory while importing legacy
+- [x] Eight-character high-score name entry and recorded settings string.
+- [x] Use the platform application-support directory while importing legacy
       `~/.config/gridwars` data when present.
 
 ## Audio and music

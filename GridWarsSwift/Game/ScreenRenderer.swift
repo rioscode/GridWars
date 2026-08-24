@@ -1,12 +1,5 @@
 @preconcurrency import SpriteKit
 
-struct HighScoreDisplayEntry: Equatable {
-    let score: Int
-    let name: String
-    let playTime: String
-    let settings: String
-}
-
 @MainActor
 final class OriginalScreenRenderer {
     let node = SKNode()
@@ -34,18 +27,33 @@ final class OriginalScreenRenderer {
         frame: Int,
         persistentTitleFrame: Int,
         size: CGSize,
-        cyclingColor: SKColor
+        cyclingColor: SKColor,
+        colours: OriginalColorPalette,
+        highScores: LegacyHighScoreTable,
+        scorePageDifficulty: GameDifficulty?,
+        highlightedScorePosition: Int?,
+        unrankedEntry: LegacyHighScoreEntry?,
+        showScoreSettings: Bool
     ) {
         prepare(size: size, backgroundAlpha: 1)
         switch page {
         case .title:
             renderTitle(frame: frame, titleFrame: persistentTitleFrame, size: size, color: cyclingColor)
         case .scores:
-            renderScores(frame: frame, size: size, color: cyclingColor)
+            renderScores(
+                frame: frame,
+                size: size,
+                color: cyclingColor,
+                highScores: highScores,
+                fixedDifficulty: scorePageDifficulty,
+                highlightedPosition: highlightedScorePosition,
+                unrankedEntry: unrankedEntry,
+                showSettings: showScoreSettings
+            )
         case .friends:
-            renderFriends(frame: frame, size: size, color: cyclingColor)
+            renderFriends(frame: frame, size: size, color: cyclingColor, colours: colours)
         case .enemies:
-            renderEnemies(frame: frame, size: size)
+            renderEnemies(frame: frame, size: size, colours: colours)
         }
         if frame % (page == .title ? 60 : 50) > (page == .title ? 29 : 25) {
             addText(
@@ -88,6 +96,40 @@ final class OriginalScreenRenderer {
             color: SKColor(red: 0.25, green: 0.9, blue: 0.35, alpha: 1),
             size: size
         )
+    }
+
+    func renderHighScoreEntry(
+        _ entry: OriginalHighScoreNameEntry,
+        score: Int,
+        playTime: String,
+        difficulty: GameDifficulty,
+        size: CGSize
+    ) {
+        prepare(size: size, backgroundAlpha: 1)
+        addText("Congratulations!", x: size.width / 2 - 250, y: size.height / 2 - 240, scale: 3, color: .white, size: size)
+        addText("You are in the top 10.", x: size.width / 2 - 250, y: size.height / 2 - 200, scale: 3, color: .white, size: size)
+        addText("Difficulty Level: \(difficulty.title)", x: size.width / 2 - 250, y: size.height / 2 - 160, scale: 3, color: .white, size: size)
+        let green = SKColor(red: 0, green: 1, blue: 0, alpha: 1)
+        addText("Score: \(score)", x: size.width / 2 - 200, y: size.height / 2 - 80, scale: 3, color: green, size: size)
+        addText("Time:  \(playTime)", x: size.width / 2 - 200, y: size.height / 2 - 40, scale: 3, color: green, size: size)
+        addText("Name:  \(entry.name)", x: size.width / 2 - 200, y: size.height / 2, scale: 3, color: green, size: size)
+        for index in 0..<8 {
+            let underline = SKShapeNode(rect: CGRect(
+                x: size.width / 2 - 95 + CGFloat(index * 15),
+                y: size.height / 2 - 24,
+                width: 12,
+                height: 2
+            ))
+            underline.fillColor = index == entry.selectedIndex ? .yellow : green
+            underline.strokeColor = .clear
+            content.addChild(underline)
+        }
+        addText("Up and Down to select letter,", x: size.width / 2 - 250, y: size.height / 2 + 80, scale: 3, color: .white, size: size)
+        addText("Left and Right to select position.", x: size.width / 2 - 250, y: size.height / 2 + 120, scale: 3, color: .white, size: size)
+        addText("Press Enter when done.", x: size.width / 2 - 250, y: size.height / 2 + 160, scale: 3, color: .white, size: size)
+        #if os(iOS)
+        addText("LEFT   RIGHT   UP   DOWN   DONE", centeredAtY: size.height - 42, scale: 2.5, color: .yellow, size: size)
+        #endif
     }
 
     func renderMenu(_ menu: OriginalMenuModel, size: CGSize) {
@@ -186,35 +228,59 @@ final class OriginalScreenRenderer {
         }
     }
 
-    private func renderScores(frame: Int, size: CGSize, color: SKColor) {
-        let difficulty = min(2, frame / 250)
-        let titles = ["Easy", "Medium", "Hard"]
-        addText("TOP SCORES - \(titles[difficulty])", x: size.width / 2 - 200, y: size.height / 2 - 220, scale: 4, color: SKColor(red: 0, green: 0, blue: 240 / 255, alpha: 1), size: size)
+    private func renderScores(
+        frame: Int,
+        size: CGSize,
+        color: SKColor,
+        highScores: LegacyHighScoreTable,
+        fixedDifficulty: GameDifficulty?,
+        highlightedPosition: Int?,
+        unrankedEntry: LegacyHighScoreEntry?,
+        showSettings: Bool
+    ) {
+        let difficulty = fixedDifficulty ?? GameDifficulty(rawValue: min(2, frame / 250)) ?? .easy
+        addText("TOP SCORES - \(difficulty.title)", x: size.width / 2 - 200, y: size.height / 2 - 220, scale: 4, color: SKColor(red: 0, green: 0, blue: 240 / 255, alpha: 1), size: size)
         let headerColor = SKColor(red: 64 / 255, green: 240 / 255, blue: 64 / 255, alpha: 1)
         addText("SCORE", x: size.width / 2 - 250, y: size.height / 2 - 180, scale: 3, color: headerColor, size: size)
         addText("NAME", x: size.width / 2 - 100, y: size.height / 2 - 180, scale: 3, color: headerColor, size: size)
         addText("TIME", x: size.width / 2 + 130, y: size.height / 2 - 180, scale: 3, color: headerColor, size: size)
-        for (row, entry) in defaultScores(for: difficulty).enumerated() {
-            let y = size.height / 2 - 150 + CGFloat(row * 30)
-            addText(String(entry.score), x: size.width / 2 - 250, y: y, scale: 3, color: shifted(color, by: CGFloat(row) * 0.07), size: size)
-            addText(entry.name, x: size.width / 2 - 120, y: y, scale: 3, color: shifted(color, by: CGFloat(row) * 0.07), size: size)
-            addText(entry.playTime, x: size.width / 2 + 64, y: y, scale: 3, color: shifted(color, by: CGFloat(row) * 0.07), size: size)
+        for (row, entry) in highScores[difficulty].enumerated() {
+            let spacing = showSettings ? 32 : 30
+            let y = size.height / 2 - 150 + CGFloat(row * spacing)
+            let rowColor = row == highlightedPosition ? SKColor.yellow : shifted(color, by: CGFloat(row) * 0.07)
+            let scale: CGFloat = showSettings ? 2 : 3
+            addText(String(entry.score), x: size.width / 2 - 250, y: y, scale: scale, color: rowColor, size: size)
+            addText(entry.name, x: size.width / 2 - 120, y: y, scale: scale, color: rowColor, size: size)
+            addText(entry.playTime, x: size.width / 2 + 64, y: y, scale: scale, color: rowColor, size: size)
+            if showSettings {
+                addText(entry.settings, x: size.width / 2 - 250, y: y + 16, scale: 2, color: rowColor, size: size)
+            }
+        }
+        if let unrankedEntry {
+            let y = size.height / 2 - 150 + CGFloat(11 * 30)
+            addText(String(unrankedEntry.score), x: size.width / 2 - 218, y: y, scale: 3, color: .red, size: size)
+            addText(unrankedEntry.playTime, x: size.width / 2 + 32, y: y, scale: 3, color: .red, size: size)
         }
     }
 
-    private func renderFriends(frame: Int, size: CGSize, color: SKColor) {
+    private func renderFriends(
+        frame: Int,
+        size: CGSize,
+        color: SKColor,
+        colours: OriginalColorPalette
+    ) {
         addText("Know Your Friends", centeredAtY: 10, scale: 4.5, color: .yellow, size: size)
         let entries: [(Int, String, String?, Int, ParticleColor)] = [
-            (50, "Your Ship", "whiteplayer", -1, OriginalParticleColor.player),
-            (100, "Temporary Back Shooter", nil, 2, OriginalParticleColor.diamond),
-            (150, "Temporary Side Shooters", nil, 3, OriginalParticleColor.player),
-            (200, "Extra Front Shooter", nil, 0, OriginalParticleColor.diamond),
-            (250, "Extra Shot Speed", nil, 5, OriginalParticleColor.player),
-            (300, "Extra Player", nil, 6, OriginalParticleColor.diamond),
-            (350, "Extra Bomb", nil, 8, OriginalParticleColor.player),
-            (400, "Temporary Shield", nil, 9, OriginalParticleColor.diamond),
-            (450, "Super Shots", nil, 7, OriginalParticleColor.player),
-            (500, "Bouncy Shots", nil, 10, OriginalParticleColor.diamond),
+            (50, "Your Ship", "whiteplayer", -1, colours[.player]),
+            (100, "Temporary Back Shooter", nil, 2, colours[.diamond]),
+            (150, "Temporary Side Shooters", nil, 3, colours[.player]),
+            (200, "Extra Front Shooter", nil, 0, colours[.diamond]),
+            (250, "Extra Shot Speed", nil, 5, colours[.player]),
+            (300, "Extra Player", nil, 6, colours[.diamond]),
+            (350, "Extra Bomb", nil, 8, colours[.player]),
+            (400, "Temporary Shield", nil, 9, colours[.diamond]),
+            (450, "Super Shots", nil, 7, colours[.player]),
+            (500, "Bouncy Shots", nil, 10, colours[.diamond]),
         ]
         for (index, entry) in entries.enumerated() where frame > entry.0 {
             let y = size.height / 2 - 200 + CGFloat(index * 50)
@@ -239,19 +305,19 @@ final class OriginalScreenRenderer {
         }
     }
 
-    private func renderEnemies(frame: Int, size: CGSize) {
+    private func renderEnemies(frame: Int, size: CGSize, colours: OriginalColorPalette) {
         addText("Know Your Enemies", centeredAtY: 10, scale: 4.5, color: .red, size: size)
         let entries: [(Int, String, String, ParticleColor)] = [
-            (50, "Paul the Pinwheel (25 pts)", "pinkpinwheel", OriginalParticleColor.pinwheel),
-            (100, "Dimmy the Diamond (50 pts)", "bluediamond", OriginalParticleColor.diamond),
-            (150, "Shy the Square (100 pts)", "greensquare", OriginalParticleColor.greenSquare),
-            (200, "Cubie the Cube (50/100 pts)", "purplesquare1", OriginalParticleColor.cube),
-            (250, "Sammy the Seeker (10 pts)", "bluecircle", OriginalParticleColor.seeker),
-            (300, "Dwight the Black Hole (150 pts)", "redcircle", OriginalParticleColor.blackHole),
-            (350, "Selena the Snake (100 pts)", "snakehead", OriginalParticleColor.snake),
-            (400, "Ivan the Interceptor (100 pts)", "redclone", OriginalParticleColor.interceptor),
-            (450, "Trish the Triangle (150 pts)", "orangetriangle", OriginalParticleColor.triangle),
-            (500, "Indy the Butterfly (10 pts)", "indigotriangle", OriginalParticleColor.butterfly),
+            (50, "Paul the Pinwheel (25 pts)", "pinkpinwheel", colours[.pinwheel]),
+            (100, "Dimmy the Diamond (50 pts)", "bluediamond", colours[.diamond]),
+            (150, "Shy the Square (100 pts)", "greensquare", colours[.square]),
+            (200, "Cubie the Cube (50/100 pts)", "purplesquare1", colours[.cube]),
+            (250, "Sammy the Seeker (10 pts)", "bluecircle", colours[.seeker]),
+            (300, "Dwight the Black Hole (150 pts)", "redcircle", colours[.blackHole]),
+            (350, "Selena the Snake (100 pts)", "snakehead", colours[.snake]),
+            (400, "Ivan the Interceptor (100 pts)", "redclone", colours[.interceptor]),
+            (450, "Trish the Triangle (150 pts)", "orangetriangle", colours[.triangle]),
+            (500, "Indy the Butterfly (10 pts)", "indigotriangle", colours[.butterfly]),
         ]
         for (index, entry) in entries.enumerated() where frame > entry.0 {
             let y = size.height / 2 - 200 + CGFloat(index * 50)
@@ -384,34 +450,6 @@ final class OriginalScreenRenderer {
             ),
             in: sheet
         )
-    }
-
-    private func defaultScores(for difficulty: Int) -> [HighScoreDisplayEntry] {
-        (0..<10).map { row in
-            let score: Int = switch difficulty {
-            case 0: 200_000 - row * 19_000
-            case 1: 100_000 - row * 9_000
-            default: 50_000 - row * 4_900
-            }
-            let frames = 50 * 60 * 11 - row * 50 * 40 - difficulty * 50 * 60 * 2
-            return HighScoreDisplayEntry(
-                score: score,
-                name: "Mark Inc",
-                playTime: Self.playTime(frames: frames),
-                settings: "0,0,0,0,0,0,0,0,0,0"
-            )
-        }
-    }
-
-    private static func playTime(frames: Int) -> String {
-        let seconds = frames / 50
-        let minutes = seconds / 60
-        let hours = minutes / 60
-        var result = ""
-        if hours > 0 { result += "\(hours) hr\(hours > 1 ? "s" : ""), " }
-        if minutes > 0 { result += "\(minutes % 60) mn\(minutes > 1 ? "s" : ""), " }
-        if seconds > 0 { result += "\(seconds % 60) sec\(seconds > 1 ? "s" : "")" }
-        return result
     }
 
     private func shifted(_ color: SKColor, by shift: CGFloat) -> SKColor {

@@ -2,6 +2,7 @@ import SpriteKit
 import SwiftUI
 
 struct GameView: View {
+    @Environment(\.scenePhase) private var scenePhase
     @State private var scene = GameScene(size: CGSize(width: 1_024, height: 768))
 
     var body: some View {
@@ -9,10 +10,18 @@ struct GameView: View {
         PlatformGameView(scene: scene)
             .frame(width: 1_024, height: 768)
             .preferredColorScheme(.dark)
+            .onChange(of: scenePhase) { _, phase in
+                if phase != .active { scene.persistState() }
+            }
+            .onDisappear { scene.persistState() }
         #else
         PlatformGameView(scene: scene)
             .ignoresSafeArea()
             .preferredColorScheme(.dark)
+            .onChange(of: scenePhase) { _, phase in
+                if phase != .active { scene.persistState() }
+            }
+            .onDisappear { scene.persistState() }
         #endif
     }
 }
@@ -70,7 +79,12 @@ private final class KeyboardSKView: SKView {
     }
 
     override func keyDown(with event: NSEvent) {
-        sceneController?.setKey(event.keyCode, pressed: true, isRepeat: event.isARepeat)
+        sceneController?.setKey(
+            event.keyCode,
+            pressed: true,
+            isRepeat: event.isARepeat,
+            characters: event.characters
+        )
     }
 
     override func keyUp(with event: NSEvent) {

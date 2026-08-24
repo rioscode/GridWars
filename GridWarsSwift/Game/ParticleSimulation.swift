@@ -1,6 +1,6 @@
 import CoreGraphics
 
-struct ParticleColor: Equatable {
+struct ParticleColor: Equatable, Codable {
     var red: Int
     var green: Int
     var blue: Int

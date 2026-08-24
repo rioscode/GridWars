@@ -607,6 +607,174 @@ final class GameRulesTests: XCTestCase {
         XCTAssertEqual(three[2].speed, 8.2, accuracy: 0.0001)
     }
 
+    func testLegacyConfigFixtureParsesEveryFieldAndRoundTripsInOriginalOrder() throws {
+        let text = try String(
+            contentsOf: repositoryRoot.appendingPathComponent("Config.txt"),
+            encoding: .utf8
+        )
+        let settings = LegacyConfigCodec.decode(text)
+
+        XCTAssertFalse(settings.windowed)
+        XCTAssertEqual(settings.controllerType, .dualAnalog)
+        XCTAssertTrue(settings.autoFire)
+        XCTAssertEqual(settings.keyMoveLeft, 65)
+        XCTAssertEqual(settings.soundEffectsVolume, 0.56, accuracy: 0.0001)
+        XCTAssertEqual(settings.gridStyle, 6)
+        XCTAssertEqual(settings.gridRed, 3)
+        XCTAssertEqual(settings.gridOpacity, 0.23, accuracy: 0.0001)
+        XCTAssertEqual(settings.particleCount, 2_200)
+        XCTAssertEqual(settings.particleDecay, 0.963999987, accuracy: 0.000001)
+        XCTAssertEqual(settings.joyPorts.count, 4)
+        XCTAssertEqual(settings.joyPorts[0].deadZone[0], 0.0599999987, accuracy: 0.000001)
+        XCTAssertEqual(settings.joyPorts[0].optionButton, 7)
+        XCTAssertEqual(settings.joyPorts[3].bombButton, 2)
+
+        let encoded = LegacyConfigCodec.encode(settings)
+        XCTAssertEqual(encoded.split(whereSeparator: \Character.isNewline).count, 280)
+        XCTAssertEqual(Array(encoded.split(whereSeparator: \Character.isNewline).prefix(6)).map(String.init), [
+            "[Windowed]", "False", "[Control Type]", "Dual Analog", "[Hybrid Config]", "0",
+        ])
+        XCTAssertEqual(LegacyConfigCodec.decode(encoded), settings)
+    }
+
+    func testLegacyColoursFixtureParsesAndEmitsAllNineteenEntries() throws {
+        let text = try String(
+            contentsOf: repositoryRoot.appendingPathComponent("Colours.txt"),
+            encoding: .utf8
+        )
+        let palette = try LegacyColoursCodec.decode(text)
+        XCTAssertEqual(palette[.square], ParticleColor(red: 32, green: 255, blue: 32))
+        XCTAssertEqual(palette[.snakeTail], ParticleColor(red: 255, green: 180, blue: 96))
+        XCTAssertEqual(palette[.trail], ParticleColor(red: 240, green: 240, blue: 100))
+
+        let encoded = LegacyColoursCodec.encode(palette)
+        XCTAssertEqual(encoded.split(whereSeparator: \Character.isNewline).count, 76)
+        XCTAssertEqual(try LegacyColoursCodec.decode(encoded), palette)
+    }
+
+    func testLegacyHighScoreFixtureValidatesAllThirtyRecordsAndRoundTrips() throws {
+        let text = try String(
+            contentsOf: repositoryRoot.appendingPathComponent("hiscores.dat"),
+            encoding: .utf8
+        )
+        let scores = try LegacyHighScoreTable.decode(text)
+        XCTAssertEqual(scores[.easy].count, 10)
+        XCTAssertEqual(scores[.medium].count, 10)
+        XCTAssertEqual(scores[.hard].count, 10)
+        XCTAssertEqual(scores[.easy][0].score, 200_000)
+        XCTAssertEqual(scores[.easy][0].checksum, 2_925)
+        XCTAssertEqual(scores[.medium][0].score, 2_012_790)
+        XCTAssertEqual(scores[.hard][0].name, "?       ")
+        XCTAssertEqual(try LegacyHighScoreTable.decode(scores.encode()), scores)
+    }
+
+    func testLegacyHighScoreChecksumFailureResetsWholeTable() throws {
+        let original = LegacyHighScoreTable()
+        var lines = original.encode().components(separatedBy: "\n")
+        lines[4] = "1"
+        let corrupted = lines.joined(separator: "\n")
+
+        XCTAssertThrowsError(try LegacyHighScoreTable.decode(corrupted))
+        XCTAssertEqual(LegacyHighScoreTable.decodeOrDefault(corrupted), LegacyHighScoreTable())
+    }
+
+    func testLegacyHighScoreInsertionUsesEightASCIICharactersAndRecordedSettings() {
+        var scores = LegacyHighScoreTable()
+        var settings = OriginalRuntimeSettings()
+        settings.controllerType = .hybrid
+        settings.hybridConfiguration = 2
+        settings.gridStyle = 6
+        settings.autoFire = true
+        settings.inertia = 0.5
+
+        let position = scores.insert(
+            score: 250_000,
+            playTime: LegacyHighScoreTable.playTime(frames: 50 * 65),
+            name: "Älex",
+            settings: settings.highScoreSettingsString(),
+            difficulty: .easy
+        )
+        XCTAssertEqual(position, 0)
+        XCTAssertEqual(scores[.easy][0].name, "?lex    ")
+        XCTAssertEqual(scores[.easy][0].playTime, "1 mn, 5 secs")
+        XCTAssertEqual(
+            scores[.easy][0].settings,
+            "5.4,1024X768,1024X768,Hybrid-2,0,0,6,1,50"
+        )
+        XCTAssertTrue(scores[.easy][0].isChecksumValid)
+        XCTAssertNil(scores.insert(
+            score: scores[.easy].last?.score ?? 0,
+            playTime: "",
+            name: "Nobody",
+            settings: "",
+            difficulty: .easy
+        ))
+    }
+
+    func testOriginalHighScoreNameEntryMatchesEightCharacterEditor() {
+        var entry = OriginalHighScoreNameEntry()
+        XCTAssertEqual(entry.name, "        ")
+        XCTAssertEqual(entry.selectedIndex, 0)
+
+        entry.cycleCharacter(by: 1)
+        XCTAssertEqual(entry.characters[0], 65)
+        entry.toggleCase()
+        XCTAssertEqual(entry.characters[0], 97)
+        entry.moveSelection(by: -1)
+        XCTAssertEqual(entry.selectedIndex, 7)
+        entry.cycleCharacter(by: -1)
+        XCTAssertEqual(entry.characters[7], 64)
+
+        entry.setASCII(90)
+        XCTAssertEqual(entry.name, "a      Z")
+        XCTAssertEqual(entry.selectedIndex, 0)
+        entry.setASCII(31)
+        XCTAssertEqual(entry.name, "a      Z")
+    }
+
+    func testPersistenceStoreImportsLegacyDirectoryAndWritesApplicationSupportCopies() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("GridWarsPersistenceTests-\(UUID().uuidString)", isDirectory: true)
+        let legacy = root.appendingPathComponent("legacy", isDirectory: true)
+        let applicationSupport = root.appendingPathComponent("Application Support/GridWars", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: legacy, withIntermediateDirectories: true)
+
+        let settings = OriginalRuntimeSettings()
+        try LegacyConfigCodec.encode(settings).write(
+            to: legacy.appendingPathComponent(GridWarsPersistenceStore.configFileName),
+            atomically: true,
+            encoding: .utf8
+        )
+        try LegacyColoursCodec.encode(OriginalColorPalette()).write(
+            to: legacy.appendingPathComponent(GridWarsPersistenceStore.coloursFileName),
+            atomically: true,
+            encoding: .utf8
+        )
+        try LegacyHighScoreTable().encode().write(
+            to: legacy.appendingPathComponent(GridWarsPersistenceStore.scoresFileName),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let store = GridWarsPersistenceStore(
+            directoryURL: applicationSupport,
+            legacyDirectoryURL: legacy
+        )
+        var state = try store.load()
+        XCTAssertEqual(state.settings, settings)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: applicationSupport
+            .appendingPathComponent(GridWarsPersistenceStore.scoresFileName).path))
+
+        state.settings.gridStyle = 20
+        try store.save(state)
+        let saved = try String(
+            contentsOf: applicationSupport.appendingPathComponent(GridWarsPersistenceStore.configFileName),
+            encoding: .utf8
+        )
+        XCTAssertEqual(LegacyConfigCodec.decode(saved).gridStyle, 20)
+    }
+
     func testVectorFontParserReadsOriginalDefDataLayout() {
         let source = """
         ignored
@@ -620,5 +788,11 @@ final class GameRulesTests: XCTestCase {
         XCTAssertEqual(font.glyphs[33]?.count, 2)
         XCTAssertEqual(font.glyphs[33]?.first?.start, CGPoint(x: 2, y: 0))
         XCTAssertEqual(font.glyphs[33]?.last?.end, CGPoint(x: 2, y: 6))
+    }
+
+    private var repositoryRoot: URL {
+        URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
     }
 }

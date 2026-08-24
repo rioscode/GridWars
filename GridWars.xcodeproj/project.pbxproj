@@ -18,6 +18,7 @@
 		B10000000000000000000009 /* ScreenFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1000000000000000000000A /* ScreenFlow.swift */; };
 		B1000000000000000000000A /* OriginalVectorFont.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1000000000000000000000B /* OriginalVectorFont.swift */; };
 		B1000000000000000000000B /* ScreenRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1000000000000000000000C /* ScreenRenderer.swift */; };
+		B1000000000000000000000C /* LegacyPersistence.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1000000000000000000000D /* LegacyPersistence.swift */; };
 		B11000000000000000000001 /* GridWarsApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000001 /* GridWarsApp.swift */; };
 		B11000000000000000000002 /* GameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000002 /* GameView.swift */; };
 		B11000000000000000000003 /* GameRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000003 /* GameRules.swift */; };
@@ -29,12 +30,14 @@
 		B11000000000000000000009 /* ScreenFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1000000000000000000000A /* ScreenFlow.swift */; };
 		B1100000000000000000000A /* OriginalVectorFont.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1000000000000000000000B /* OriginalVectorFont.swift */; };
 		B1100000000000000000000B /* ScreenRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1000000000000000000000C /* ScreenRenderer.swift */; };
+		B1100000000000000000000C /* LegacyPersistence.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1000000000000000000000D /* LegacyPersistence.swift */; };
 		B12000000000000000000001 /* GameRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000003 /* GameRules.swift */; };
 		B12000000000000000000002 /* GameRulesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000005 /* GameRulesTests.swift */; };
 		B12000000000000000000003 /* GridSimulation.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000006 /* GridSimulation.swift */; };
 		B12000000000000000000004 /* ParticleSimulation.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000008 /* ParticleSimulation.swift */; };
 		B12000000000000000000005 /* ScreenFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1000000000000000000000A /* ScreenFlow.swift */; };
 		B12000000000000000000006 /* OriginalVectorFont.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1000000000000000000000B /* OriginalVectorFont.swift */; };
+		B12000000000000000000007 /* LegacyPersistence.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1000000000000000000000D /* LegacyPersistence.swift */; };
 		B20000000000000000000001 /* whiteplayer.png in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000001 /* whiteplayer.png */; };
 		B20000000000000000000002 /* yellowshot.png in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000002 /* yellowshot.png */; };
 		B20000000000000000000003 /* redcircle.png in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000003 /* redcircle.png */; };
@@ -120,6 +123,7 @@
 		F1000000000000000000000A /* ScreenFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenFlow.swift; sourceTree = "<group>"; };
 		F1000000000000000000000B /* OriginalVectorFont.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OriginalVectorFont.swift; sourceTree = "<group>"; };
 		F1000000000000000000000C /* ScreenRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenRenderer.swift; sourceTree = "<group>"; };
+		F1000000000000000000000D /* LegacyPersistence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LegacyPersistence.swift; sourceTree = "<group>"; };
 		F20000000000000000000001 /* whiteplayer.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = whiteplayer.png; sourceTree = "<group>"; };
 		F20000000000000000000002 /* yellowshot.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = yellowshot.png; sourceTree = "<group>"; };
 		F20000000000000000000003 /* redcircle.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = redcircle.png; sourceTree = "<group>"; };
@@ -207,6 +211,7 @@
 				F1000000000000000000000A /* ScreenFlow.swift */,
 				F1000000000000000000000B /* OriginalVectorFont.swift */,
 				F1000000000000000000000C /* ScreenRenderer.swift */,
+				F1000000000000000000000D /* LegacyPersistence.swift */,
 			);
 			path = Game;
 			sourceTree = "<group>";
@@ -350,9 +355,9 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		P10000000000000000000001 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (B10000000000000000000001, B10000000000000000000002, B10000000000000000000003, B10000000000000000000004, B10000000000000000000005, B10000000000000000000006, B10000000000000000000007, B10000000000000000000008, B10000000000000000000009, B1000000000000000000000A, B1000000000000000000000B); runOnlyForDeploymentPostprocessing = 0; };
-		P11000000000000000000001 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (B11000000000000000000001, B11000000000000000000002, B11000000000000000000003, B11000000000000000000004, B11000000000000000000005, B11000000000000000000006, B11000000000000000000007, B11000000000000000000008, B11000000000000000000009, B1100000000000000000000A, B1100000000000000000000B); runOnlyForDeploymentPostprocessing = 0; };
-		P12000000000000000000001 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (B12000000000000000000001, B12000000000000000000002, B12000000000000000000003, B12000000000000000000004, B12000000000000000000005, B12000000000000000000006); runOnlyForDeploymentPostprocessing = 0; };
+		P10000000000000000000001 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (B10000000000000000000001, B10000000000000000000002, B10000000000000000000003, B10000000000000000000004, B10000000000000000000005, B10000000000000000000006, B10000000000000000000007, B10000000000000000000008, B10000000000000000000009, B1000000000000000000000A, B1000000000000000000000B, B1000000000000000000000C); runOnlyForDeploymentPostprocessing = 0; };
+		P11000000000000000000001 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (B11000000000000000000001, B11000000000000000000002, B11000000000000000000003, B11000000000000000000004, B11000000000000000000005, B11000000000000000000006, B11000000000000000000007, B11000000000000000000008, B11000000000000000000009, B1100000000000000000000A, B1100000000000000000000B, B1100000000000000000000C); runOnlyForDeploymentPostprocessing = 0; };
+		P12000000000000000000001 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (B12000000000000000000001, B12000000000000000000002, B12000000000000000000003, B12000000000000000000004, B12000000000000000000005, B12000000000000000000006, B12000000000000000000007); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
