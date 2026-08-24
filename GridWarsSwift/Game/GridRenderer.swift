@@ -85,7 +85,7 @@ final class GridRenderer {
         case .stretchedDiagonal:
             addStretchedCheckerLines(simulation, diagonals: true)
         case .rgbSplit:
-            addRGBSpiral(simulation, alpha: alpha)
+            addRGBSpiral(simulation, alpha: 1)
         case .solidQuads:
             addAlternatingQuads(simulation, color: solidColor, alpha: alpha)
         case .solidQuadsCycling:
@@ -571,22 +571,32 @@ final class GridRenderer {
             .truncatingRemainder(dividingBy: 360)
         let deformed = spiralPoints(grid, useOrigins: false)
         let original = spiralPoints(grid, useOrigins: true)
-        let red = (0..<16).map { _ in CGMutablePath() }
-        let green = (0..<16).map { _ in CGMutablePath() }
-        let blue = (0..<16).map { _ in CGMutablePath() }
+        let bucketCount = 64
+        let red = (0..<bucketCount).map { _ in CGMutablePath() }
+        let green = (0..<bucketCount).map { _ in CGMutablePath() }
+        let blue = (0..<bucketCount).map { _ in CGMutablePath() }
         var phase = rgbPhase
         for index in 1..<min(deformed.count, original.count) {
             phase = (phase + 6).truncatingRemainder(dividingBy: 360)
             let pulse = 0.3 + 0.2 * sin(phase * .pi / 180)
-            let bucket = min(15, max(0, Int((pulse - 0.1) / 0.4 * 15.999)))
-            let redStart = rgbRedPoint(deformed[index - 1], origin: original[index - 1])
-            let redEnd = rgbRedPoint(deformed[index], origin: original[index])
+            let bucket = min(
+                bucketCount - 1,
+                max(0, Int((pulse - 0.1) / 0.4 * CGFloat(bucketCount)))
+            )
+            let redStart = OriginalRGBSplitRule.redPoint(
+                deformed[index - 1],
+                origin: original[index - 1]
+            )
+            let redEnd = OriginalRGBSplitRule.redPoint(
+                deformed[index],
+                origin: original[index]
+            )
             appendSegment(to: red[bucket], from: redStart, to: redEnd)
             appendSegment(to: green[bucket], from: deformed[index - 1], to: deformed[index])
             appendSegment(to: blue[bucket], from: original[index - 1], to: original[index])
         }
-        for bucket in 0..<16 {
-            let pulse = 0.1 + CGFloat(bucket) / 15 * 0.4
+        for bucket in 0..<bucketCount {
+            let pulse = 0.1 + CGFloat(bucket) / CGFloat(bucketCount - 1) * 0.4
             addShape(
                 path: red[bucket],
                 stroke: SKColor(red: pulse, green: 0.05, blue: 0.05, alpha: 1),
@@ -751,13 +761,6 @@ final class GridRenderer {
 
     private func isAlternatingCell(_ column: Int, _ row: Int, rows: Int) -> Bool {
         ((rows - 1 - row) - column).isMultiple(of: 2)
-    }
-
-    private func rgbRedPoint(_ point: CGPoint, origin: CGPoint) -> CGPoint {
-        guard abs(point.x - origin.x) > 1 || abs(point.y - origin.y) > 1 else {
-            return point
-        }
-        return CGPoint(x: point.x - 4, y: point.y - 4)
     }
 
     private func addClosedPolygon(_ points: [CGPoint], to path: CGMutablePath) {

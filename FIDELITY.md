@@ -93,7 +93,10 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   style 8 carries Max2D's source alpha through SpriteKit's premultiplied
   additive node using `sqrt(alpha)`, while style 9's explicit `glColor3f`
   resets alpha to 1. Their differences fall from 0.03074/0.00935 to
-  0.02865/0.00811.
+  0.02865/0.00811. RGB-split style 13 likewise uses alpha 1, converts its red
+  source offset from `(-4,-4)` to scene `(-4,+4)`, and uses 64 colour buckets
+  to approximate the original per-vertex interpolation; its difference falls
+  from 0.03046 to 0.02549.
 - Screens and runtime controls: `gridwars.bmx:3622-4319, 5383-5439` and
   `control.bmx:889-2570` map to `OriginalScreenFlow`, `OriginalMenuModel`,
   `OriginalVectorFont`, `OriginalScreenRenderer`, and the presentation/input
@@ -214,7 +217,7 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   archived legacy `Language/Data types.bbdoc` documents the implicit numeric
   conversions used by the original. Swift random ranges and intentional
   integer truncations follow those references.
-- Build evidence (2026-08-24): the macOS unit-test action (75 tests) and generic
+- Build evidence (2026-08-24): the macOS unit-test action (76 tests) and generic
   iOS Simulator Debug build both pass. The rule suite
   covers initial difficulty, motion, weapons, scoring, upgrades, spawn timing,
   triangle bonds, snake following, black-hole integer conversions,

@@ -28,6 +28,15 @@ enum OriginalBlendRule {
     }
 }
 
+enum OriginalRGBSplitRule {
+    static func redPoint(_ point: CGPoint, origin: CGPoint) -> CGPoint {
+        guard abs(point.x - origin.x) > 1 || abs(point.y - origin.y) > 1 else {
+            return point
+        }
+        return CGPoint(x: point.x - 4, y: point.y + 4)
+    }
+}
+
 enum OriginalCameraRule {
     static let edgeThreshold: CGFloat = 500
     static let overscroll: CGFloat = 80

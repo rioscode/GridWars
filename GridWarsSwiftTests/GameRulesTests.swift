@@ -1403,6 +1403,18 @@ final class GameRulesTests: XCTestCase {
         XCTAssertEqual(OriginalBlendRule.spriteKitAdditiveNodeAlpha(sourceAlpha: 2), 1)
     }
 
+    func testRGBSplitRedOffsetInvertsTheSourceYDirection() {
+        let origin = CGPoint(x: 100, y: 600)
+        XCTAssertEqual(
+            OriginalRGBSplitRule.redPoint(CGPoint(x: 100.5, y: 600.5), origin: origin),
+            CGPoint(x: 100.5, y: 600.5)
+        )
+        XCTAssertEqual(
+            OriginalRGBSplitRule.redPoint(CGPoint(x: 104, y: 596), origin: origin),
+            CGPoint(x: 100, y: 600)
+        )
+    }
+
     func testCaptureCatalogCoversEveryFidelityCategory() {
         let scenarios = OriginalCaptureScenario.all
         XCTAssertEqual(scenarios.count, 87)
