@@ -692,6 +692,42 @@ final class GameRulesTests: XCTestCase {
         )
     }
 
+    func testGeneratorTimingWarningAndFillAlphaMatchOriginalQuirks() {
+        XCTAssertEqual(OriginalGeneratorRule.birthPeriod(rate: 100, health: 24), 118)
+        XCTAssertFalse(OriginalGeneratorRule.isWarningFrame(
+            rotation: 109,
+            rate: 100,
+            health: 24
+        ))
+        XCTAssertTrue(OriginalGeneratorRule.isWarningFrame(
+            rotation: 110,
+            rate: 100,
+            health: 24
+        ))
+        XCTAssertTrue(OriginalGeneratorRule.isWarningFrame(
+            rotation: 117,
+            rate: 100,
+            health: 24
+        ))
+        XCTAssertFalse(OriginalGeneratorRule.isWarningFrame(
+            rotation: 118,
+            rate: 100,
+            health: 24
+        ))
+
+        for kind in OriginalEnemyKind.allCases {
+            let expected: CGFloat = switch kind {
+            case .triangle, .butterfly: 0.1
+            default: 0.1 + 24.0 / 256.0
+            }
+            XCTAssertEqual(
+                OriginalGeneratorRule.fillAlpha(kind: kind, health: 24),
+                expected,
+                accuracy: 0.000_001
+            )
+        }
+    }
+
     func testTriangleBondUsesOriginalStrengthAndProjectileImpulse() {
         var bond = TriangleBondState()
         let impulse = bond.registerProjectileHit(
@@ -876,6 +912,17 @@ final class GameRulesTests: XCTestCase {
         var words = BlitzMaxRandomNumberGenerator(seed: 1)
         XCTAssertEqual(words.next(), 413_790_348_353_315)
         XCTAssertEqual(words.next(), 16_447_326_018_131_396_856)
+    }
+
+    func testGeneratorCaptureConsumesSafeXYDirectionBeforeRotation() {
+        var random = BlitzMaxRandomNumberGenerator(seed: 1)
+        for _ in 0...OriginalRuntimeSettings.maximumStars {
+            _ = random.rand(-100, 1_124)
+            _ = random.rand(-100, 868)
+        }
+
+        XCTAssertEqual(random.rand(0, 360 * 8), 2_504)
+        XCTAssertEqual(random.rand(0, 359), 34)
     }
 
     func testParticleEmissionCanConsumeExactBlitzMaxRandomSequence() {

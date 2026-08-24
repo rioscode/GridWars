@@ -106,7 +106,7 @@ branch. Each major fidelity milestone has its own commit:
       textures, blending, timing, randomness, persistence, and verification
 - [x] macOS Debug build
 - [x] Generic iOS Simulator Debug build
-- [x] 86 gameplay, input, persistence, audio, and rendering-rule unit tests
+- [x] 88 gameplay, input, persistence, audio, and rendering-rule unit tests
 - [x] macOS launch and rendering smoke test
 - [x] Deterministic 88-state Swift capture catalog at 1024×768
 - [x] Source-ordered Grid simulation and style-specific rendering pass for all
@@ -150,6 +150,8 @@ branch. Each major fidelity milestone has its own commit:
       pull-before-update ordering
 - [x] Centralized 50-Hz simulation timing plus audited difficulty, all four
       wave cadences, score values, multiplier and award thresholds
+- [x] Source-ordered generator `SafeXY`/BRL.Random state, ten geometries,
+      health-based birth/warning timing, inherited blend, and fill-alpha quirks
 - [x] Source-ordered 180-frame bottom power-up threshold message, including
       halfway text refresh, inherited lower-HUD alpha, and Game Over countdown
 - [x] Top-left 1×1 `Plot` pixel anchoring for midpoint-circle Get Ready rings

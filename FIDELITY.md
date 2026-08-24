@@ -56,8 +56,14 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   fell from 0.02209 to 0.01977. Matching BlitzMax's `ATan2(0,0)+90` first-draw
   result now gives every initially stationary tail segment a 90-degree
   rotation; the current catalog difference fell again from 0.01896 to 0.01830.
-  Pairwise visual correction is still in progress, so the broad enemy
-  checklist entries stay open.
+  Generator capture setup now consumes the post-star BRL.Random direction
+  before rotation, runs `SafeXY` in source top-left coordinates, and retains
+  the player drawn by `DrawAll`. All ten generator captures improve from
+  0.00516–0.00591 to 0.00475–0.00485. Generator rendering also preserves the
+  inherited `LIGHTBLEND`, the eight-frame warning window, hit-dependent birth
+  period, and the source's uninitialized-`sc` alpha quirk for Triangle and
+  Butterfly fills. Pairwise visual correction of the enemy types themselves
+  is still in progress, so those broad enemy checklist entries stay open.
 - Grid and particle simulation: `gridparttrail.bmx:494-2017` maps to
   `GridSimulation`, `GridRenderer`, `ParticleSimulation`, and
   `ParticleRenderer`. The port has all 21 grid-style selectors, the original
@@ -326,7 +332,7 @@ the corresponding Swift implementation, and a test or visual/runtime check.
 - [ ] Indy the Butterfly: fast homing/separation, 10 points (`nme8`).
 - [ ] Trish the Triangle: pairing, elastic bond, bond collision, black-hole
       interaction, 150 points (`le`).
-- [ ] Ten generator variants with original health, birth rate, warning flash,
+- [x] Ten generator variants with original health, birth rate, warning flash,
       scoring, and geometry (`ge`).
 
 ## Player, weapons, and power-ups

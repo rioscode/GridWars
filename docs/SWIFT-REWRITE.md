@@ -55,6 +55,13 @@ circle `Plot` pixels, and stars. The source draws stars with
 `SetScale(2,2); DrawRect(...,1,1)`, so the visible result is a 2×2 top-left
 pixel block, not a centered 2×2 node.
 
+Run source-space helpers in source space. `SafeXY` clamps and offsets a
+top-left-Y position, and its non-close branch chooses
+`Rand(0, 360 * 8) / 8.0` before applying `Sin` to X and `Cos` to Y. Convert the
+incoming SpriteKit point to top-left coordinates, execute that algorithm, and
+flip Y only on return. Changing the sign inside an otherwise scene-space copy
+does not preserve its clamp and retry behavior.
+
 ## Transforms and angles
 
 BlitzMax angles are expressed in degrees. SpriteKit rotations use radians.
@@ -108,6 +115,11 @@ three separate decisions.
 Max2D `LIGHTBLEND` is additive. Use SpriteKit `.add`, not the default alpha
 blend. This matters even for small stars because normal alpha blend darkens the
 destination before adding the source.
+
+Render state persists between functions. `ge.Draw` never calls `SetBlend`, so
+generator fills and outlines inherit `LIGHTBLEND` from the preceding particle
+pass. Make this dependency explicit in SpriteKit rather than choosing `.alpha`
+because the generator's fill has a fractional alpha.
 
 SpriteKit can effectively apply node alpha once during premultiplication and
 again during additive composition. On paths where capture evidence proves this
@@ -180,6 +192,16 @@ inclusive integer ranges and its implicit Float-to-Int truncation points.
 Random-call order is part of behavior. The original capture state creates all
 10,001 stars before spawning the inspected entity; consuming only the visible
 301 star values changes every later randomized entity transform.
+
+Preserve call order inside constructors too. Generator creation calls
+`SafeXY` before assigning `r = Rand(0,359)`. Reversing those two operations
+uses the intended position sample as the rotation and moves every deterministic
+generator fixture to a different quadrant.
+
+BlitzMax locals are zero-initialized, including locals that are accidentally
+never assigned. In `ge.Draw`, Triangle and Butterfly fill alpha uses
+`0.1 - sc / 256` even though `sc` is never set, so the effective alpha is the
+constant `0.1`; do not "repair" it to the health formula used by other kinds.
 
 ## Timing and state-order traps
 

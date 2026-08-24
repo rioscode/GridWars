@@ -579,7 +579,6 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             configureEnemyCapture(kind)
         case let .generator(kind):
             prepareGameplayCapture()
-            player.isHidden = true
             spawnGenerator(
                 kind: EnemyKind(kind),
                 at: CGPoint(x: playfieldSize.width / 2, y: playfieldSize.height / 2),
@@ -589,7 +588,6 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             )
         case let .powerUp(kind):
             prepareGameplayCapture()
-            player.isHidden = true
             spawnPowerUp(
                 at: CGPoint(x: playfieldSize.width / 2, y: playfieldSize.height / 2),
                 kind: kind
@@ -2323,7 +2321,6 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         enemy.physicsBody?.collisionBitMask = 0
         enemy.physicsBody?.contactTestBitMask = Category.player | Category.projectile
         let enemyID = UUID().uuidString
-        let usesOriginalCaptureRandom = captureRandom != nil
         let initialRotation = switch kind {
         case .greenSquare, .pinwheel: 90
         default: originalRandomInt(0...359)
@@ -2336,10 +2333,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         let initialAngle = kind == .snake
             ? CGFloat(initialRotation) * .pi / 180
             : CGFloat(initialDirection) * .pi / 180
-        let coordinateDirection: CGFloat = usesOriginalCaptureRandom ? -1 : 1
         let initialVelocity = CGVector(
             dx: cos(initialAngle) * initialMagnitude,
-            dy: sin(initialAngle) * initialMagnitude * coordinateDirection
+            dy: -sin(initialAngle) * initialMagnitude
         )
         let interceptorTurn = turnToFace(
             velocity: initialVelocity,
@@ -2469,13 +2465,17 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
     private func safePosition(_ proposed: CGPoint, minimumPlayerDistance: CGFloat) -> CGPoint {
         let arena = playfieldSize
+        let sourcePlayer = CGPoint(
+            x: player.position.x,
+            y: arena.height - player.position.y
+        )
         var result = CGPoint(
             x: min(arena.width - 20, max(20, proposed.x)),
-            y: min(arena.height - 20, max(20, proposed.y))
+            y: min(arena.height - 20, max(20, arena.height - proposed.y))
         )
         var fromSpawnToPlayer = CGVector(
-            dx: player.position.x - result.x,
-            dy: player.position.y - result.y
+            dx: sourcePlayer.x - result.x,
+            dy: sourcePlayer.y - result.y
         )
 
         if minimumPlayerDistance == 40 {
@@ -2484,16 +2484,16 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 if distance < 0.001 {
                     let angle = CGFloat(Int.random(in: 0...360, using: &spawnRandom)) * .pi / 180
                     result = CGPoint(
-                        x: player.position.x + cos(angle) * 10,
-                        y: player.position.y + sin(angle) * 10
+                        x: sourcePlayer.x + cos(angle) * 10,
+                        y: sourcePlayer.y + sin(angle) * 10
                     )
                 } else {
                     result.x -= fromSpawnToPlayer.dx / distance * 10
                     result.y -= fromSpawnToPlayer.dy / distance * 10
                 }
                 fromSpawnToPlayer = CGVector(
-                    dx: player.position.x - result.x,
-                    dy: player.position.y - result.y
+                    dx: sourcePlayer.x - result.x,
+                    dy: sourcePlayer.y - result.y
                 )
                 distance = fromSpawnToPlayer.length
             }
@@ -2501,23 +2501,20 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             while fromSpawnToPlayer.dx * fromSpawnToPlayer.dx
                     + fromSpawnToPlayer.dy * fromSpawnToPlayer.dy
                     < minimumPlayerDistance * minimumPlayerDistance {
-                let angle = CGFloat(Int.random(
-                    in: 0...(360 * 8),
-                    using: &spawnRandom
-                )) / 8 * .pi / 180
+                let angle = CGFloat(originalRandomInt(0...(360 * 8))) / 8 * .pi / 180
                 result = CGPoint(
-                    x: player.position.x + sin(angle) * minimumPlayerDistance,
-                    y: player.position.y + cos(angle) * minimumPlayerDistance
+                    x: sourcePlayer.x + sin(angle) * minimumPlayerDistance,
+                    y: sourcePlayer.y + cos(angle) * minimumPlayerDistance
                 )
                 result.x = min(arena.width - 20, max(20, result.x))
                 result.y = min(arena.height - 20, max(20, result.y))
                 fromSpawnToPlayer = CGVector(
-                    dx: player.position.x - result.x,
-                    dy: player.position.y - result.y
+                    dx: sourcePlayer.x - result.x,
+                    dy: sourcePlayer.y - result.y
                 )
             }
         }
-        return result
+        return CGPoint(x: result.x, y: arena.height - result.y)
     }
 
     private func spawnGenerator(
@@ -2527,12 +2524,23 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         rate: Int,
         generatorSize: Int
     ) {
+        let resolvedPosition = safePosition(position, minimumPlayerDistance: 160)
+        let rotation = originalRandomInt(0...359)
+        let warning = OriginalGeneratorRule.isWarningFrame(
+            rotation: rotation,
+            rate: rate,
+            health: generatorSize
+        )
+        let color = warning ? SKColor.white : generatorColor(for: kind)
         let generator = SKShapeNode(path: generatorFillPath(kind: kind, health: generatorSize))
         generator.name = "generator"
-        generator.position = safePosition(position, minimumPlayerDistance: 160)
-        generator.fillColor = generatorColor(for: kind).withAlphaComponent(0.1 + CGFloat(generatorSize) / 256)
+        generator.position = resolvedPosition
+        generator.fillColor = color.withAlphaComponent(OriginalGeneratorRule.fillAlpha(
+            kind: kind.original,
+            health: generatorSize
+        ))
         generator.strokeColor = .clear
-        generator.blendMode = .alpha
+        generator.blendMode = .add
         generator.physicsBody = SKPhysicsBody(circleOfRadius: 12 + CGFloat(generatorSize) / 2)
         generator.physicsBody?.affectedByGravity = false
         generator.physicsBody?.allowsRotation = false
@@ -2545,15 +2553,15 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             "score": 200,
             "freezeFrames": freezeFrames,
             "rate": rate,
-            "rotation": Int.random(in: 0...359, using: &spawnRandom),
+            "rotation": rotation,
             "generatorSize": generatorSize,
         ])
         let outline = SKShapeNode(path: generatorOutlinePath(kind: kind, health: generatorSize))
         outline.name = "generatorOutline"
-        outline.strokeColor = generatorColor(for: kind)
+        outline.strokeColor = color
         outline.fillColor = .clear
         outline.lineWidth = 2
-        outline.blendMode = .alpha
+        outline.blendMode = .add
         generator.addChild(outline)
         enemyLayer.addChild(generator)
         playSpatial(.generatorBorn, at: generator.position)
@@ -2714,9 +2722,16 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             let health = (generator.userData?["health"] as? NSNumber)?.intValue ?? 1
             let kind = EnemyKind(rawValue: generator.userData?["kind"] as? String ?? "") ?? .pinwheel
             if let shape = generator as? SKShapeNode {
-                let warning = (rotation + 8) % max(1, rate + 42 - health) < 8
+                let warning = OriginalGeneratorRule.isWarningFrame(
+                    rotation: rotation,
+                    rate: rate,
+                    health: health
+                )
                 let color = warning ? SKColor.white : generatorColor(for: kind)
-                shape.fillColor = color.withAlphaComponent(0.1 + CGFloat(health) / 256)
+                shape.fillColor = color.withAlphaComponent(OriginalGeneratorRule.fillAlpha(
+                    kind: kind.original,
+                    health: health
+                ))
                 (shape.childNode(withName: "generatorOutline") as? SKShapeNode)?.strokeColor = color
             }
             let collisionRadiusSquared = pow(12 + CGFloat(health) / 2, 2) + 12 * 12
@@ -2724,7 +2739,10 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                hitPlayer(killer: generator) {
                 continue
             }
-            guard rotation.isMultiple(of: max(1, rate + 42 - health)) else { continue }
+            guard rotation.isMultiple(of: OriginalGeneratorRule.birthPeriod(
+                rate: rate,
+                health: health
+            )) else { continue }
             gridSimulation.push(at: generator.position, radiusInPoints: 6, amount: 0.9)
             let offset = CGPoint(
                 x: generator.position.x + randomCoordinate(-10...10),
@@ -2733,6 +2751,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             let born = spawnEnemy(kind: kind, at: offset, freezeFrames: 5, closeToPlayer: true)
             if kind == .blackHole {
                 born?.userData?["blackHoleSize"] = 10.0
+                if let born {
+                    updateEnemyVisual(born, kind: .blackHole, rotation: 0)
+                }
             }
         }
     }
@@ -4136,10 +4157,23 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
     private func updateGeneratorAppearance(_ generator: SKNode, kind: EnemyKind, health: Int) {
         guard let shape = generator as? SKShapeNode else { return }
+        let rotation = (generator.userData?["rotation"] as? NSNumber)?.intValue ?? 0
+        let rate = (generator.userData?["rate"] as? NSNumber)?.intValue ?? 100
+        let warning = OriginalGeneratorRule.isWarningFrame(
+            rotation: rotation,
+            rate: rate,
+            health: health
+        )
+        let color = warning ? SKColor.white : generatorColor(for: kind)
         shape.path = generatorFillPath(kind: kind, health: health)
-        shape.fillColor = generatorColor(for: kind).withAlphaComponent(0.1 + CGFloat(health) / 256)
-        (shape.childNode(withName: "generatorOutline") as? SKShapeNode)?.path =
-            generatorOutlinePath(kind: kind, health: health)
+        shape.fillColor = color.withAlphaComponent(OriginalGeneratorRule.fillAlpha(
+            kind: kind.original,
+            health: health
+        ))
+        if let outline = shape.childNode(withName: "generatorOutline") as? SKShapeNode {
+            outline.path = generatorOutlinePath(kind: kind, health: health)
+            outline.strokeColor = color
+        }
         shape.physicsBody = SKPhysicsBody(circleOfRadius: 12 + CGFloat(health) / 2)
         shape.physicsBody?.affectedByGravity = false
         shape.physicsBody?.allowsRotation = false

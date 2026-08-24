@@ -744,6 +744,26 @@ enum OriginalEnemyKind: Int, CaseIterable, Codable, Equatable {
     }
 }
 
+enum OriginalGeneratorRule {
+    static func birthPeriod(rate: Int, health: Int) -> Int {
+        max(1, rate + 42 - health)
+    }
+
+    static func isWarningFrame(rotation: Int, rate: Int, health: Int) -> Bool {
+        (rotation + 8) % birthPeriod(rate: rate, health: health) < 8
+    }
+
+    static func fillAlpha(kind: OriginalEnemyKind, health: Int) -> CGFloat {
+        switch kind {
+        case .triangle, .butterfly:
+            // ge.Draw declares `sc` but never assigns it in these two cases.
+            return 0.1
+        default:
+            return 0.1 + CGFloat(health) / 256
+        }
+    }
+}
+
 struct TriangleBondState: Equatable {
     static let initialStrength: CGFloat = 25
 
