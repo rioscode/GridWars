@@ -1386,6 +1386,13 @@ final class GameRulesTests: XCTestCase {
         )
     }
 
+    func testGridLineConvertsOpenGLPixelCenterAfterYInversion() {
+        XCTAssertEqual(
+            OriginalLineRasterRule.scenePixelCenter(CGPoint(x: 128.25, y: 639.75)),
+            CGPoint(x: 128.75, y: 639.25)
+        )
+    }
+
     func testCaptureCatalogCoversEveryFidelityCategory() {
         let scenarios = OriginalCaptureScenario.all
         XCTAssertEqual(scenarios.count, 87)

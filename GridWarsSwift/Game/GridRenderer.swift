@@ -359,7 +359,9 @@ final class GridRenderer {
         let paths = (0..<16).map { _ in CGMutablePath() }
         for column in 0..<grid.columns {
             for row in 0..<grid.rows where isAlternatingCell(column, row, rows: grid.rows) {
-                let points = cellPoints(grid, column: column, row: row)
+                let points = cellPoints(grid, column: column, row: row).map {
+                    OriginalLineRasterRule.scenePixelCenter($0)
+                }
                 let path = paths[stretchBucket(points)]
                 if diagonals {
                     path.move(to: points[0])

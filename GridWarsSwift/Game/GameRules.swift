@@ -16,6 +16,12 @@ enum OriginalDrawRectRule {
     }
 }
 
+enum OriginalLineRasterRule {
+    static func scenePixelCenter(_ point: CGPoint) -> CGPoint {
+        CGPoint(x: point.x + 0.5, y: point.y - 0.5)
+    }
+}
+
 enum OriginalCameraRule {
     static let edgeThreshold: CGFloat = 500
     static let overscroll: CGFloat = 80
