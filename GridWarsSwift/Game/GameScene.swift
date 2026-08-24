@@ -27,6 +27,13 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         }
     }
 
+    private struct AttractDisplayEffect {
+        var position: CGPoint
+        var velocity: CGVector
+        var rotation: CGFloat
+        let size: CGFloat
+    }
+
     private struct PendingHighScore {
         let score: Int
         let playTime: String
@@ -193,6 +200,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private var bombCooldownFrames = 20
     private var spawnDirector = SpawnDirector()
     private var spawnRandom = GameRandomNumberGenerator()
+    private var captureRandom: BlitzMaxRandomNumberGenerator?
+    private var attractDisplayEffects: [AttractDisplayEffect] = []
     private var cyclingRed = 250
     private var cyclingGreen = 20
     private var cyclingBlue = 30
@@ -499,6 +508,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         audio.stopAllBlackHoleLoops()
         audio.startMusic(.intro)
         screenFlow.returnToTitle()
+        attractDisplayEffects.removeAll(keepingCapacity: true)
+        createAttractDisplayEffects()
         clearScorePresentation()
         gameplayPaused = false
         cameraOffset = .zero
@@ -522,16 +533,24 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         particleSimulation.reset()
         gridRenderer.resetAnimation()
         spawnRandom = GameRandomNumberGenerator(seed: 1)
+        captureRandom = BlitzMaxRandomNumberGenerator(seed: 1)
 
         switch captureRequest.scenario.subject {
         case let .attract(page, frame):
-            screenFlow.configureCapture(page: page, frame: frame)
-            let firework = switch page {
-            case .title: (12, 2)
-            case .scores: (5, 1)
-            case .friends, .enemies: (4, 0)
+            screenFlow.configureCapture(
+                page: page,
+                frame: 0,
+                persistentTitleFrame: page == .title ? 0 : 600
+            )
+            prepareAttractCaptureRandomState(page: page)
+            for _ in 0...frame {
+                advanceAttractFrame()
             }
-            for _ in 0..<firework.0 { emitFirework(style: firework.1) }
+            screenFlow.configureCapture(
+                page: page,
+                frame: frame,
+                persistentTitleFrame: page == .title ? min(600, frame) : 600
+            )
         case .gameplay:
             prepareGameplayCapture(includeSamples: true)
         case let .enemy(kind):
@@ -969,32 +988,79 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             switch page {
             case .title:
                 cycleColors()
-            case .scores, .friends:
+                emitAttractFireworkIfNeeded(page: page, chance: 90, cutoff: 850)
+                if screenFlow.persistentTitleFrame > 350 {
+                    particleSimulation.update()
+                    for effect in attractDisplayEffects {
+                        particleSimulation.applyBlackHole(
+                            at: sourcePoint(effect.position),
+                            size: effect.size,
+                            frame: screenFlow.frame + 1
+                        )
+                    }
+                    updateAttractDisplayEffects()
+                }
+            case .scores:
                 cycleColors()
                 cycleColors()
+                recordAttractTrail(page: page)
+                emitAttractFireworkIfNeeded(page: page, chance: 90, cutoff: 700)
+                particleSimulation.update()
+            case .friends:
+                emitAttractFireworkIfNeeded(page: page, chance: 94, cutoff: 850)
+                particleSimulation.update()
+                for effect in attractDisplayEffects {
+                    particleSimulation.applyBlackHole(
+                        at: sourcePoint(effect.position),
+                        size: effect.size,
+                        frame: screenFlow.persistentTitleFrame + screenFlow.frame + 1
+                    )
+                }
+                updateAttractDisplayEffects()
+                cycleColors()
+                cycleColors()
+                recordAttractTrail(page: page)
             case .enemies:
-                break
-            }
-            let chance: Int = switch page {
-            case .title, .scores: 90
-            case .friends, .enemies: 94
-            }
-            let cutoff: Int = switch page {
-            case .title, .friends, .enemies: 850
-            case .scores: 700
-            }
-            if screenFlow.frame < cutoff,
-               page != .title || screenFlow.persistentTitleFrame > 350,
-               Int.random(in: 0...100, using: &spawnRandom) > chance {
-                emitFirework(style: page == .title ? 0 : 1)
+                emitAttractFireworkIfNeeded(page: page, chance: 94, cutoff: 850)
+                particleSimulation.update()
             }
         }
-        particleSimulation.update()
         let wasScorePage = screenFlow.phase == .attract(.scores)
-        if screenFlow.advance(), wasScorePage {
-            clearScorePresentation()
-            audio.startMusic(.intro)
+        let wasEnemyPage = screenFlow.phase == .attract(.enemies)
+        if screenFlow.advance() {
+            if wasScorePage {
+                clearScorePresentation()
+                audio.startMusic(.intro)
+            }
+            if wasEnemyPage {
+                createAttractDisplayEffects()
+            }
         }
+    }
+
+    private func emitAttractFireworkIfNeeded(
+        page: OriginalAttractPage,
+        chance: Int,
+        cutoff: Int
+    ) {
+        guard screenFlow.frame < cutoff,
+              page != .title || screenFlow.persistentTitleFrame > 350,
+              originalRandomInt(0...100) > chance else { return }
+        emitFirework(style: page == .title ? 0 : 1)
+    }
+
+    private func recordAttractTrail(page: OriginalAttractPage) {
+        guard captureRequest != nil else { return }
+        screenRenderer.recordAttractTrail(
+            page: page,
+            frame: screenFlow.frame,
+            color: SKColor(
+                red: CGFloat(cyclingRed) / 255,
+                green: CGFloat(cyclingGreen) / 255,
+                blue: CGFloat(cyclingBlue) / 255,
+                alpha: 1
+            )
+        )
     }
 
     private func advanceGameOverFrame() {
@@ -1165,44 +1231,144 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
     private func emitFirework(style: Int) {
         let color = ParticleColor(
-            red: Int.random(in: 0...3, using: &spawnRandom) * 64,
-            green: Int.random(in: 0...3, using: &spawnRandom) * 64,
-            blue: Int.random(in: 0...3, using: &spawnRandom) * 64
+            red: originalRandomInt(0...3) * 64,
+            green: originalRandomInt(0...3) * 64,
+            blue: originalRandomInt(0...3) * 64
         )
-        let position: CGPoint
+        let sourcePosition: CGPoint
         if style == 1 {
-            if Bool.random(using: &spawnRandom) {
-                position = CGPoint(
-                    x: CGFloat(Int.random(
-                        in: 100...max(100, Int(size.width) - 100),
-                        using: &spawnRandom
-                    )),
-                    y: Bool.random(using: &spawnRandom) ? 16 : size.height - 16
+            if originalRandomInt(0...1) != 0 {
+                sourcePosition = CGPoint(
+                    x: CGFloat(originalRandomInt(100...max(100, Int(size.width) - 100))),
+                    y: originalRandomInt(0...1) != 0 ? size.height - 16 : 16
                 )
             } else {
-                position = CGPoint(
-                    x: Bool.random(using: &spawnRandom) ? 16 : size.width - 16,
-                    y: CGFloat(Int.random(
-                        in: 50...max(50, Int(size.height) - 50),
-                        using: &spawnRandom
-                    ))
+                sourcePosition = CGPoint(
+                    x: originalRandomInt(0...1) != 0 ? size.width - 16 : 16,
+                    y: CGFloat(originalRandomInt(50...max(50, Int(size.height) - 50)))
                 )
             }
         } else if style == 2 {
-            position = CGPoint(x: size.width / 2, y: size.height / 2)
+            sourcePosition = CGPoint(x: size.width / 2, y: size.height / 2)
         } else {
-            position = CGPoint(
-                x: CGFloat(Int.random(
-                    in: 100...max(100, Int(size.width) - 100),
-                    using: &spawnRandom
-                )),
-                y: CGFloat(Int.random(
-                    in: 50...max(50, Int(size.height) - 50),
-                    using: &spawnRandom
-                ))
+            sourcePosition = CGPoint(
+                x: CGFloat(originalRandomInt(100...max(100, Int(size.width) - 100))),
+                y: CGFloat(originalRandomInt(50...max(50, Int(size.height) - 50)))
             )
         }
-        emitParticles(count: 64, at: position, kind: .random, color: color)
+        emitParticles(count: 64, at: sourcePoint(sourcePosition), kind: .random, color: color)
+    }
+
+    private func prepareAttractCaptureRandomState(page: OriginalAttractPage) {
+        attractDisplayEffects.removeAll(keepingCapacity: true)
+        screenRenderer.resetAttractTrails()
+        if page == .scores {
+            var colors = Array(repeating: SKColor.white, count: 10)
+            for index in stride(from: 9, through: 0, by: -1) {
+                cycleColors()
+                cycleColors()
+                colors[index] = SKColor(
+                    red: CGFloat(cyclingRed) / 255,
+                    green: CGFloat(cyclingGreen) / 255,
+                    blue: CGFloat(cyclingBlue) / 255,
+                    alpha: 1
+                )
+            }
+            screenRenderer.seedScoreTrail(colors)
+        }
+        guard page == .title else { return }
+
+        createAttractDisplayEffects()
+    }
+
+    private func createAttractDisplayEffects() {
+        for _ in 0..<2 {
+            let position = CGPoint(
+                x: size.width / 2 + CGFloat(originalRandomInt(-100...100)),
+                y: size.height / 2 + CGFloat(originalRandomInt(-100...100))
+            )
+            let effectSize = CGFloat(originalRandomInt(12...50))
+            let rotation = CGFloat(originalRandomInt(0...359))
+            let direction = CGFloat(originalRandomInt(0...359)) * .pi / 180
+            let magnitude = CGFloat(originalRandomDouble(1..<4))
+            attractDisplayEffects.append(AttractDisplayEffect(
+                position: position,
+                velocity: CGVector(
+                    dx: cos(direction) * magnitude,
+                    dy: sin(direction) * magnitude
+                ),
+                rotation: rotation,
+                size: effectSize
+            ))
+        }
+    }
+
+    private func updateAttractDisplayEffects() {
+        for index in attractDisplayEffects.indices {
+            var effect = attractDisplayEffects[index]
+            effect.rotation += 1
+            effect.position.x += effect.velocity.dx
+            effect.position.y += effect.velocity.dy
+            if effect.position.x < 32 {
+                effect.velocity.dx = abs(effect.velocity.dx)
+                effect.position.x += effect.velocity.dx
+            } else if effect.position.x > size.width - 32 {
+                effect.velocity.dx = -abs(effect.velocity.dx)
+                effect.position.x += effect.velocity.dx
+            }
+            if effect.position.y < 32 {
+                effect.velocity.dy = abs(effect.velocity.dy)
+                effect.position.y += effect.velocity.dy
+            } else if effect.position.y > size.height - 32 {
+                effect.velocity.dy = -abs(effect.velocity.dy)
+                effect.position.y += effect.velocity.dy
+            }
+            attractDisplayEffects[index] = effect
+
+            guard Int(effect.rotation).isMultiple(of: 25) else { continue }
+            let rotation = effect.rotation * .pi / 180
+            for particleIndex in 0..<8 {
+                let radial = CGFloat(particleIndex * 45) * .pi / 180
+                let position = CGPoint(
+                    x: effect.position.x + sin(rotation) * effect.size * 1.25
+                        + sin(radial) * 8,
+                    y: effect.position.y + cos(rotation) * effect.size * 1.25
+                        + cos(radial) * 8
+                )
+                emitParticles(
+                    count: 1,
+                    at: sourcePoint(position),
+                    kind: .slowDirected,
+                    color: ParticleColor(
+                        red: cyclingRed,
+                        green: cyclingGreen,
+                        blue: cyclingBlue
+                    )
+                )
+            }
+        }
+    }
+
+    private func sourcePoint(_ point: CGPoint) -> CGPoint {
+        CGPoint(x: point.x, y: size.height - point.y)
+    }
+
+    private func originalRandomInt(_ range: ClosedRange<Int>) -> Int {
+        if var random = captureRandom {
+            let value = random.rand(range.lowerBound, range.upperBound)
+            captureRandom = random
+            return value
+        }
+        return Int.random(in: range, using: &spawnRandom)
+    }
+
+    private func originalRandomDouble(_ range: Range<Double>) -> Double {
+        if var random = captureRandom {
+            let value = random.rnd(range.lowerBound, range.upperBound)
+            captureRandom = random
+            return value
+        }
+        return Double.random(in: range, using: &spawnRandom)
     }
 
     private func simulateFrame() {
@@ -1927,10 +2093,10 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         value = Int(CGFloat(value) + delta)
         if value < 0 {
             value = 0
-            delta = CGFloat.random(in: 1..<10, using: &spawnRandom)
+            delta = CGFloat(originalRandomDouble(1..<10))
         } else if value > 255 {
             value = 255
-            delta = -CGFloat.random(in: 1..<10, using: &spawnRandom)
+            delta = -CGFloat(originalRandomDouble(1..<10))
         }
     }
 
@@ -4601,13 +4767,24 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     ) {
         guard count > 0 else { return }
         for index in 0..<count {
-            particleSimulation.emit(
-                at: positionForIndex?(index) ?? position,
-                kind: kind,
-                color: color,
-                rotationDegrees: rotation(index),
-                using: &spawnRandom
-            )
+            if var random = captureRandom {
+                particleSimulation.emit(
+                    at: positionForIndex?(index) ?? position,
+                    kind: kind,
+                    color: color,
+                    rotationDegrees: rotation(index),
+                    using: &random
+                )
+                captureRandom = random
+            } else {
+                particleSimulation.emit(
+                    at: positionForIndex?(index) ?? position,
+                    kind: kind,
+                    color: color,
+                    rotationDegrees: rotation(index),
+                    using: &spawnRandom
+                )
+            }
         }
     }
 
@@ -4903,6 +5080,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             audio.startMusic(.intro)
             screenFlow.returnToTitle()
             particleSimulation.reset()
+            attractDisplayEffects.removeAll(keepingCapacity: true)
+            createAttractDisplayEffects()
             clearScorePresentation()
             enterAttractPresentation()
         case .exitApplication:
@@ -4917,6 +5096,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             audio.startMusic(.intro)
             screenFlow.returnToTitle()
             particleSimulation.reset()
+            attractDisplayEffects.removeAll(keepingCapacity: true)
+            createAttractDisplayEffects()
             enterAttractPresentation()
             #endif
         }

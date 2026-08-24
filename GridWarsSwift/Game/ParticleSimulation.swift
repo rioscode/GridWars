@@ -99,16 +99,10 @@ struct ParticleSimulation: Equatable {
         using random: inout R
     ) {
         guard capacity > 0 else { return }
-        var particle = ParticleState(
-            position: position,
-            velocity: .zero,
-            color: color,
-            activeFrames: Int.random(
-                in: (particleLife - 20)...particleLife,
-                using: &random
-            )
+        var activeFrames = Int.random(
+            in: (particleLife - 20)...particleLife,
+            using: &random
         )
-
         let direction: CGFloat
         let magnitude: CGFloat
         switch kind {
@@ -118,7 +112,7 @@ struct ParticleSimulation: Equatable {
         case .radialBomb:
             direction = rotationDegrees
             magnitude = 16
-            particle.activeFrames = 24
+            activeFrames = 24
         case .directed:
             direction = CGFloat(Int(rotationDegrees))
             magnitude = 8
@@ -139,7 +133,82 @@ struct ParticleSimulation: Equatable {
             magnitude = CGFloat.random(in: 1..<13, using: &random)
         }
 
-        let radians = direction * .pi / 180
+        storeParticle(
+            at: position,
+            color: color,
+            activeFrames: activeFrames,
+            directionDegrees: direction,
+            magnitude: magnitude,
+            size: size
+        )
+    }
+
+    mutating func emit(
+        at position: CGPoint,
+        kind: OriginalParticleKind,
+        color: ParticleColor,
+        rotationDegrees: CGFloat = 0,
+        size: Int = 1,
+        using random: inout BlitzMaxRandomNumberGenerator
+    ) {
+        guard capacity > 0 else { return }
+        var activeFrames = random.rand(particleLife - 20, particleLife)
+        let direction: CGFloat
+        let magnitude: CGFloat
+        switch kind {
+        case .random:
+            direction = -CGFloat(random.rand(0, 359))
+            magnitude = CGFloat(random.rnd(3, 10))
+        case .radialBomb:
+            direction = -rotationDegrees
+            magnitude = 16
+            activeFrames = 24
+        case .directed:
+            direction = -CGFloat(Int(rotationDegrees))
+            magnitude = 8
+        case .threeDirections:
+            direction = -CGFloat(120 * random.rand(0, 2) + Int(rotationDegrees))
+            magnitude = CGFloat(random.rnd(3, 10))
+        case .fourDirections:
+            direction = -CGFloat(90 * random.rand(0, 3) + Int(rotationDegrees))
+            magnitude = CGFloat(random.rnd(3, 10))
+        case .eightDirections:
+            direction = -CGFloat(45 * random.rand(0, 7) + Int(rotationDegrees))
+            magnitude = CGFloat(random.rnd(3, 10))
+        case .slowDirected:
+            direction = -rotationDegrees
+            magnitude = CGFloat(random.rnd(0.5, 1))
+        case .bombInternal:
+            direction = -CGFloat(random.rand(0, 359))
+            magnitude = CGFloat(random.rnd(1, 13))
+        }
+
+        storeParticle(
+            at: position,
+            color: color,
+            activeFrames: activeFrames,
+            directionDegrees: direction,
+            magnitude: magnitude,
+            size: size
+        )
+    }
+
+    private mutating func storeParticle(
+        at position: CGPoint,
+        color: ParticleColor,
+        activeFrames: Int,
+        directionDegrees: CGFloat,
+        magnitude: CGFloat,
+        size: Int
+    ) {
+        var particle = ParticleState(
+            position: position,
+            velocity: .zero,
+            color: color,
+            activeFrames: activeFrames
+        )
+
+        let radians = directionDegrees * .pi / 180
         particle.velocity = CGVector(
             dx: cos(radians) * magnitude * 2,
             dy: sin(radians) * magnitude * 2

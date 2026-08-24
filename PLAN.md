@@ -104,7 +104,7 @@ branch. Each major fidelity milestone has its own commit:
 - [x] Official BlitzMax/BlitzBasic language references archived in `docs/bb`
 - [x] macOS Debug build
 - [x] Generic iOS Simulator Debug build
-- [x] 65 gameplay, input, persistence, audio, and rendering-rule unit tests
+- [x] 67 gameplay, input, persistence, audio, and rendering-rule unit tests
 - [x] macOS launch and rendering smoke test
 - [x] Deterministic 87-state Swift capture catalog at 1024×768
 - [x] Source-ordered Grid simulation and style-specific rendering pass for all
@@ -112,6 +112,8 @@ branch. Each major fidelity milestone has its own commit:
       particle-image composition
 - [x] All four BlitzMax particle draw paths, including doubled vector lines,
       half-scale image particles, and the separate bloom-image pass
+- [x] Archived BRL.Random-compatible seeded generator and source-ordered
+      600-frame attract capture simulation
 
 `FIDELITY.md` is the acceptance ledger. The isolated BlitzMax harness and the
 Swift port now each capture the same 87 attract, transition, gameplay, HUD,

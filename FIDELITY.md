@@ -62,11 +62,7 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   are 0.00775, 0.00870, 0.00019, and 0.00806; two independent style-3 Swift
   captures are byte-identical. The isolated Grid/particle harness also hides
   the gameplay arena border, matching the direct original draw path and making
-  the empty grid selector pixel-identical. The complete 87-state regression
-  improved 46 changed pairs. It also makes the remaining attract-capture phase
-  mismatch more visible: the Swift harness currently injects fixed bursts
-  instead of simulating the original 600-frame firework history, so those four
-  catalog states are the next correction target.
+  the empty grid selector pixel-identical.
 - Screens and runtime controls: `gridwars.bmx:3622-4319, 5383-5439` and
   `control.bmx:889-2570` map to `OriginalScreenFlow`, `OriginalMenuModel`,
   `OriginalVectorFont`, `OriginalScreenRenderer`, and the presentation/input
@@ -91,9 +87,15 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   the configured arena size, forced scrolling for oversized playfields, the
   original integer 500-pixel edge acceleration, ±80 overscroll, pointer-space
   conversion, and depth-divided star parallax. Matching original and Swift
-  captures now cover every menu and transition; their style-by-style visual
-  correction is still required before checking the broad screen and menu
-  entries.
+  captures now cover every menu and transition. The four 600-frame attract
+  references execute their actual per-page source order, including score/friend
+  colour trails, firework aging, the title's two display black holes, particle
+  gravity, and delayed title-particle start. Against the immediately preceding
+  full catalog, normalized differences fell from 0.03220 to 0.02118 (title),
+  0.01779 to 0.00723 (scores), 0.01565 to 0.00968 (friends), and 0.01396 to
+  0.01055 (enemies). Two independent title captures are byte-identical. Further
+  style-by-style correction is still required before checking the broad screen
+  and menu entries.
 - Graphics and HUD: `images.bmx:34-100`, `gridwars.bmx:3266-3272, 5911-5932`,
   and the deterministic fixed-frame original images in
   `docs/captures/original/` map to
@@ -147,11 +149,16 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   twin sticks feed the same movement/weapon rules. Nine focused rule tests
   cover the modes, remapping, calibration, and touch equivalence.
 - Language semantics: `docs/bb/blitzmax-ng/brl/random.mod/random.bmx` confirms
-  inclusive integer `Rand` and upper-exclusive floating-point `Rnd`; the
+  inclusive integer `Rand`, upper-exclusive floating-point `Rnd`, and the
+  Park–Miller state plus two-state `RndDouble` construction. The Swift
+  `BlitzMaxRandomNumberGenerator` reproduces the archived algorithm and the
+  capture harness consumes it in the same call order for colour cycling,
+  fireworks, and particle creation; fixed integer, double, and 64-bit test
+  vectors lock the sequence. The
   archived legacy `Language/Data types.bbdoc` documents the implicit numeric
   conversions used by the original. Swift random ranges and intentional
   integer truncations follow those references.
-- Build evidence (2026-08-24): the macOS unit-test action (65 tests) and generic
+- Build evidence (2026-08-24): the macOS unit-test action (67 tests) and generic
   iOS Simulator Debug build both pass. The rule suite
   covers initial difficulty, motion, weapons, scoring, upgrades, spawn timing,
   triangle bonds, snake following, black-hole integer conversions,

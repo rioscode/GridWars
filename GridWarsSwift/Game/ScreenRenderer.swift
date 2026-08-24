@@ -86,6 +86,30 @@ final class OriginalScreenRenderer {
         }
     }
 
+    func resetAttractTrails() {
+        scoreTrailColors = Array(repeating: .white, count: 10)
+        scoreTrailFrame = -1
+        friendTrailColors = Array(repeating: .white, count: 8)
+        friendTrailFrame = -1
+    }
+
+    func seedScoreTrail(_ colors: [SKColor]) {
+        guard colors.count == scoreTrailColors.count else { return }
+        scoreTrailColors = colors
+        scoreTrailFrame = -2
+    }
+
+    func recordAttractTrail(page: OriginalAttractPage, frame: Int, color: SKColor) {
+        switch page {
+        case .scores:
+            updateScoreTrail(frame: frame, color: color)
+        case .friends:
+            updateFriendTrail(frame: frame, color: color)
+        case .title, .enemies:
+            break
+        }
+    }
+
     func renderGameOver(counter: Int, size: CGSize) {
         prepare(size: size, backgroundAlpha: 0)
         let pulse = abs(sin(CGFloat(counter) / 2 * .pi / 180))
@@ -970,7 +994,7 @@ final class OriginalScreenRenderer {
 
     private func updateScoreTrail(frame: Int, color: SKColor) {
         guard frame != scoreTrailFrame else { return }
-        if scoreTrailFrame < 0 || frame != scoreTrailFrame + 1 {
+        if scoreTrailFrame == -1 || (scoreTrailFrame >= 0 && frame != scoreTrailFrame + 1) {
             scoreTrailColors = Array(repeating: color, count: 10)
         }
         scoreTrailColors[9] = color

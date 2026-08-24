@@ -708,6 +708,41 @@ final class GameRulesTests: XCTestCase {
         XCTAssertEqual(grid[10, 12].position.y, 194.997_892_117_213_18, accuracy: 0.0001)
     }
 
+    func testBlitzMaxRandomGeneratorMatchesArchivedBRLAlgorithm() {
+        var integers = BlitzMaxRandomNumberGenerator(seed: 1)
+        XCTAssertEqual(
+            (0..<10).map { _ in integers.rand(0, 100) },
+            [0, 40, 88, 6, 5, 36, 33, 37, 51, 91]
+        )
+
+        var doubles = BlitzMaxRandomNumberGenerator(seed: 1)
+        XCTAssertEqual(doubles.rndDouble(), 0.000_089_908_690_227_513_69, accuracy: 1e-15)
+        XCTAssertEqual(doubles.rndDouble(), 0.405_410_420_644_619_3, accuracy: 1e-15)
+
+        var words = BlitzMaxRandomNumberGenerator(seed: 1)
+        XCTAssertEqual(words.next(), 413_790_348_353_315)
+        XCTAssertEqual(words.next(), 16_447_326_018_131_396_856)
+    }
+
+    func testParticleEmissionCanConsumeExactBlitzMaxRandomSequence() {
+        var random = BlitzMaxRandomNumberGenerator(seed: 1)
+        var particles = ParticleSimulation(
+            arenaSize: CGSize(width: 1_024, height: 768),
+            capacity: 1
+        )
+
+        particles.emit(
+            at: CGPoint(x: 512, y: 384),
+            kind: .random,
+            color: .init(red: 255, green: 255, blue: 255),
+            using: &random
+        )
+
+        XCTAssertEqual(particles.particles[0].activeFrames, 20)
+        XCTAssertEqual(particles.particles[0].velocity.length, 18.205_519_338_120_723, accuracy: 0.0001)
+        XCTAssertLessThan(particles.particles[0].velocity.dy, 0)
+    }
+
     func testParticleRingUsesOriginalRadialVelocityLifetimeAndWrap() {
         var random = SeededRandomNumberGenerator(seed: 123)
         var particles = ParticleSimulation(

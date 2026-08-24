@@ -897,6 +897,51 @@ struct SeededRandomNumberGenerator: RandomNumberGenerator {
     }
 }
 
+struct BlitzMaxRandomNumberGenerator: RandomNumberGenerator {
+    private var state: Int64
+
+    init(seed: Int = 0x1234) {
+        let masked = Int64(seed) & 0x7FFF_FFFF
+        state = masked == 0 || masked == 2_147_483_647 ? 0x1234 : masked
+    }
+
+    mutating func next() -> UInt64 {
+        let first = UInt64((nextState() >> 9) & 0x003F_FFFF)
+        let second = UInt64((nextState() >> 9) & 0x003F_FFFF)
+        let third = UInt64((nextState() >> 11) & 0x000F_FFFF)
+        return (first << 42) | (second << 20) | third
+    }
+
+    mutating func rand(_ minimum: Int, _ maximum: Int = 1) -> Int {
+        let range = Int64(maximum) - Int64(minimum)
+        if range > 0 {
+            return Int(Int64(rndDouble() * Double(1 + range))) + minimum
+        }
+        return Int(Int64(rndDouble() * Double(1 - range))) + maximum
+    }
+
+    mutating func rnd(_ minimum: Double = 1, _ maximum: Double = 0) -> Double {
+        if maximum > minimum {
+            return rndDouble() * (maximum - minimum) + minimum
+        }
+        return rndDouble() * (minimum - maximum) + maximum
+    }
+
+    mutating func rndDouble() -> Double {
+        let high = Double(nextState() & 0x1FFF_FFFC)
+        let low = Double(nextState() & 0x1FFF_FFF8)
+        return (high + low / 134_217_728) / 536_870_912
+    }
+
+    private mutating func nextState() -> Int64 {
+        state = 48_271 * (state % 44_488) - 3_399 * (state / 44_488)
+        if state < 0 {
+            state += 2_147_483_647
+        }
+        return state
+    }
+}
+
 struct GameRandomNumberGenerator: RandomNumberGenerator {
     private var seeded: SeededRandomNumberGenerator?
     private var system = SystemRandomNumberGenerator()
