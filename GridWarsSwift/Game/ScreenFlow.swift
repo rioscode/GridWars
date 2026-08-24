@@ -339,7 +339,13 @@ struct OriginalMenuModel: Equatable {
         guard !awaitingKeyboardBinding else { return .none }
         guard direction != 0 else { return .none }
         switch page {
-        case .options, .confirmExit, .confirmEndGame, .settings, .controller:
+        case .options, .confirmExit, .confirmEndGame, .settings:
+            return activate()
+        case .controller:
+            if selection == 0 {
+                settings.controllerType = cycled(settings.controllerType, by: direction)
+                return .none
+            }
             return activate()
         case .video:
             adjustVideo(by: direction)
@@ -490,7 +496,7 @@ struct OriginalMenuModel: Equatable {
     var title: String {
         switch page {
         case .options: "Options"
-        case .confirmExit: "Exit Program?"
+        case .confirmExit: "Sure?"
         case .confirmEndGame: "End Game?"
         case .settings: "Settings"
         case .video: "Video Settings"
@@ -539,13 +545,13 @@ struct OriginalMenuModel: Equatable {
                 "Free Player: \(settings.extraLifeScores[difficulty])",
                 "Free Bomb: \(settings.extraBombScores[difficulty])",
                 "AutoFire: \(onOff(settings.autoFire))",
-                "Inertia: \(Int(settings.inertia * 100))",
+                "Inertia:",
                 "Done",
             ]
         case .audio:
             return [
-                "SFX Volume: \(Int(settings.soundEffectsVolume * 100))",
-                "Music Volume: \(Int(settings.musicVolume * 100))",
+                "SFX Volume:",
+                "Music Volume:",
                 "Sound Set: \(settings.soundSetIndex == 0 ? "Original" : "User")",
                 "Done",
             ]
@@ -561,14 +567,14 @@ struct OriginalMenuModel: Equatable {
                 mode,
                 "Fire: \(mouseButton(settings.mouseFireButton)) Mouse Button",
                 "Bomb: \(mouseButton(settings.mouseBombButton)) Mouse Button",
-                "Mouse Sensitivity: \(Int(settings.mouseSensitivity * 100))",
+                "Mouse Sensitivity:",
                 "Done",
             ]
         case .mouse:
             return [
                 "Fire: \(mouseButton(settings.mouseFireButton)) Mouse Button",
                 "Bomb: \(mouseButton(settings.mouseBombButton)) Mouse Button",
-                "Mouse Sensitivity: \(Int(settings.mouseSensitivity * 100))",
+                "Mouse Sensitivity:",
                 "Done",
             ]
         case .keyboard:
@@ -581,7 +587,7 @@ struct OriginalMenuModel: Equatable {
                 keyboardLine("Fire Right", key: settings.keyFireRight, index: 5),
                 keyboardLine("Fire Up   ", key: settings.keyFireUp, index: 6),
                 keyboardLine("Fire Down ", key: settings.keyFireDown, index: 7),
-                keyboardLine("Bomb      ", key: settings.keyBomb, index: 8),
+                keyboardLine("Bomb", key: settings.keyBomb, index: 8),
                 "Done",
             ]
         case .joypad:

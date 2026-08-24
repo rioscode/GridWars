@@ -16,7 +16,10 @@ xcodebuild \
 app="$derived_data/Build/Products/Debug/GridWars.app/Contents/MacOS/GridWars"
 mkdir -p "$capture_dir"
 
-for screen in title scores friends enemies options gameplay; do
+for screen in \
+  title scores friends enemies gameplay \
+  options confirm-exit settings video game audio controller \
+  hybrid mouse keyboard joypad dual-analog; do
   "$app" \
     --capture-screen "$screen" \
     --capture-output "$capture_dir/$screen.png"

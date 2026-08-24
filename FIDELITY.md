@@ -46,7 +46,10 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   `OriginalVectorFont`, `OriginalScreenRenderer`, and the presentation/input
   paths in `GameScene`. The four attract pages use the original 900/750/900/900
   frame durations, Game Over uses 179 display frames, and every original menu
-  branch is represented. F3-F7, F1/F2, the 1-4/X/Z/S cheat actions and the
+  branch is represented. Each menu now uses its fixed `control.bmx` title/row
+  coordinates, 50 Hz colour/cursor animation, meter geometry, colour-picker
+  sheet and captured-game scaling; Joypad and the original 640-wide Dual Stick
+  configuration have dedicated layouts. F3-F7, F1/F2, the 1-4/X/Z/S cheat actions and the
   P-held/O-single-step loop are wired to the original macOS key positions.
   Rule tests cover timing, hierarchy, 0...10,000 star wrap, 119-step grid
   brightness, invalid-score state, 450-frame cheat grants, caps, and the
@@ -60,7 +63,7 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   set-specific frame sizes, white entity art is no longer palette-tinted, and
   the score, high score, multiplier, lives and bomb indicators use the original
   vector font, coordinates, alpha and icon frames. A persistence-free macOS
-  capture catalog covers six representative states via
+  capture catalog covers seventeen representative and menu states via
   `scripts/capture-screens.sh`; image export requires an active unlocked window
   session. Enemy pages reproduce the original individual rotation, pulse and
   squash rates, while the score and friend pages retain their delayed colour
@@ -101,7 +104,7 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   archived legacy `Language/Data types.bbdoc` documents the implicit numeric
   conversions used by the original. Swift random ranges and intentional
   integer truncations follow those references.
-- Build evidence (2026-08-24): the macOS unit-test action (58 tests) and generic
+- Build evidence (2026-08-24): the macOS unit-test action (59 tests) and generic
   iOS Simulator Debug build both pass. The rule suite
   covers initial difficulty, motion, weapons, scoring, upgrades, spawn timing,
   triangle bonds, snake following, black-hole integer conversions,
@@ -109,7 +112,8 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   original particle ring, legacy persistence, checksum handling, and
   high-score name entry, audio manifest/spatial mixing, readable lossless
   tracker conversions, all five input modes, remapping, calibration, touch
-  equivalence, graphics-set metadata, and fixed-frame capture selection.
+  equivalence, graphics-set metadata, original menu text/controller direction,
+  and fixed-frame capture selection.
 
 ## Core loop and progression
 

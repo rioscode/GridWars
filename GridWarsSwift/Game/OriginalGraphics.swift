@@ -44,6 +44,27 @@ enum OriginalGraphicsSet: Int, CaseIterable, Sendable {
 }
 
 enum OriginalGraphics {
+    static func commonTexture(named name: String) -> SKTexture {
+        let texture: SKTexture
+        if let url = Bundle.main.url(
+            forResource: name,
+            withExtension: "png",
+            subdirectory: "gfx"
+        ) {
+            #if os(iOS)
+            texture = UIImage(contentsOfFile: url.path).map(SKTexture.init(image:))
+                ?? SKTexture(imageNamed: name)
+            #elseif os(macOS)
+            texture = NSImage(contentsOf: url).map(SKTexture.init(image:))
+                ?? SKTexture(imageNamed: name)
+            #endif
+        } else {
+            texture = SKTexture(imageNamed: name)
+        }
+        texture.filteringMode = .linear
+        return texture
+    }
+
     static func texture(named name: String, setIndex: Int) -> SKTexture {
         let set = OriginalGraphicsSet(index: setIndex)
         let texture: SKTexture
@@ -82,6 +103,28 @@ enum OriginalGraphics {
         setIndex: Int
     ) -> SKTexture {
         let sheet = texture(named: name, setIndex: setIndex)
+        let column = frame % columns
+        let rowFromTop = frame / columns
+        let texture = SKTexture(
+            rect: CGRect(
+                x: CGFloat(column) / CGFloat(columns),
+                y: CGFloat(rows - 1 - rowFromTop) / CGFloat(rows),
+                width: 1 / CGFloat(columns),
+                height: 1 / CGFloat(rows)
+            ),
+            in: sheet
+        )
+        texture.filteringMode = .linear
+        return texture
+    }
+
+    static func commonFrameTexture(
+        sheet name: String,
+        frame: Int,
+        columns: Int,
+        rows: Int
+    ) -> SKTexture {
+        let sheet = commonTexture(named: name)
         let column = frame % columns
         let rowFromTop = frame / columns
         let texture = SKTexture(

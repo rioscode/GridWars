@@ -787,6 +787,30 @@ final class GameRulesTests: XCTestCase {
         XCTAssertEqual(menu.settings.inertia, 0.05, accuracy: 0.0001)
     }
 
+    func testMenuTextAndControllerDirectionMatchOriginalControlSource() {
+        var menu = OriginalMenuModel()
+        menu.open(duringGame: false)
+        menu.select(0)
+        _ = menu.activate()
+        XCTAssertEqual(menu.title, "Sure?")
+
+        _ = menu.back()
+        menu.select(1)
+        _ = menu.activate()
+        menu.select(2)
+        _ = menu.activate()
+        menu.select(0)
+        _ = menu.adjust(by: -1)
+        XCTAssertEqual(menu.settings.controllerType, .hybrid)
+        _ = menu.adjust(by: 1)
+        XCTAssertEqual(menu.settings.controllerType, .dualAnalog)
+
+        _ = menu.back()
+        menu.select(0)
+        _ = menu.activate()
+        XCTAssertEqual(Array(menu.lines.prefix(2)), ["SFX Volume:", "Music Volume:"])
+    }
+
     func testOriginalHardAwardThresholdsMatchControlDefaults() {
         XCTAssertEqual(GameDifficulty.hard.extraLifeThreshold, 200_000)
         XCTAssertEqual(GameDifficulty.hard.extraBombThreshold, 250_000)

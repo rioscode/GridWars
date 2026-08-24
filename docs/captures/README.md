@@ -32,7 +32,8 @@ captures can be produced in an isolated user-approved environment.
 ## Swift renderer
 
 The macOS target supports a persistence-free capture mode for the title,
-scores, friends, enemies, options, and representative gameplay screens. Run:
+scores, friends, enemies, representative gameplay, and every options/config
+page. Run:
 
 ```sh
 sh scripts/capture-screens.sh

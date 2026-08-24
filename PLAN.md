@@ -101,6 +101,7 @@ The first playable milestone is complete on the `codex/swift-port` branch:
 The items under “Full fidelity” remain open and are the active project goal.
 
 The source, gameplay, grid/particle, screen/runtime, persistence, audio, input,
-and original graphics/HUD audit milestones are committed separately. Automated
-fixed-state captures are implemented; final side-by-side review and full
-playthrough verification remain.
+original graphics/HUD, entity/attract visual, and exact menu-layout audit
+milestones are committed separately. Automated fixed-state captures are
+implemented; final side-by-side review and full playthrough verification
+remain.

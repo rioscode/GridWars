@@ -160,6 +160,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private var gridStyle = GridStyle.pointsSolid
     private var screenFlow = OriginalScreenFlow()
     private var menuModel = OriginalMenuModel()
+    private var menuPresentationPage = OriginalMenuPage.options
+    private var menuPresentationFrame = 0
     private var gameplayPaused = false
     private var cheatMode = false
     private var godMode = false
@@ -470,8 +472,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         case "enemies":
             screenFlow.configureCapture(page: .enemies, frame: 600)
             for _ in 0..<4 { emitFirework(style: 0) }
-        case "options":
-            menuModel.open(duringGame: false)
+        case "options", "confirm-exit", "settings", "video", "game", "audio",
+             "controller", "hybrid", "mouse", "keyboard", "joypad", "dual-analog":
+            guard configureMenuCapture(named: captureRequest.screen) else { return }
         case "gameplay":
             beginGame()
             getReadyFrame = -1
@@ -502,6 +505,47 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             guard let self, let view else { return }
             self.writeCapture(from: view, to: captureRequest.outputPath, attempt: 0)
         }
+    }
+
+    private func configureMenuCapture(named name: String) -> Bool {
+        menuModel.open(duringGame: false)
+        menuPresentationPage = .options
+        menuPresentationFrame = 0
+        if name == "options" { return true }
+        if name == "confirm-exit" {
+            menuModel.select(0)
+            _ = menuModel.activate()
+            return true
+        }
+
+        menuModel.select(1)
+        _ = menuModel.activate()
+        if name == "settings" { return true }
+        let settingsIndex: Int
+        switch name {
+        case "audio": settingsIndex = 0
+        case "video": settingsIndex = 1
+        case "controller", "hybrid", "mouse", "keyboard", "joypad", "dual-analog":
+            settingsIndex = 2
+        case "game": settingsIndex = 3
+        default: return false
+        }
+        menuModel.select(settingsIndex)
+        _ = menuModel.activate()
+        if name == "audio" || name == "video" || name == "game" || name == "controller" {
+            return true
+        }
+
+        menuModel.settings.controllerType = switch name {
+        case "hybrid": .hybrid
+        case "mouse": .mouse
+        case "keyboard": .keyboard
+        case "joypad": .joypad
+        default: .dualAnalog
+        }
+        menuModel.select(1)
+        _ = menuModel.activate()
+        return true
     }
 
     private func writeCapture(
@@ -583,6 +627,27 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                     emitFirework(style: 2)
                 }
                 particleSimulation.update()
+            } else if menuModel.isOpen {
+                menuPresentationFrame += 1
+                if menuModel.page == .video {
+                    if menuPresentationFrame % 60 == 0,
+                       [5, 7, 8, 9].contains(menuModel.selection) {
+                        gridSimulation.pull(
+                            at: CGPoint(
+                                x: CGFloat(Int.random(in: 0...20) * 16),
+                                y: CGFloat(Int.random(in: 0...20) * 16)
+                            ),
+                            radiusInPoints: 8,
+                            amount: 24
+                        )
+                    }
+                    cycleColors()
+                    gridSimulation.update()
+                    if menuModel.selection == 7, Int.random(in: 0...100) > 94 {
+                        emitFirework(style: 2)
+                    }
+                    particleSimulation.update()
+                }
             } else if !menuModel.isOpen, !gameplayPaused {
                 switch screenFlow.phase {
                 case .attract:
@@ -722,10 +787,27 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             return
         }
         if menuModel.isOpen {
-            particleRenderer.node.zPosition = 201
-            screenRenderer.renderMenu(menuModel, size: size)
-            particleRenderer.render(particleSimulation, style: menuModel.settings.particleStyle)
+            if menuPresentationPage != menuModel.page {
+                menuPresentationPage = menuModel.page
+                menuPresentationFrame = 0
+            }
+            let showsVideoPreview = menuModel.page == .video
+            gridLayer.zPosition = showsVideoPreview ? 201 : -10
+            gridLayer.isHidden = !showsVideoPreview && screenFlow.phase != .playing && screenFlow.phase != .gameOver
+            particleRenderer.node.zPosition = showsVideoPreview ? 201 : 5
+            screenRenderer.renderMenu(menuModel, frame: menuPresentationFrame, size: size)
+            if showsVideoPreview {
+                renderGrid()
+                particleRenderer.render(particleSimulation, style: menuModel.settings.particleStyle)
+            }
             return
+        }
+
+        gridLayer.zPosition = -10
+        if case .attract = screenFlow.phase {
+            gridLayer.isHidden = true
+        } else {
+            gridLayer.isHidden = false
         }
 
         switch screenFlow.phase {
@@ -4268,11 +4350,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             if let index = screenRenderer.menuIndex(at: pointerLocation) {
                 menuModel.select(index)
             }
-            let outcome = switch button {
-            case 1: menuModel.activate()
-            case 2: menuModel.adjust(by: 1)
-            default: menuModel.adjust(by: -1)
-            }
+            let outcome = handleMenuMouseButton(button)
             handleMenuOutcome(outcome)
             applyRuntimeSettings()
             renderPresentation()
@@ -4288,6 +4366,29 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             if button == menuModel.settings.mouseBombButton {
                 triggerBomb()
             }
+        }
+    }
+
+    private func handleMenuMouseButton(_ button: Int) -> OriginalMenuOutcome {
+        let direction = button == 1 ? -1 : 1
+        switch menuModel.page {
+        case .options, .confirmExit, .confirmEndGame, .settings, .keyboard:
+            return menuModel.activate()
+        case .controller:
+            return menuModel.selection == 0
+                ? menuModel.adjust(by: direction)
+                : menuModel.activate()
+        case .video, .game, .audio, .hybrid, .mouse, .joypad, .dualAnalog:
+            if menuModel.selection == menuModel.lines.count - 1 {
+                return menuModel.activate()
+            }
+            if menuModel.page == .dualAnalog,
+               button == 2,
+               (1...4).contains(menuModel.selection) {
+                menuModel.select(menuModel.selection + 4)
+                return menuModel.adjust(by: 1)
+            }
+            return menuModel.adjust(by: direction)
         }
     }
 
@@ -4348,7 +4449,14 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
     private func openOptions() {
         let duringGame = screenFlow.phase == .playing || screenFlow.phase == .gameOver
+        if duringGame, let view {
+            screenRenderer.captureMenuBackground(from: self, view: view)
+        } else {
+            screenRenderer.clearMenuBackground()
+        }
         menuModel.open(duringGame: duringGame)
+        menuPresentationPage = .options
+        menuPresentationFrame = 0
         mouseButtons.removeAll()
         frameInput = OriginalResolvedInput()
         particleRenderer.node.zPosition = 201
