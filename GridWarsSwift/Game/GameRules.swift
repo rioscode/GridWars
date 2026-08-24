@@ -22,6 +22,12 @@ enum OriginalLineRasterRule {
     }
 }
 
+enum OriginalBlendRule {
+    static func spriteKitAdditiveNodeAlpha(sourceAlpha: CGFloat) -> CGFloat {
+        min(1, max(0, sourceAlpha)).squareRoot()
+    }
+}
+
 enum OriginalCameraRule {
     static let edgeThreshold: CGFloat = 500
     static let overscroll: CGFloat = 80

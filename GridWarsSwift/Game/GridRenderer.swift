@@ -67,12 +67,16 @@ final class GridRenderer {
         case .lineQuadsCycling:
             addLineGrid(simulation, color: cyclingColor, alpha: alpha)
         case .denseMeshSolid:
-            addDenseMesh(simulation, color: solidColor, alpha: alpha)
+            addDenseMesh(
+                simulation,
+                color: solidColor,
+                alpha: OriginalBlendRule.spriteKitAdditiveNodeAlpha(sourceAlpha: alpha)
+            )
         case .denseMeshBlue:
             addTriangularMesh(
                 simulation,
                 color: SKColor(red: 0.005, green: 0.05, blue: 0.3, alpha: 1),
-                alpha: alpha
+                alpha: 1
             )
         case .stretchedOriginal:
             addStretchedEdges(simulation)

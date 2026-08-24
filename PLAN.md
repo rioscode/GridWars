@@ -104,7 +104,7 @@ branch. Each major fidelity milestone has its own commit:
 - [x] Official BlitzMax/BlitzBasic language references archived in `docs/bb`
 - [x] macOS Debug build
 - [x] Generic iOS Simulator Debug build
-- [x] 74 gameplay, input, persistence, audio, and rendering-rule unit tests
+- [x] 75 gameplay, input, persistence, audio, and rendering-rule unit tests
 - [x] macOS launch and rendering smoke test
 - [x] Deterministic 87-state Swift capture catalog at 1024×768
 - [x] Source-ordered Grid simulation and style-specific rendering pass for all
@@ -134,6 +134,8 @@ branch. Each major fidelity milestone has its own commit:
       conversion
 - [x] OpenGL-to-SpriteKit pixel-center alignment for stretched edge, checker,
       and diagonal grid lines
+- [x] Dense-mesh raw-OpenGL alpha semantics and SpriteKit additive
+      premultiplication compensation
 
 `FIDELITY.md` is the acceptance ledger. The isolated BlitzMax harness and the
 Swift port now each capture the same 87 attract, transition, gameplay, HUD,

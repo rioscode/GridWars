@@ -1393,6 +1393,16 @@ final class GameRulesTests: XCTestCase {
         )
     }
 
+    func testMax2DLightBlendCompensatesSpriteKitPremultiplication() {
+        XCTAssertEqual(
+            OriginalBlendRule.spriteKitAdditiveNodeAlpha(sourceAlpha: 0.85),
+            sqrt(0.85),
+            accuracy: 0.000_001
+        )
+        XCTAssertEqual(OriginalBlendRule.spriteKitAdditiveNodeAlpha(sourceAlpha: -1), 0)
+        XCTAssertEqual(OriginalBlendRule.spriteKitAdditiveNodeAlpha(sourceAlpha: 2), 1)
+    }
+
     func testCaptureCatalogCoversEveryFidelityCategory() {
         let scenarios = OriginalCaptureScenario.all
         XCTAssertEqual(scenarios.count, 87)
