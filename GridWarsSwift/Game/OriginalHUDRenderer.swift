@@ -100,6 +100,26 @@ final class OriginalHUDRenderer {
             )
         }
 
+        if let status = session.powerUpStatusMessage {
+            let bottomAlpha = playerY > size.height - 80
+                ? 1 - (playerY - (size.height - 80)) / 400
+                : 0.8
+            addText(
+                status.text,
+                x: size.width / 2 - CGFloat(status.text.count * 7) + 1,
+                y: size.height - 25,
+                scale: 2.8,
+                color: SKColor(
+                    red: CGFloat(status.red) / 255,
+                    green: CGFloat(status.green) / 255,
+                    blue: CGFloat(status.blue) / 255,
+                    alpha: 1
+                ),
+                alpha: bottomAlpha,
+                size: size
+            )
+        }
+
         renderMessage(message, getReadyFrame: getReadyFrame, size: size)
     }
 

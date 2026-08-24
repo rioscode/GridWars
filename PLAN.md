@@ -106,9 +106,9 @@ branch. Each major fidelity milestone has its own commit:
       textures, blending, timing, randomness, persistence, and verification
 - [x] macOS Debug build
 - [x] Generic iOS Simulator Debug build
-- [x] 78 gameplay, input, persistence, audio, and rendering-rule unit tests
+- [x] 86 gameplay, input, persistence, audio, and rendering-rule unit tests
 - [x] macOS launch and rendering smoke test
-- [x] Deterministic 87-state Swift capture catalog at 1024×768
+- [x] Deterministic 88-state Swift capture catalog at 1024×768
 - [x] Source-ordered Grid simulation and style-specific rendering pass for all
       21 selectors, including fixed-50-Hz animation phases and original
       particle-image composition
@@ -150,6 +150,8 @@ branch. Each major fidelity milestone has its own commit:
       pull-before-update ordering
 - [x] Centralized 50-Hz simulation timing plus audited difficulty, all four
       wave cadences, score values, multiplier and award thresholds
+- [x] Source-ordered 180-frame bottom power-up threshold message, including
+      halfway text refresh, inherited lower-HUD alpha, and Game Over countdown
 - [x] Top-left 1×1 `Plot` pixel anchoring for midpoint-circle Get Ready rings
 - [x] OpenGL pixel-center anchoring for one-pixel particle line style 0
 - [x] OpenGL pixel-center anchoring and additive-alpha compensation for the
@@ -162,10 +164,10 @@ branch. Each major fidelity milestone has its own commit:
       compensation
 
 `FIDELITY.md` is the acceptance ledger. The isolated BlitzMax harness and the
-Swift port now each capture the same 87 attract, transition, gameplay, HUD,
+Swift port now each capture the same 88 attract, transition, gameplay, HUD,
 entity, generator, power-up, grid, particle, graphics-set, and menu states. Two
 independent complete original runs produced byte-identical PNGs, and the
-comparison tool verified all 87 1024×768 pairs. Style-by-style visual
+comparison tool verified all 88 1024×768 pairs. Style-by-style visual
 correction reduced the pixel difference for all 20 nonempty grid selectors and
 made the empty selector pixel-identical. The Moiré selector still exposes a
 known OpenGL per-vertex-gradient versus SpriteKit rasterization difference. An

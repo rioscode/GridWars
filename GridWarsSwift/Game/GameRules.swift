@@ -7,6 +7,15 @@ enum OriginalTimingRule {
     static let maximumAccumulatedTime = fixedStep * 5
 }
 
+struct OriginalPowerUpStatusMessage: Equatable {
+    let text: String
+    let remainingFrames: Int
+
+    var red: Int { remainingFrames }
+    var green: Int { 165 + remainingFrames / 2 }
+    var blue: Int { remainingFrames }
+}
+
 enum OriginalDrawRectRule {
     static func sceneRect(
         at scenePoint: CGPoint,
@@ -485,6 +494,8 @@ struct GameSession: Equatable {
     private(set) var nextExtraLifeScore: Int
     private(set) var nextExtraBombScore: Int
     private(set) var nextPowerUpScore = 5_000
+    private(set) var powerUpMessageFrames = 180
+    private(set) var announcedPowerUpScore = 5_000
     private(set) var cannons: Int
     private(set) var shotSpeed: Int
     private(set) var reverseShooterFrames = 0
@@ -496,6 +507,14 @@ struct GameSession: Equatable {
     private(set) var isScoreValid = true
 
     var isGameOver: Bool { lives == 0 }
+
+    var powerUpStatusMessage: OriginalPowerUpStatusMessage? {
+        guard powerUpMessageFrames > 0 else { return nil }
+        return OriginalPowerUpStatusMessage(
+            text: "Power Up at \(announcedPowerUpScore)",
+            remainingFrames: powerUpMessageFrames
+        )
+    }
 
     init(difficulty: GameDifficulty = .medium) {
         self.difficulty = difficulty
@@ -569,6 +588,23 @@ struct GameSession: Equatable {
 
     mutating func grantRespawnShield() {
         shieldFrames = 80
+    }
+
+    mutating func finishGetReady() {
+        shieldFrames = 80
+        resetMultiplier()
+    }
+
+    mutating func advancePowerUpStatusMessageFrame() {
+        guard powerUpMessageFrames > 0 else { return }
+        powerUpMessageFrames -= 1
+        if powerUpMessageFrames == 90 {
+            announcedPowerUpScore = nextPowerUpScore
+        }
+    }
+
+    mutating func clearPowerUpStatusMessage() {
+        powerUpMessageFrames = 0
     }
 
     @discardableResult
@@ -665,6 +701,8 @@ struct GameSession: Equatable {
         killsSinceDamage = 0
         nextPowerUpScore = score + Self.powerUpBaseScore * 2
         nextPowerUpScore = (nextPowerUpScore / (Self.powerUpBaseScore * 2)) * (Self.powerUpBaseScore * 2)
+        powerUpMessageFrames = 180
+        announcedPowerUpScore = nextPowerUpScore
     }
 }
 

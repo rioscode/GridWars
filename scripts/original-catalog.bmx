@@ -10,11 +10,13 @@ Function CaptureOriginalCatalog:Int(mode$, directory$)
 	Local graphicsKind:Int = -1
 	Local overview:Int = False
 	Local upgradedHUD:Int = False
+	Local powerUpMessage:Int = False
 
 	Select mode
 		Case "gameplay"; overview = True
 		Case "hud-default"; overview = 2
 		Case "hud-upgraded"; overview = 2; upgradedHUD = True
+		Case "power-up-message"; overview = 2; powerUpMessage = True
 
 		Case "enemy-pinwheel"; entityKind = 0
 		Case "enemy-diamond"; entityKind = 1
@@ -84,6 +86,7 @@ Function CaptureOriginalCatalog:Int(mode$, directory$)
 	End Select
 
 	PrepareOriginalCaptureState()
+	If powerUpMessage Then score.ResetMultiplier()
 
 	If gridKind >= 0
 		showstars = 0

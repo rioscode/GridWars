@@ -198,7 +198,7 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   center only to the static title credits lowers it again to 0.01489. The
   overdrawn logo remains unshifted because the same offset regresses its
   isolated region. Across the new
-  87-state catalog this common correction improves screens including top
+  88-state catalog this common correction improves screens including top
   scores (0.00708 to 0.00641), options (0.00194 to 0.00151), and high-score
   entry (0.01006 to 0.00819). Two independently rendered high-score-entry
   captures have identical SHA-256 hashes.
@@ -227,11 +227,11 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   graphics-set captures to 0.01588–0.01620. The score, high score, multiplier,
   lives and bomb indicators use the original vector font, coordinates, alpha
   and icon frames. The isolated original
-  renderer now produces 87 valid full-frame 1024×768 attract, transition,
+  renderer now produces 88 valid full-frame 1024×768 attract, transition,
   gameplay, HUD, entity, generator, power-up, grid, particle, graphics-set, and
   menu references via `scripts/capture-original.sh`; capture mode bypasses all
   legacy configuration and high-score I/O. A persistence-free Swift catalog
-  covers the same 87 states via `scripts/capture-screens.sh`, and
+  covers the same 88 states via `scripts/capture-screens.sh`, and
   `scripts/compare-captures.sh` measures every matching pair. Two independent
   complete original runs produced byte-identical PNGs. Enemy
   pages reproduce the original individual rotation, pulse and squash rates,
@@ -300,8 +300,10 @@ the corresponding Swift implementation, and a test or visual/runtime check.
       `25, 100, 200, 400, 800, 1600, 2500, 3500, 5000, 5500` for multipliers
       1× through 10× (`gridwars.bmx:101, 3168-3246`).
 - [x] Power-up, extra-player, and extra-bomb score thresholds.
-- [ ] Original bottom status message position, colour, and 180-frame fade after
-      multiplier reset.
+- [x] Original bottom status message position, colour, midpoint threshold
+      refresh, and 180-frame fade after multiplier reset
+      (`gridwars.bmx:3205-3213, 5784-5794`). The dedicated 1024×768 reference
+      pair measures `0.00513419` across the complete frame.
 - [x] Player death sequence, killer preservation, upgrade loss, respawn,
       shield, and game-over sequence (`gridwars.bmx:4433-4590`).
 - [x] Bomb destroys all eligible enemies without points, resets multiplier,

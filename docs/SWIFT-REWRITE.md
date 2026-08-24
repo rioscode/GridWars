@@ -196,6 +196,23 @@ Therefore the effective first in-game power-up threshold is `5000`, followed
 by `POWERUP * multiplier²` increments. Porting the earlier assignment alone
 silently spawns the first power-up twice as early.
 
+`DrawMessage` is also state-order-sensitive. It decrements `messtime` during
+`DrawAll`, after gameplay updates, rather than in `UpdateAll`. At remaining
+frame 90 it rebuilds the string from the then-current `powerupscore`; its RGB
+is `(messtime, 165 + messtime / 2, messtime)`, and it inherits the lower-HUD
+alpha selected from the player's Y position. The countdown continues through
+the blocking death, Get Ready, and Game Over draw loops, but stops while an
+options menu or pause loop owns presentation. Keep it separate from weapon and
+shield timers, which do not advance in those transition loops.
+
+At the end of Get Ready, the source clears the old message and calls
+`ResetMultiplier` only after the final ring frame has been drawn. Resetting one
+frame earlier shortens the new message. The source call is
+`DrawString(text, SCREENW / 2 - Len(text) * 7, SCREENH - 26, 2.8)`; the shared
+vector-font conversion still flips Y, while SpriteKit's two-pixel shape stroke
+needs the documented one-pixel raster offset in both axes to cover the same
+logical pixels as Max2D's OpenGL line.
+
 Keep deterministic pure rules outside SpriteKit where possible. Test boundary
 conditions and historical integer conversions directly rather than relying
 only on screenshots.

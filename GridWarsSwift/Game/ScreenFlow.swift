@@ -64,6 +64,7 @@ enum OriginalCaptureSubject: Equatable {
     case highScoreEntry
     case hudDefault
     case hudUpgraded
+    case powerUpMessage
     case menu(OriginalMenuCapture)
 
     var hidesArenaBorder: Bool {
@@ -104,6 +105,7 @@ struct OriginalCaptureScenario: Equatable {
             .init("high-score-entry", .highScoreEntry),
             .init("hud-default", .hudDefault),
             .init("hud-upgraded", .hudUpgraded),
+            .init("power-up-message", .powerUpMessage),
         ]
 
         let enemies: [(String, OriginalEnemyKind)] = [

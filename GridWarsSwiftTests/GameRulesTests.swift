@@ -144,6 +144,49 @@ final class GameRulesTests: XCTestCase {
         XCTAssertEqual(session.nextPowerUpScore, 7_500)
     }
 
+    func testPowerUpStatusMessageMatchesOriginalFadeAndHalfwayRefresh() {
+        var session = GameSession()
+
+        XCTAssertEqual(session.powerUpStatusMessage, OriginalPowerUpStatusMessage(
+            text: "Power Up at 5000",
+            remainingFrames: 180
+        ))
+        XCTAssertEqual(session.powerUpStatusMessage?.red, 180)
+        XCTAssertEqual(session.powerUpStatusMessage?.green, 255)
+        XCTAssertEqual(session.powerUpStatusMessage?.blue, 180)
+
+        _ = session.registerScore(baseScore: 5_000)
+        for _ in 0..<89 { session.advancePowerUpStatusMessageFrame() }
+        XCTAssertEqual(session.powerUpStatusMessage?.text, "Power Up at 5000")
+        XCTAssertEqual(session.powerUpStatusMessage?.remainingFrames, 91)
+
+        session.advancePowerUpStatusMessageFrame()
+        XCTAssertEqual(session.powerUpStatusMessage?.text, "Power Up at 7500")
+        XCTAssertEqual(session.powerUpStatusMessage?.remainingFrames, 90)
+        XCTAssertEqual(session.powerUpStatusMessage?.red, 90)
+        XCTAssertEqual(session.powerUpStatusMessage?.green, 210)
+        XCTAssertEqual(session.powerUpStatusMessage?.blue, 90)
+
+        for _ in 0..<90 { session.advancePowerUpStatusMessageFrame() }
+        XCTAssertNil(session.powerUpStatusMessage)
+    }
+
+    func testMultiplierResetAndGetReadyRestartThePowerUpMessage() {
+        var session = GameSession()
+        _ = session.registerScore(baseScore: 6_000)
+        for _ in 0..<25 { session.advancePowerUpStatusMessageFrame() }
+
+        XCTAssertTrue(session.useBomb())
+        XCTAssertEqual(session.powerUpStatusMessage?.text, "Power Up at 10000")
+        XCTAssertEqual(session.powerUpStatusMessage?.remainingFrames, 180)
+
+        session.advancePowerUpStatusMessageFrame()
+        session.finishGetReady()
+        XCTAssertEqual(session.shieldFrames, 80)
+        XCTAssertEqual(session.powerUpStatusMessage?.text, "Power Up at 10000")
+        XCTAssertEqual(session.powerUpStatusMessage?.remainingFrames, 180)
+    }
+
     func testPlayerHitCostsLifeAndRemovesOriginalUpgrades() {
         var session = GameSession()
         session.collectPowerUp(.extraCannon)
@@ -1576,8 +1619,12 @@ final class GameRulesTests: XCTestCase {
 
     func testCaptureCatalogCoversEveryFidelityCategory() {
         let scenarios = OriginalCaptureScenario.all
-        XCTAssertEqual(scenarios.count, 87)
+        XCTAssertEqual(scenarios.count, 88)
         XCTAssertEqual(Set(scenarios.map(\.name)).count, scenarios.count)
+        XCTAssertEqual(
+            OriginalCaptureScenario(name: "power-up-message")?.subject,
+            .powerUpMessage
+        )
         XCTAssertEqual(
             OriginalCaptureScenario(name: "get-ready-title")?.subject,
             .getReady(frame: 29)

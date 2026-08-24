@@ -545,7 +545,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         let preparesOriginalState: Bool = switch captureRequest.scenario.subject {
         case .gameplay, .enemy, .generator, .powerUp, .grid, .particleStyle,
              .graphicsSet, .getReady, .death, .gameOver, .highScoreEntry,
-             .hudDefault, .hudUpgraded:
+             .hudDefault, .hudUpgraded, .powerUpMessage:
             true
         case let .menu(menu):
             menu == .optionsGame || menu == .confirmEndGame
@@ -694,6 +694,11 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             _ = session.registerScore(baseScore: 123_456)
             updatePlayerShield()
             updateHUD()
+        case .powerUpMessage:
+            prepareGameplayCapture()
+            session.restart(difficulty: session.difficulty)
+            session.advancePowerUpStatusMessageFrame()
+            updateHUD()
         case let .menu(menu):
             configureMenuCapture(menu)
             menuPresentationPage = menuModel.page
@@ -710,6 +715,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private func prepareGameplayCapture(includeSamples: Bool = false) {
         beginGame()
         audio.stopMusic()
+        session.clearPowerUpStatusMessage()
         getReadyFrame = -1
         deathFramesRemaining = 0
         player.removeAllActions()
@@ -1120,6 +1126,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private func advanceGameOverFrame() {
         updateParticleSimulation()
         gridSimulation.update()
+        session.advancePowerUpStatusMessageFrame()
         if screenFlow.advance() {
             preparePostGameScores()
             enterAttractPresentation()
@@ -1275,6 +1282,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             particleRenderer.node.zPosition = 5
             renderGrid()
             particleRenderer.render(particleSimulation, style: menuModel.settings.particleStyle)
+            renderHUD()
             screenRenderer.renderGameOver(counter: 2 + screenFlow.frame * 2, size: size)
         }
     }
@@ -1447,13 +1455,17 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         cycleColors()
         gridSimulation.update()
         if deathFramesRemaining > 0 {
+            session.advancePowerUpStatusMessageFrame()
             advanceDeathSequence()
             return
         }
         if getReadyFrame >= 0 {
+            session.advancePowerUpStatusMessageFrame()
             advanceGetReadySequence()
             return
         }
+
+        defer { session.advancePowerUpStatusMessageFrame() }
 
         let spawnResult = spawnDirector.advance(
             frame: simulationFrame,
@@ -4786,7 +4798,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             readyMessageNode.removeAllChildren()
             readyMessageNode.isHidden = true
             player.isHidden = false
-            session.grantRespawnShield()
+            session.finishGetReady()
             updatePlayerShield()
             audio.startMusic(.gameplay)
         }

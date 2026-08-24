@@ -26,7 +26,7 @@ capture() {
 for screen in \
   title scores friends enemies gameplay \
   get-ready-title get-ready-rings death game-over high-score-entry \
-  hud-default hud-upgraded \
+  hud-default hud-upgraded power-up-message \
   enemy-pinwheel enemy-diamond enemy-green-square enemy-cube enemy-seeker \
   enemy-black-hole enemy-triangle enemy-snake enemy-interceptor enemy-butterfly \
   generator-pinwheel generator-diamond generator-green-square generator-cube \
