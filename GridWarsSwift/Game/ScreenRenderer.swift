@@ -8,6 +8,10 @@ final class OriginalScreenRenderer {
     private let font = OriginalVectorFont()
     private let background = SKShapeNode()
     private let content = SKNode()
+    private var scoreTrailColors = Array(repeating: SKColor.white, count: 10)
+    private var scoreTrailFrame = -1
+    private var friendTrailColors = Array(repeating: SKColor.white, count: 8)
+    private var friendTrailFrame = -1
     private(set) var menuHitFrames: [CGRect] = []
 
     init() {
@@ -56,7 +60,7 @@ final class OriginalScreenRenderer {
         case .enemies:
             renderEnemies(frame: frame, size: size, colours: colours)
         }
-        if frame % (page == .title ? 60 : 50) > (page == .title ? 29 : 25) {
+        if page != .title, frame % 50 > 25 {
             addText(
                 "Press BOMB Button to Start",
                 x: size.width / 2 - 250,
@@ -208,14 +212,20 @@ final class OriginalScreenRenderer {
             }
         }
 
-        addText("Programmed In Blitzmax", centeredAtY: size.height - 280, scale: 3.2 * shrink, color: SKColor(red: 64 / 255, green: 180 / 255, blue: 64 / 255, alpha: 1), size: size)
-        addText("By Mark Incitti", centeredAtY: size.height - 240, scale: 3.2 * shrink, color: SKColor(red: 64 / 255, green: 180 / 255, blue: 64 / 255, alpha: 1), size: size)
+        let creditColor = SKColor(red: 64 / 255, green: 180 / 255, blue: 64 / 255, alpha: 1)
+        addText("Programmed In Blitzmax", x: size.width / 2 - CGFloat(22 / 2) * 5 * 3.2 * shrink, y: size.height - 280, scale: 3.2 * shrink, color: creditColor, size: size)
+        addText("By Mark Incitti", x: size.width / 2 - CGFloat(15 / 2) * 5 * 3.2 * shrink, y: size.height - 240, scale: 3.2 * shrink, color: creditColor, size: size)
         let detail = frame % 200 > 99
             ? "Version 5.4 - Apr 19, 2006"
             : "Visit www.incitti.com for more games."
-        addText(detail, centeredAtY: size.height - 200, scale: 3 * shrink, color: SKColor(red: 64 / 255, green: 180 / 255, blue: 64 / 255, alpha: 1), size: size)
-        addText("Special Thanks To", centeredAtY: size.height - 160, scale: 3.2 * shrink, color: SKColor(red: 240 / 255, green: 32 / 255, blue: 200 / 255, alpha: 1), size: size)
-        addText("Svrman, taumel - Gfx & Effects, Swith - Music, RiK - Mac", centeredAtY: size.height - 120, scale: 3.2 * shrink, color: SKColor(red: 200 / 255, green: 32 / 255, blue: 240 / 255, alpha: 1), size: size)
+        let detailScale: CGFloat = frame % 200 > 99 ? 3 : 3.1
+        let detailLength = frame % 200 > 99 ? 25 : 36
+        addText(detail, x: size.width / 2 - CGFloat(detailLength / 2) * 5 * detailScale * shrink, y: size.height - 200, scale: detailScale * shrink, color: creditColor, size: size)
+        addText("Special Thanks To", x: size.width / 2 - CGFloat(17 / 2) * 5 * 3.2 * shrink, y: size.height - 160, scale: 3.2 * shrink, color: SKColor(red: 240 / 255, green: 32 / 255, blue: 200 / 255, alpha: 1), size: size)
+        addText("Svrman, taumel - Gfx & Effects, Swith - Music, RiK - Mac", x: size.width / 2 - CGFloat(56 / 2) * 5 * 3.2 * shrink, y: size.height - 120, scale: 3.2 * shrink, color: SKColor(red: 200 / 255, green: 32 / 255, blue: 240 / 255, alpha: 1), size: size)
+        if frame % 60 > 29 {
+            addText("Press BOMB Button to Start", x: size.width / 2 - CGFloat(26 / 2) * 5 * 4 * shrink, y: size.height - 32, scale: 4 * shrink, color: .yellow, size: size)
+        }
 
     }
 
@@ -229,6 +239,7 @@ final class OriginalScreenRenderer {
         unrankedEntry: LegacyHighScoreEntry?,
         showSettings: Bool
     ) {
+        updateScoreTrail(frame: frame, color: color)
         let difficulty = fixedDifficulty ?? GameDifficulty(rawValue: min(2, frame / 250)) ?? .easy
         addText("TOP SCORES - \(difficulty.title)", x: size.width / 2 - 200, y: size.height / 2 - 220, scale: 4, color: SKColor(red: 0, green: 0, blue: 240 / 255, alpha: 1), size: size)
         let headerColor = SKColor(red: 64 / 255, green: 240 / 255, blue: 64 / 255, alpha: 1)
@@ -238,18 +249,21 @@ final class OriginalScreenRenderer {
         for (row, entry) in highScores[difficulty].enumerated() {
             let spacing = showSettings ? 32 : 30
             let y = size.height / 2 - 150 + CGFloat(row * spacing)
-            let rowColor = row == highlightedPosition ? SKColor.yellow : shifted(color, by: CGFloat(row) * 0.07)
+            let rowColor = row == highlightedPosition ? SKColor.yellow : scoreTrailColors[9 - row]
             let scale: CGFloat = showSettings ? 2 : 3
-            addText(String(entry.score), x: size.width / 2 - 250, y: y, scale: scale, color: rowColor, size: size)
+            let score = String(entry.score)
+            let scoreX = size.width / 2 - 180 - CGFloat(score.count * 14)
+            addText(score, x: scoreX, y: y, scale: scale, color: rowColor, size: size)
             addText(entry.name, x: size.width / 2 - 120, y: y, scale: scale, color: rowColor, size: size)
             addText(entry.playTime, x: size.width / 2 + 64, y: y, scale: scale, color: rowColor, size: size)
             if showSettings {
-                addText(entry.settings, x: size.width / 2 - 250, y: y + 16, scale: 2, color: rowColor, size: size)
+                addText(entry.settings, x: scoreX, y: y + 16, scale: 2, color: rowColor, size: size)
             }
         }
         if let unrankedEntry {
             let y = size.height / 2 - 150 + CGFloat(11 * 30)
-            addText(String(unrankedEntry.score), x: size.width / 2 - 218, y: y, scale: 3, color: .red, size: size)
+            let score = String(unrankedEntry.score)
+            addText(score, x: size.width / 2 - 180 + 32 - CGFloat(score.count * 14), y: y, scale: 3, color: .red, size: size)
             addText(unrankedEntry.playTime, x: size.width / 2 + 32, y: y, scale: 3, color: .red, size: size)
         }
     }
@@ -260,7 +274,8 @@ final class OriginalScreenRenderer {
         color: SKColor,
         colours: OriginalColorPalette
     ) {
-        addText("Know Your Friends", centeredAtY: 10, scale: 4.5, color: .yellow, size: size)
+        updateFriendTrail(frame: frame, color: color)
+        addText("Know Your Friends", x: size.width / 2 - 4.5 * 5 * 18 / 2 - 32, y: 10, scale: 4.5, color: .yellow, size: size)
         let entries: [(Int, String, String?, Int, ParticleColor)] = [
             (50, "Your Ship", "whiteplayer", -1, colours[.player]),
             (100, "Temporary Back Shooter", nil, 2, colours[.diamond]),
@@ -279,25 +294,28 @@ final class OriginalScreenRenderer {
             let sprite: SKSpriteNode
             if let textureName = entry.2 {
                 sprite = makeSprite(textureName, atTopLeftPosition: CGPoint(x: x, y: y), size: size)
+                sprite.zRotation = CGFloat(frame) * .pi / 180
             } else {
                 sprite = SKSpriteNode(texture: powerUpTexture(frame: entry.3))
                 sprite.position = CGPoint(x: x, y: size.height - y)
                 sprite.size = CGSize(width: 64, height: 64)
                 sprite.blendMode = .add
             }
-            sprite.zRotation = CGFloat(frame * (index.isMultiple(of: 2) ? 1 : -1)) * .pi / 180
             content.addChild(sprite)
-            let star = makeSprite("whitestar", atTopLeftPosition: CGPoint(x: x, y: y), size: size)
-            star.zRotation = CGFloat(frame * 6 + index * 45) * .pi / 180
-            star.color = shifted(color, by: CGFloat(index) * 0.08)
-            star.colorBlendFactor = 1
-            content.addChild(star)
+            if entry.2 == nil {
+                let star = makeSprite("whitestar", atTopLeftPosition: CGPoint(x: x, y: y), size: size)
+                star.zRotation = CGFloat(frame * 6 + (index == 2 ? 45 : 0)) * .pi / 180
+                let trailIndex = min(7, max(0, index - 1))
+                star.color = friendTrailColors[trailIndex]
+                star.colorBlendFactor = 1
+                content.addChild(star)
+            }
             addText(entry.1, x: size.width / 2 - 100, y: y - 10, scale: 3, color: skColor(entry.4), size: size)
         }
     }
 
     private func renderEnemies(frame: Int, size: CGSize, colours: OriginalColorPalette) {
-        addText("Know Your Enemies", centeredAtY: 10, scale: 4.5, color: .red, size: size)
+        addText("Know Your Enemies", x: size.width / 2 - 4.5 * 5 * 18 / 2 - 32, y: 10, scale: 4.5, color: .red, size: size)
         let entries: [(Int, String, String, ParticleColor)] = [
             (50, "Paul the Pinwheel (25 pts)", "pinkpinwheel", colours[.pinwheel]),
             (100, "Dimmy the Diamond (50 pts)", "bluediamond", colours[.diamond]),
@@ -316,10 +334,23 @@ final class OriginalScreenRenderer {
                 addDisplaySnake(frame: frame, center: CGPoint(x: size.width / 2 - 155, y: y), size: size)
             } else {
                 let sprite = makeSprite(entry.2, atTopLeftPosition: CGPoint(x: size.width / 2 - 200, y: y), size: size)
-                sprite.zRotation = CGFloat(frame * (index.isMultiple(of: 2) ? 2 : -3)) * .pi / 180
-                if index == 5 {
+                switch index {
+                case 0: sprite.zRotation = CGFloat(frame * 4) * .pi / 180
+                case 1:
+                    let phase = frame % 256
+                    let scaleY = phase > 127 ? CGFloat(phase > 190 ? 255 - phase : phase - 127) : 0
+                    let scaleX = phase <= 127 ? CGFloat(phase > 63 ? 127 - phase : phase) : 0
+                    sprite.xScale = 1 + scaleX / 80
+                    sprite.yScale = 1 + scaleY / 80
+                case 2: sprite.zRotation = CGFloat(frame * 2) * .pi / 180
+                case 3: sprite.zRotation = (-CGFloat(frame) * 2.5 + 90) * .pi / 180
+                case 5:
                     let pulse = 0.75 + sin(CGFloat(frame * 8) * .pi / 180) * 0.25
                     sprite.setScale(pulse)
+                case 7: sprite.zRotation = CGFloat(frame) * .pi / 180
+                case 8: sprite.zRotation = -CGFloat(frame * 3) * .pi / 180
+                case 9: sprite.zRotation = CGFloat(frame * 4) * .pi / 180
+                default: break
                 }
                 content.addChild(sprite)
             }
@@ -451,18 +482,32 @@ final class OriginalScreenRenderer {
         )
     }
 
-    private func shifted(_ color: SKColor, by shift: CGFloat) -> SKColor {
-        var hue: CGFloat = 0
-        var saturation: CGFloat = 0
-        var brightness: CGFloat = 0
-        var alpha: CGFloat = 0
-        color.getHue(&hue, saturation: &saturation, brightness: &brightness, alpha: &alpha)
-        return SKColor(
-            hue: (hue + shift).truncatingRemainder(dividingBy: 1),
-            saturation: max(0.6, saturation),
-            brightness: max(0.75, brightness),
-            alpha: alpha
-        )
+    private func updateScoreTrail(frame: Int, color: SKColor) {
+        guard frame != scoreTrailFrame else { return }
+        if scoreTrailFrame < 0 || frame != scoreTrailFrame + 1 {
+            scoreTrailColors = Array(repeating: color, count: 10)
+        }
+        scoreTrailColors[9] = color
+        if frame.isMultiple(of: 4) {
+            for index in 1..<scoreTrailColors.count {
+                scoreTrailColors[index - 1] = scoreTrailColors[index]
+            }
+        }
+        scoreTrailFrame = frame
+    }
+
+    private func updateFriendTrail(frame: Int, color: SKColor) {
+        guard frame != friendTrailFrame else { return }
+        if friendTrailFrame < 0 || frame != friendTrailFrame + 1 {
+            friendTrailColors = Array(repeating: color, count: 8)
+        }
+        friendTrailColors[7] = color
+        if frame.isMultiple(of: 4) {
+            for index in 1..<friendTrailColors.count {
+                friendTrailColors[index - 1] = friendTrailColors[index]
+            }
+        }
+        friendTrailFrame = frame
     }
 
     private func skColor(_ color: ParticleColor) -> SKColor {

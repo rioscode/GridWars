@@ -27,8 +27,10 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   ownership, cube splitting, power-up merging, bomb cooldown, and wave reset
   on player death. The 2048-slot `ParticleSimulation` now reproduces every
   gameplay emission recipe and colour from `gridwars.bmx`/`colordefs.bmx`.
-  Entity presentation, spatial audio and matching runtime captures remain
-  outstanding, so the broad enemy checklist entries stay open.
+  Enemy sprite transforms, per-kind auras, generator fill/outline geometry,
+  warning flashes and attract-screen animation rates are now source-matched;
+  matching runtime captures remain outstanding, so the broad enemy checklist
+  entries stay open.
 - Grid and particle simulation: `gridparttrail.bmx:494-2017` maps to
   `GridSimulation`, `GridRenderer`, `ParticleSimulation`, and
   `ParticleRenderer`. The port has all 21 grid-style selectors, the original
@@ -60,7 +62,9 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   vector font, coordinates, alpha and icon frames. A persistence-free macOS
   capture catalog covers six representative states via
   `scripts/capture-screens.sh`; image export requires an active unlocked window
-  session.
+  session. Enemy pages reproduce the original individual rotation, pulse and
+  squash rates, while the score and friend pages retain their delayed colour
+  trails instead of applying a uniform palette tint.
 - Persistence and legacy data: `control.bmx:218-872`,
   `gridwars.bmx:3275-3610`, and `utils.bmx:46-74` map to
   `LegacyPersistence`, the high-score presentation in `GameScene` and

@@ -599,8 +599,16 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     private func advanceAttractFrame() {
-        cycleColors()
         if case let .attract(page) = screenFlow.phase {
+            switch page {
+            case .title:
+                cycleColors()
+            case .scores, .friends:
+                cycleColors()
+                cycleColors()
+            case .enemies:
+                break
+            }
             let chance: Int = switch page {
             case .title, .scores: 90
             case .friends, .enemies: 94
@@ -1167,6 +1175,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             }
             (powerUp.childNode(withName: "powerUpStar") as? SKSpriteNode)?.texture =
                 OriginalGraphics.texture(named: "whitestar", setIndex: setIndex)
+            if let star = powerUp.childNode(withName: "powerUpStar") as? SKSpriteNode {
+                star.size = star.texture?.size() ?? star.size
+            }
         }
     }
 
@@ -1603,14 +1614,16 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             "seekerMean": 0,
             "triangleResist": false,
         ])
-        let aura = SKShapeNode(path: generatorPath(kind: kind, radius: 12))
-        aura.name = "spawnAura"
-        aura.fillColor = generatorColor(for: kind).withAlphaComponent(0.35)
-        aura.strokeColor = generatorColor(for: kind)
-        aura.lineWidth = 1
-        aura.glowWidth = 2
-        aura.zPosition = -1
-        enemy.addChild(aura)
+        if kind != .snake, kind != .interceptor {
+            let aura = SKShapeNode(path: enemyAuraPath(kind: kind, rotation: initialRotation, cubeTier: 0))
+            aura.name = "spawnAura"
+            aura.fillColor = generatorColor(for: kind)
+            aura.strokeColor = .clear
+            aura.blendMode = .alpha
+            aura.zPosition = -1
+            aura.zRotation = enemyAuraRotation(for: kind)
+            enemy.addChild(aura)
+        }
         enemyLayer.addChild(enemy)
         if playBornSound {
             playSpatial(enemyBornSound(for: kind), at: enemy.position)
@@ -1741,14 +1754,12 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         rate: Int,
         generatorSize: Int
     ) {
-        let visualRadius = 12 + CGFloat(generatorSize) / 4
-        let generator = SKShapeNode(path: generatorPath(kind: kind, radius: visualRadius))
+        let generator = SKShapeNode(path: generatorFillPath(kind: kind, health: generatorSize))
         generator.name = "generator"
         generator.position = safePosition(position, minimumPlayerDistance: 160)
         generator.fillColor = generatorColor(for: kind).withAlphaComponent(0.1 + CGFloat(generatorSize) / 256)
-        generator.strokeColor = generatorColor(for: kind)
-        generator.lineWidth = 1.5
-        generator.glowWidth = 2
+        generator.strokeColor = .clear
+        generator.blendMode = .alpha
         generator.physicsBody = SKPhysicsBody(circleOfRadius: 12 + CGFloat(generatorSize) / 2)
         generator.physicsBody?.affectedByGravity = false
         generator.physicsBody?.allowsRotation = false
@@ -1764,36 +1775,150 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             "rotation": Int.random(in: 0...359),
             "generatorSize": generatorSize,
         ])
-        let inner = SKShapeNode(path: generatorPath(kind: kind, radius: 8))
-        inner.name = "generatorInner"
-        inner.strokeColor = generatorColor(for: kind)
-        inner.lineWidth = 1
-        inner.glowWidth = 1
-        generator.addChild(inner)
+        let outline = SKShapeNode(path: generatorOutlinePath(kind: kind, health: generatorSize))
+        outline.name = "generatorOutline"
+        outline.strokeColor = generatorColor(for: kind)
+        outline.fillColor = .clear
+        outline.lineWidth = 2
+        outline.blendMode = .alpha
+        generator.addChild(outline)
         enemyLayer.addChild(generator)
         playSpatial(.generatorBorn, at: generator.position)
     }
 
-    private func generatorPath(kind: EnemyKind, radius: CGFloat) -> CGPath {
+    private func generatorFillPath(kind: EnemyKind, health: Int) -> CGPath {
         let path = CGMutablePath()
+        let size = CGFloat(health)
         switch kind {
         case .pinwheel, .diamond:
+            let radius = 12 * size / 14
             path.move(to: CGPoint(x: 0, y: radius))
             path.addLine(to: CGPoint(x: radius, y: 0))
             path.addLine(to: CGPoint(x: 0, y: -radius))
             path.addLine(to: CGPoint(x: -radius, y: 0))
             path.closeSubpath()
         case .greenSquare, .cube, .interceptor:
-            path.addRect(CGRect(x: -radius, y: -radius, width: radius * 2, height: radius * 2))
+            let halfWidth = 12 * size / 16
+            path.addRect(CGRect(
+                x: -halfWidth,
+                y: -halfWidth,
+                width: halfWidth * 2,
+                height: halfWidth * 2
+            ))
         case .triangle, .butterfly:
-            path.move(to: CGPoint(x: 0, y: radius))
-            path.addLine(to: CGPoint(x: radius * 0.75, y: -radius * 0.42))
-            path.addLine(to: CGPoint(x: -radius * 0.75, y: -radius * 0.42))
+            let scale = size / 8
+            path.move(to: CGPoint(x: 0, y: -8 * scale))
+            path.addLine(to: CGPoint(x: 6 * scale, y: 4 * scale))
+            path.addLine(to: CGPoint(x: -6 * scale, y: 4 * scale))
             path.closeSubpath()
         case .seeker, .blackHole, .snake:
-            path.addEllipse(in: CGRect(x: -radius, y: -radius, width: radius * 2, height: radius * 2))
+            appendCircle(to: path, radius: size)
         }
         return path
+    }
+
+    private func generatorOutlinePath(kind: EnemyKind, health: Int) -> CGPath {
+        let path = CGMutablePath()
+        let size = CGFloat(health)
+        switch kind {
+        case .pinwheel, .diamond:
+            appendDiamond(to: path, radius: 12 + size / 4)
+            appendDiamond(to: path, radius: 8)
+        case .greenSquare, .cube, .interceptor:
+            appendSquare(to: path, halfWidth: 8 + size / 4)
+            appendSquare(to: path, halfWidth: 8)
+        case .seeker, .blackHole, .snake:
+            appendCircle(to: path, radius: (8 + size / 2) / 1.1)
+            appendCircle(to: path, radius: 8)
+        case .triangle, .butterfly:
+            appendGeneratorTriangle(to: path, expansion: size / 4)
+            appendGeneratorTriangle(to: path, expansion: 0)
+        }
+        return path
+    }
+
+    private func appendDiamond(to path: CGMutablePath, radius: CGFloat) {
+        path.move(to: CGPoint(x: 0, y: radius))
+        path.addLine(to: CGPoint(x: radius, y: 0))
+        path.addLine(to: CGPoint(x: 0, y: -radius))
+        path.addLine(to: CGPoint(x: -radius, y: 0))
+        path.closeSubpath()
+    }
+
+    private func appendSquare(to path: CGMutablePath, halfWidth: CGFloat) {
+        path.addRect(CGRect(
+            x: -halfWidth,
+            y: -halfWidth,
+            width: halfWidth * 2,
+            height: halfWidth * 2
+        ))
+    }
+
+    private func appendCircle(to path: CGMutablePath, radius: CGFloat) {
+        for index in 0..<18 {
+            let angle = CGFloat(index * 20) * .pi / 180
+            let point = CGPoint(x: cos(angle) * radius, y: sin(angle) * radius)
+            if index == 0 { path.move(to: point) } else { path.addLine(to: point) }
+        }
+        path.closeSubpath()
+    }
+
+    private func appendGeneratorTriangle(to path: CGMutablePath, expansion: CGFloat) {
+        path.move(to: CGPoint(x: 0, y: -12 - expansion))
+        path.addLine(to: CGPoint(x: 9 + expansion, y: 4 + expansion))
+        path.addLine(to: CGPoint(x: -9 - expansion, y: 4 + expansion))
+        path.closeSubpath()
+    }
+
+    private func enemyAuraPath(kind: EnemyKind, rotation: Int, cubeTier: Int) -> CGPath {
+        let path = CGMutablePath()
+        switch kind {
+        case .greenSquare, .pinwheel, .cube:
+            let radius = 12 - CGFloat(cubeTier)
+            path.move(to: CGPoint(x: 0, y: radius))
+            path.addLine(to: CGPoint(x: radius, y: 0))
+            path.addLine(to: CGPoint(x: 0, y: -radius))
+            path.addLine(to: CGPoint(x: -radius, y: 0))
+            path.closeSubpath()
+        case .diamond:
+            let phase = rotation % 256
+            let stretchX: CGFloat
+            let stretchY: CGFloat
+            if phase > 127 {
+                stretchY = CGFloat(phase > 190 ? 255 - phase : phase - 127)
+                stretchX = 0
+            } else {
+                stretchX = CGFloat(phase > 63 ? 127 - phase : phase)
+                stretchY = 0
+            }
+            path.move(to: CGPoint(x: 0, y: 12 + stretchY / 32))
+            path.addLine(to: CGPoint(x: 12 + stretchX / 32, y: 0))
+            path.addLine(to: CGPoint(x: 0, y: -12 - stretchY / 32))
+            path.addLine(to: CGPoint(x: -12 - stretchX / 32, y: 0))
+            path.closeSubpath()
+        case .seeker, .blackHole:
+            for index in 0..<18 {
+                let angle = CGFloat(index * 20) * .pi / 180
+                let point = CGPoint(x: cos(angle) * 8, y: sin(angle) * 8)
+                if index == 0 { path.move(to: point) } else { path.addLine(to: point) }
+            }
+            path.closeSubpath()
+        case .triangle, .butterfly:
+            path.move(to: CGPoint(x: 0, y: 10))
+            path.addLine(to: CGPoint(x: 8, y: -6))
+            path.addLine(to: CGPoint(x: -8, y: -6))
+            path.closeSubpath()
+        case .snake, .interceptor:
+            break
+        }
+        return path
+    }
+
+    private func enemyAuraRotation(for kind: EnemyKind) -> CGFloat {
+        switch kind {
+        case .greenSquare, .pinwheel, .cube: .pi / 4
+        default: 0
+        }
     }
 
     private func generatorColor(for kind: EnemyKind) -> SKColor {
@@ -1817,9 +1942,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             let kind = EnemyKind(rawValue: generator.userData?["kind"] as? String ?? "") ?? .pinwheel
             if let shape = generator as? SKShapeNode {
                 let warning = (rotation + 8) % max(1, rate + 42 - health) < 8
-                shape.strokeColor = warning ? .white : generatorColor(for: kind)
-                (shape.childNode(withName: "generatorInner") as? SKShapeNode)?.strokeColor =
-                    warning ? .white : generatorColor(for: kind)
+                let color = warning ? SKColor.white : generatorColor(for: kind)
+                shape.fillColor = color.withAlphaComponent(0.1 + CGFloat(health) / 256)
+                (shape.childNode(withName: "generatorOutline") as? SKShapeNode)?.strokeColor = color
             }
             let collisionRadiusSquared = pow(12 + CGFloat(health) / 2, 2) + 12 * 12
             if squaredDistance(generator.position, player.position) < collisionRadiusSquared,
@@ -2042,18 +2167,6 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     private func updateEnemyVisual(_ enemy: SKNode, kind: EnemyKind, rotation: Int) {
-        let freezeFrames = (enemy.userData?["freezeFrames"] as? NSNumber)?.intValue ?? 0
-        if let aura = enemy.childNode(withName: "spawnAura") {
-            if freezeFrames > 0 {
-                aura.alpha = min(1, CGFloat(freezeFrames) / 40)
-                aura.setScale(CGFloat(freezeFrames) / 5)
-            } else {
-                let pulse = CGFloat((rotation / 16) % 8) + 0.5
-                aura.alpha = max(0, 0.5 - pulse / 8)
-                aura.setScale(pulse)
-            }
-        }
-
         switch kind {
         case .pinwheel:
             enemy.zRotation = CGFloat(rotation * 4) * .pi / 180
@@ -2112,6 +2225,57 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         case .butterfly:
             enemy.zRotation = CGFloat(rotation * 8) * .pi / 180
         }
+        updateEnemyAura(enemy, kind: kind, rotation: rotation)
+    }
+
+    private func updateEnemyAura(_ enemy: SKNode, kind: EnemyKind, rotation: Int) {
+        guard let aura = enemy.childNode(withName: "spawnAura") as? SKShapeNode else { return }
+        let freezeFrames = (enemy.userData?["freezeFrames"] as? NSNumber)?.intValue ?? 0
+        let cubeTier = (enemy.userData?["cubeTier"] as? NSNumber)?.intValue ?? 0
+        aura.path = enemyAuraPath(kind: kind, rotation: rotation, cubeTier: cubeTier)
+        aura.zRotation = enemyAuraRotation(for: kind)
+
+        let desiredScaleX: CGFloat
+        let desiredScaleY: CGFloat
+        if freezeFrames > 0 {
+            let base = CGFloat(freezeFrames) / 5
+            desiredScaleX = kind == .diamond ? 1 + base : base
+            desiredScaleY = kind == .diamond ? 1 + base : base
+            aura.alpha = CGFloat(freezeFrames) / 40
+        } else {
+            let pulse = CGFloat((rotation / 16) % 8) + 0.5
+            aura.alpha = max(0, 0.5 - pulse / 8)
+            if kind == .diamond {
+                let phase = rotation % 256
+                let stretchX: CGFloat
+                let stretchY: CGFloat
+                if phase > 127 {
+                    stretchY = CGFloat(phase > 190 ? 255 - phase : phase - 127)
+                    stretchX = 0
+                } else {
+                    stretchX = CGFloat(phase > 63 ? 127 - phase : phase)
+                    stretchY = 0
+                }
+                desiredScaleX = 1.5 + stretchX / 16
+                desiredScaleY = 1.5 + stretchY / 16
+            } else if kind == .blackHole {
+                let blackHoleSize = CGFloat(
+                    (enemy.userData?["blackHoleSize"] as? NSNumber)?.doubleValue ?? 20
+                )
+                desiredScaleX = pulse + blackHoleSize / 16
+                desiredScaleY = desiredScaleX
+            } else {
+                desiredScaleX = pulse
+                desiredScaleY = pulse
+            }
+        }
+
+        // The original draws the aura and image with independent SetScale calls.
+        // Counter the parent sprite's current scale to preserve that separation.
+        let parentScaleX = max(0.001, abs(enemy.xScale))
+        let parentScaleY = max(0.001, abs(enemy.yScale))
+        aura.xScale = desiredScaleX / parentScaleX
+        aura.yScale = desiredScaleY / parentScaleY
     }
 
     private func turnToFace(velocity: CGVector, target: CGVector) -> Int {
@@ -3195,9 +3359,10 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
     private func updateGeneratorAppearance(_ generator: SKNode, kind: EnemyKind, health: Int) {
         guard let shape = generator as? SKShapeNode else { return }
-        let radius = 12 + CGFloat(health) / 4
-        shape.path = generatorPath(kind: kind, radius: radius)
+        shape.path = generatorFillPath(kind: kind, health: health)
         shape.fillColor = generatorColor(for: kind).withAlphaComponent(0.1 + CGFloat(health) / 256)
+        (shape.childNode(withName: "generatorOutline") as? SKShapeNode)?.path =
+            generatorOutlinePath(kind: kind, health: health)
         shape.physicsBody = SKPhysicsBody(circleOfRadius: 12 + CGFloat(health) / 2)
         shape.physicsBody?.affectedByGravity = false
         shape.physicsBody?.allowsRotation = false
@@ -3569,7 +3734,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             setIndex: menuModel.settings.graphicsSetIndex
         ))
         star.name = "powerUpStar"
-        star.size = CGSize(width: 98, height: 98)
+        star.size = star.texture?.size() ?? CGSize(width: 98, height: 98)
         star.blendMode = .add
         star.zPosition = -1
         powerUp.addChild(star)
