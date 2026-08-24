@@ -1,6 +1,12 @@
 import CoreGraphics
 import Foundation
 
+enum OriginalTimingRule {
+    static let framesPerSecond = 50
+    static let fixedStep = 1.0 / Double(framesPerSecond)
+    static let maximumAccumulatedTime = fixedStep * 5
+}
+
 enum OriginalDrawRectRule {
     static func sceneRect(
         at scenePoint: CGPoint,

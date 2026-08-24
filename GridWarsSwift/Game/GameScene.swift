@@ -977,10 +977,13 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             return
         }
 
-        let deltaTime = min(0.1, currentTime - lastUpdateTime)
+        let deltaTime = min(
+            OriginalTimingRule.maximumAccumulatedTime,
+            currentTime - lastUpdateTime
+        )
         lastUpdateTime = currentTime
         fixedTimeAccumulator += deltaTime
-        while fixedTimeAccumulator >= 0.02 {
+        while fixedTimeAccumulator >= OriginalTimingRule.fixedStep {
             let gridIsAnimating = menuModel.page == .video && menuModel.isOpen
                 || (!menuModel.isOpen && !gameplayPaused && {
                     switch screenFlow.phase {
@@ -1029,7 +1032,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                     advanceGameOverFrame()
                 }
             }
-            fixedTimeAccumulator -= 0.02
+            fixedTimeAccumulator -= OriginalTimingRule.fixedStep
         }
         renderPresentation()
     }

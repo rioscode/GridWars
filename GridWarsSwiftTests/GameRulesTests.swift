@@ -2,6 +2,12 @@ import AVFoundation
 import XCTest
 
 final class GameRulesTests: XCTestCase {
+    func testGameplayTimingUsesOriginalFixedFiftyHertzStep() {
+        XCTAssertEqual(OriginalTimingRule.framesPerSecond, 50)
+        XCTAssertEqual(OriginalTimingRule.fixedStep, 0.02, accuracy: 0.000_001)
+        XCTAssertEqual(OriginalTimingRule.maximumAccumulatedTime, 0.1, accuracy: 0.000_001)
+    }
+
     func testCameraMatchesOriginalThresholdsAndOverscroll() {
         let playfield = CGSize(width: 1_280, height: 960)
         let viewport = CGSize(width: 1_024, height: 768)
@@ -102,6 +108,40 @@ final class GameRulesTests: XCTestCase {
 
         XCTAssertEqual(session.multiplier, 3)
         XCTAssertEqual(session.score, 17_500)
+    }
+
+    func testAllOriginalEnemyScoresAndMultiplierThresholds() {
+        XCTAssertEqual(GameSession.multiplierThresholds, [
+            25, 100, 200, 400, 800, 1_600, 2_500, 3_500, 5_000, 5_500,
+        ])
+        XCTAssertEqual(Dictionary(uniqueKeysWithValues: OriginalEnemyKind.allCases.map {
+            ($0, $0.baseScore)
+        }), [
+            .pinwheel: 25,
+            .diamond: 50,
+            .greenSquare: 100,
+            .cube: 100,
+            .seeker: 10,
+            .blackHole: 150,
+            .triangle: 150,
+            .snake: 100,
+            .interceptor: 100,
+            .butterfly: 10,
+        ])
+
+        var session = GameSession()
+        for _ in 0..<5_000 {
+            session.registerEnemyDestroyed(baseScore: 0)
+        }
+        XCTAssertEqual(session.multiplier, 10)
+    }
+
+    func testResetGameMakesTheEffectiveFirstPowerUpThresholdFiveThousand() {
+        var session = GameSession()
+
+        XCTAssertFalse(session.registerScore(baseScore: 4_999).contains(.spawnPowerUp(nil)))
+        XCTAssertTrue(session.registerScore(baseScore: 1).contains(.spawnPowerUp(nil)))
+        XCTAssertEqual(session.nextPowerUpScore, 7_500)
     }
 
     func testPlayerHitCostsLifeAndRemovesOriginalUpgrades() {
@@ -510,6 +550,22 @@ final class GameRulesTests: XCTestCase {
         XCTAssertTrue(thresholdEvents.contains(.spawnPowerUp(.extraPlayer)))
     }
 
+    func testEveryDifficultyUsesItsOriginalExtraAwardThresholds() {
+        for difficulty in GameDifficulty.allCases {
+            var lifeSession = GameSession(difficulty: difficulty)
+            XCTAssertTrue(
+                lifeSession.registerScore(baseScore: difficulty.extraLifeThreshold)
+                    .contains(.spawnPowerUp(.extraPlayer))
+            )
+
+            var bombSession = GameSession(difficulty: difficulty)
+            XCTAssertTrue(
+                bombSession.registerScore(baseScore: difficulty.extraBombThreshold)
+                    .contains(.spawnPowerUp(.extraBomb))
+            )
+        }
+    }
+
     func testEnemySelectionUnlocksInOriginalStages() {
         var random = SeededRandomNumberGenerator(seed: 42)
         let director = SpawnDirector()
@@ -559,6 +615,38 @@ final class GameRulesTests: XCTestCase {
         let blocked = director.advance(frame: 33, spawningIsBlocked: true, using: &random)
 
         XCTAssertTrue(blocked.commands.isEmpty)
+    }
+
+    func testSpawnDirectorPreservesAllFourOriginalWaveCadences() {
+        var random = SeededRandomNumberGenerator(seed: 19)
+
+        var first = SpawnDirector()
+        XCTAssertTrue(first.advance(frame: 777, spawningIsBlocked: false, using: &random).commands.isEmpty)
+        XCTAssertEqual(
+            first.advance(frame: 778, spawningIsBlocked: false, using: &random).commands.count,
+            1
+        )
+
+        var second = SpawnDirector()
+        _ = second.advance(frame: 1_850, spawningIsBlocked: false, using: &random)
+        XCTAssertEqual(
+            second.advance(frame: 1_851, spawningIsBlocked: false, using: &random).commands.count,
+            1
+        )
+
+        var third = SpawnDirector()
+        _ = third.advance(frame: 2_900, spawningIsBlocked: false, using: &random)
+        _ = third.advance(frame: 2_901, spawningIsBlocked: false, using: &random)
+        XCTAssertFalse(
+            third.advance(frame: 2_902, spawningIsBlocked: false, using: &random).commands.isEmpty
+        )
+
+        var fourth = SpawnDirector()
+        _ = fourth.advance(frame: 6_666, spawningIsBlocked: false, using: &random)
+        _ = fourth.advance(frame: 6_667, spawningIsBlocked: false, using: &random)
+        XCTAssertFalse(
+            fourth.advance(frame: 6_668, spawningIsBlocked: false, using: &random).commands.isEmpty
+        )
     }
 
     func testTriangleBondUsesOriginalStrengthAndProjectileImpulse() {

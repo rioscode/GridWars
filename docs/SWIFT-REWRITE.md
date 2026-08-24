@@ -181,6 +181,21 @@ Random-call order is part of behavior. The original capture state creates all
 10,001 stars before spawning the inspected entity; consuming only the visible
 301 star values changes every later randomized entity transform.
 
+## Timing and state-order traps
+
+The gameplay loop is fixed at 50 Hz (`20 ms`). A display may refresh at 60 Hz,
+but gameplay, spawn counters, upgrade durations, colour phases, and particle
+lifetimes must advance only through `OriginalTimingRule.fixedStep`. Bound the
+accumulator after a stall so resuming the app cannot simulate an unbounded
+burst of historical frames.
+
+Read setup routines through their final call order, not isolated assignments.
+`ResetGame` assigns `powerupscore = POWERUP` (`2500`) and then immediately calls
+`ResetMultiplier`, which rounds the next threshold to `5000` at score zero.
+Therefore the effective first in-game power-up threshold is `5000`, followed
+by `POWERUP * multiplier²` increments. Porting the earlier assignment alone
+silently spawns the first power-up twice as early.
+
 Keep deterministic pure rules outside SpriteKit where possible. Test boundary
 conditions and historical integer conversions directly rather than relying
 only on screenshots.

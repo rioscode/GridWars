@@ -291,18 +291,20 @@ the corresponding Swift implementation, and a test or visual/runtime check.
 
 ## Core loop and progression
 
-- [ ] Fixed 50 Hz gameplay timing (`gridwars.bmx:3622-3704`).
-- [ ] Easy, Medium, and Hard initial state and speed modifiers
+- [x] Fixed 50 Hz gameplay timing (`gridwars.bmx:3622-3704`).
+- [x] Easy, Medium, and Hard initial state and speed modifiers
       (`gridwars.bmx:4645-4750`).
-- [ ] Original staged spawn scheduler, corner patterns, generators, wave caps,
+- [x] Original staged spawn scheduler, corner patterns, generators, wave caps,
       and per-minute speed increases (`gridwars.bmx:4752-4977`).
-- [ ] Original score values and cumulative kill thresholds
+- [x] Original score values and cumulative kill thresholds
       `25, 100, 200, 400, 800, 1600, 2500, 3500, 5000, 5500` for multipliers
       1× through 10× (`gridwars.bmx:101, 3168-3246`).
-- [ ] Power-up, extra-player, and extra-bomb score thresholds and messages.
+- [x] Power-up, extra-player, and extra-bomb score thresholds.
+- [ ] Original bottom status message position, colour, and 180-frame fade after
+      multiplier reset.
 - [x] Player death sequence, killer preservation, upgrade loss, respawn,
       shield, and game-over sequence (`gridwars.bmx:4433-4590`).
-- [ ] Bomb destroys all eligible enemies without points, resets multiplier,
+- [x] Bomb destroys all eligible enemies without points, resets multiplier,
       distorts the grid, and grants the short shield (`gridwars.bmx:3138-3164`).
 
 ## Enemies and hazards

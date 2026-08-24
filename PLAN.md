@@ -148,6 +148,8 @@ branch. Each major fidelity milestone has its own commit:
       and selector-specific hard rasterization for Grid style 11
 - [x] Get Ready's two source-ordered Grid updates per displayed frame, including
       pull-before-update ordering
+- [x] Centralized 50-Hz simulation timing plus audited difficulty, all four
+      wave cadences, score values, multiplier and award thresholds
 - [x] Top-left 1×1 `Plot` pixel anchoring for midpoint-circle Get Ready rings
 - [x] OpenGL pixel-center anchoring for one-pixel particle line style 0
 - [x] OpenGL pixel-center anchoring and additive-alpha compensation for the
