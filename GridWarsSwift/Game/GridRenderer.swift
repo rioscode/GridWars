@@ -26,6 +26,12 @@ enum GridStyle: Int, CaseIterable {
 
 @MainActor
 final class GridRenderer {
+    private struct RGBSpiralVertex {
+        let position: CGPoint
+        let origin: CGPoint
+        let redDisplacementAxis: OriginalRGBSplitRule.DisplacementAxis
+    }
+
     let node = SKNode()
 
     private let stretchBucketCount = 64
@@ -562,14 +568,13 @@ final class GridRenderer {
     private func addRGBSpiral(_ grid: GridSimulation, alpha: CGFloat) {
         let rgbPhase = (CGFloat(max(1, animationFrame)) * 3)
             .truncatingRemainder(dividingBy: 360)
-        let deformed = spiralPoints(grid, useOrigins: false)
-        let original = spiralPoints(grid, useOrigins: true)
+        let vertices = rgbSpiralVertices(grid)
         let bucketCount = 64
         let red = (0..<bucketCount).map { _ in CGMutablePath() }
         let green = (0..<bucketCount).map { _ in CGMutablePath() }
         let blue = (0..<bucketCount).map { _ in CGMutablePath() }
         var phase = rgbPhase
-        for index in 1..<min(deformed.count, original.count) {
+        for index in 1..<vertices.count {
             phase = (phase + 6).truncatingRemainder(dividingBy: 360)
             let pulse = 0.3 + 0.2 * sin(phase * .pi / 180)
             let bucket = min(
@@ -577,16 +582,26 @@ final class GridRenderer {
                 max(0, Int((pulse - 0.1) / 0.4 * CGFloat(bucketCount)))
             )
             let redStart = OriginalRGBSplitRule.redPoint(
-                deformed[index - 1],
-                origin: original[index - 1]
+                vertices[index - 1].position,
+                origin: vertices[index - 1].origin,
+                displacementAxis: vertices[index - 1].redDisplacementAxis
             )
             let redEnd = OriginalRGBSplitRule.redPoint(
-                deformed[index],
-                origin: original[index]
+                vertices[index].position,
+                origin: vertices[index].origin,
+                displacementAxis: vertices[index].redDisplacementAxis
             )
             appendSegment(to: red[bucket], from: redStart, to: redEnd)
-            appendSegment(to: green[bucket], from: deformed[index - 1], to: deformed[index])
-            appendSegment(to: blue[bucket], from: original[index - 1], to: original[index])
+            appendSegment(
+                to: green[bucket],
+                from: vertices[index - 1].position,
+                to: vertices[index].position
+            )
+            appendSegment(
+                to: blue[bucket],
+                from: vertices[index - 1].origin,
+                to: vertices[index].origin
+            )
         }
         for bucket in 0..<bucketCount {
             let pulse = 0.1 + CGFloat(bucket) / CGFloat(bucketCount - 1) * 0.4
@@ -664,39 +679,50 @@ final class GridRenderer {
         return path
     }
 
-    private func spiralPoints(_ grid: GridSimulation, useOrigins: Bool) -> [CGPoint] {
-        var result: [CGPoint] = []
+    private func rgbSpiralVertices(_ grid: GridSimulation) -> [RGBSpiralVertex] {
+        var result: [RGBSpiralVertex] = []
         var left = 1
         var right = max(1, grid.columns - 1)
         var bottom = 1
         var top = max(1, grid.rows - 1)
-        while left <= right, bottom <= top {
-            for column in left...right { result.append(point(grid, column, bottom, useOrigins)) }
-            bottom += 1
-            guard bottom <= top else { break }
-            for row in bottom...top { result.append(point(grid, right, row, useOrigins)) }
-            right -= 1
-            guard left <= right else { break }
-            for column in stride(from: right, through: left, by: -1) {
-                result.append(point(grid, column, top, useOrigins))
+        func append(
+            column: Int,
+            row: Int,
+            axis: OriginalRGBSplitRule.DisplacementAxis
+        ) {
+            let point = grid[column, row]
+            result.append(RGBSpiralVertex(
+                position: point.position,
+                origin: point.origin,
+                redDisplacementAxis: axis
+            ))
+        }
+        while left <= right, bottom < top {
+            for column in left...right {
+                append(column: column, row: top, axis: .horizontal)
             }
             top -= 1
-            guard bottom <= top else { break }
             for row in stride(from: top, through: bottom, by: -1) {
-                result.append(point(grid, left, row, useOrigins))
+                append(column: right, row: row, axis: .vertical)
+            }
+            for column in stride(from: right, through: left, by: -1) {
+                append(column: column, row: bottom, axis: .horizontal)
+            }
+            right -= 1
+            bottom += 1
+            if bottom <= top {
+                for row in bottom...top {
+                    append(column: left, row: row, axis: .vertical)
+                }
             }
             left += 1
         }
+        if left <= right, bottom <= top {
+            for column in left...right {
+                append(column: column, row: top, axis: .horizontal)
+            }
+        }
         return result
-    }
-
-    private func point(
-        _ grid: GridSimulation,
-        _ column: Int,
-        _ row: Int,
-        _ useOrigin: Bool
-    ) -> CGPoint {
-        useOrigin ? grid[column, row].origin : grid[column, row].position
     }
 
     private func cellPoints(

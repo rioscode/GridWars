@@ -140,6 +140,14 @@ Increase bucket counts only when captures improve. Raster policy is likewise
 selector-specific: disabling `SKShapeNode` antialiasing improves the closed
 `DrawLine` cell outlines of Grid style 11, but slightly worsens the two
 diagonal lines of style 12, so do not apply it to every grid path.
+
+The RGB-split spiral is sensitive to vertex emission order even when the final
+line topology looks the same. After scene-Y conversion it starts at the visual
+top-left, walks clockwise, repeats the bottom-right corner before the leftward
+side, and only then shrinks `xmax`. Preserve that duplicate vertex because it
+also advances the six-degree colour phase. The red path checks X displacement
+on horizontal sides and Y displacement on vertical sides; a generic
+"either-axis moved" check produces incorrect `(-4,+4)` offsets at corners.
 The Moiré style uses six constant-color subdivisions per triangle as a bounded
 Gouraud approximation; 12 subdivisions rendered slower and compared slightly
 worse. Its source `b` phase index must be recovered as `rows-1-sceneRow`, and

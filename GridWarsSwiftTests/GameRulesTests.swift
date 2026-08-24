@@ -1445,15 +1445,39 @@ final class GameRulesTests: XCTestCase {
         XCTAssertEqual(OriginalBlendRule.spriteKitAdditiveNodeAlpha(sourceAlpha: 2), 1)
     }
 
-    func testRGBSplitRedOffsetInvertsTheSourceYDirection() {
+    func testRGBSplitRedOffsetUsesSourceSideAxisAndInvertsY() {
         let origin = CGPoint(x: 100, y: 600)
         XCTAssertEqual(
-            OriginalRGBSplitRule.redPoint(CGPoint(x: 100.5, y: 600.5), origin: origin),
+            OriginalRGBSplitRule.redPoint(
+                CGPoint(x: 100.5, y: 600.5),
+                origin: origin,
+                displacementAxis: .horizontal
+            ),
             CGPoint(x: 100.5, y: 600.5)
         )
         XCTAssertEqual(
-            OriginalRGBSplitRule.redPoint(CGPoint(x: 104, y: 596), origin: origin),
+            OriginalRGBSplitRule.redPoint(
+                CGPoint(x: 104, y: 596),
+                origin: origin,
+                displacementAxis: .horizontal
+            ),
             CGPoint(x: 100, y: 600)
+        )
+        XCTAssertEqual(
+            OriginalRGBSplitRule.redPoint(
+                CGPoint(x: 104, y: 600),
+                origin: origin,
+                displacementAxis: .vertical
+            ),
+            CGPoint(x: 104, y: 600)
+        )
+        XCTAssertEqual(
+            OriginalRGBSplitRule.redPoint(
+                CGPoint(x: 100, y: 596),
+                origin: origin,
+                displacementAxis: .vertical
+            ),
+            CGPoint(x: 96, y: 600)
         )
     }
 

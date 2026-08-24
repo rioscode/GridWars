@@ -140,6 +140,8 @@ branch. Each major fidelity milestone has its own commit:
       premultiplication compensation
 - [x] RGB-split raw-OpenGL alpha, scene-inverted red-channel offset, and finer
       per-vertex colour approximation
+- [x] RGB-split source traversal, repeated-corner phase, and side-specific red
+      displacement checks
 - [x] 64-level per-cell colour/alpha approximation for stretched and sine
       filled grid quads
 - [x] 64-level continuous colour/width approximation for stretched line grids

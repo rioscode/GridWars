@@ -75,8 +75,21 @@ enum OriginalBlendRule {
 }
 
 enum OriginalRGBSplitRule {
-    static func redPoint(_ point: CGPoint, origin: CGPoint) -> CGPoint {
-        guard abs(point.x - origin.x) > 1 || abs(point.y - origin.y) > 1 else {
+    enum DisplacementAxis {
+        case horizontal
+        case vertical
+    }
+
+    static func redPoint(
+        _ point: CGPoint,
+        origin: CGPoint,
+        displacementAxis: DisplacementAxis
+    ) -> CGPoint {
+        let isDisplaced = switch displacementAxis {
+        case .horizontal: abs(point.x - origin.x) > 1
+        case .vertical: abs(point.y - origin.y) > 1
+        }
+        guard isDisplaced else {
             return point
         }
         return CGPoint(x: point.x - 4, y: point.y + 4)
