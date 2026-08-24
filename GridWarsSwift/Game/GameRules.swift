@@ -1,6 +1,63 @@
 import CoreGraphics
 import Foundation
 
+enum OriginalCameraRule {
+    static let edgeThreshold: CGFloat = 500
+    static let overscroll: CGFloat = 80
+
+    static func centeredOffset(playfield: CGSize, viewport: CGSize) -> CGPoint {
+        CGPoint(
+            x: (playfield.width - viewport.width) / 2,
+            y: (playfield.height - viewport.height) / 2
+        )
+    }
+
+    static func advance(
+        offset: CGPoint,
+        player: CGPoint,
+        playfield: CGSize,
+        viewport: CGSize,
+        scrolling: Bool
+    ) -> CGPoint {
+        guard scrolling else { return offset }
+        return CGPoint(
+            x: advanceAxis(
+                offset: offset.x,
+                player: player.x,
+                playfield: playfield.width,
+                viewport: viewport.width
+            ),
+            y: advanceAxis(
+                offset: offset.y,
+                player: player.y,
+                playfield: playfield.height,
+                viewport: viewport.height
+            )
+        )
+    }
+
+    private static func advanceAxis(
+        offset oldOffset: CGFloat,
+        player: CGFloat,
+        playfield: CGFloat,
+        viewport: CGFloat
+    ) -> CGFloat {
+        var offset = oldOffset
+        let nearEdge = Int(player - offset)
+        if nearEdge < Int(edgeThreshold) {
+            offset -= CGFloat(2 * (5 - nearEdge / 100))
+            offset = max(-overscroll, offset)
+        }
+
+        let farEdge = Int(player - offset - viewport)
+        if farEdge > -Int(edgeThreshold) {
+            offset += CGFloat(2 * (5 - abs(farEdge) / 100))
+            offset = min(playfield - viewport + overscroll, offset)
+        }
+        return offset
+    }
+}
+
 enum GameDifficulty: Int, CaseIterable, Codable {
     case easy
     case medium

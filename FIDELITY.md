@@ -34,8 +34,9 @@ the corresponding Swift implementation, and a test or visual/runtime check.
 - Grid and particle simulation: `gridparttrail.bmx:494-2017` maps to
   `GridSimulation`, `GridRenderer`, `ParticleSimulation`, and
   `ParticleRenderer`. The port has all 21 grid-style selectors, the original
-  16-pixel point lattice and in-place spring update, push/pull/shockwave
-  impulses, 2048-slot ring allocation, four particle render selectors,
+  configurable 4/8/16/32-pixel point lattice and in-place spring update,
+  push/pull/shockwave impulses, configurable particle-ring capacity, four
+  particle render selectors,
   half-ring black-hole gravity, lifetime/decay/bounce behaviour, and exact
   gameplay emission counts. Unit tests cover lattice impulses, reset and
   damping plus particle lifetime, wrap, colour fade, palette and black-hole
@@ -53,7 +54,10 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   P-held/O-single-step loop are wired to the original macOS key positions.
   Rule tests cover timing, hierarchy, 0...10,000 star wrap, 119-step grid
   brightness, invalid-score state, 450-frame cheat grants, caps, and the
-  original debug weapon patterns. Matching visual captures are still required
+  original debug weapon patterns. `OriginalCameraRule` and the scene now apply
+  the configured arena size, forced scrolling for oversized playfields, the
+  original integer 500-pixel edge acceleration, ±80 overscroll, pointer-space
+  conversion, and depth-divided star parallax. Matching visual captures are still required
   before checking the broad screen and menu entries.
 - Graphics and HUD: `images.bmx:34-100`, `gridwars.bmx:3266-3272, 5911-5932`,
   and the fixed-frame original images in `docs/captures/original/` map to
@@ -104,7 +108,7 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   archived legacy `Language/Data types.bbdoc` documents the implicit numeric
   conversions used by the original. Swift random ranges and intentional
   integer truncations follow those references.
-- Build evidence (2026-08-24): the macOS unit-test action (59 tests) and generic
+- Build evidence (2026-08-24): the macOS unit-test action (60 tests) and generic
   iOS Simulator Debug build both pass. The rule suite
   covers initial difficulty, motion, weapons, scoring, upgrades, spawn timing,
   triangle bonds, snake following, black-hole integer conversions,
@@ -167,7 +171,7 @@ the corresponding Swift implementation, and a test or visual/runtime check.
 
 - [ ] Grid styles 0 through 20 and their exact composition
       (`gridparttrail.bmx:494-1662`).
-- [ ] Configurable spacing, RGB, opacity, full-grid mode, scroll offsets, arena
+- [x] Configurable spacing, RGB, opacity, full-grid mode, scroll offsets, arena
       sizes, and border.
 - [x] Grid push, pull, shockwave, black-hole deformation, and reset.
 - [ ] Star count/depth parallax and all four particle styles.

@@ -170,6 +170,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private var starNodes: [SKShapeNode] = []
     private var appliedGridColorPosition = 0
     private var appliedGraphicsSetIndex = -1
+    private var cameraOffset = CGPoint.zero
     private let persistenceStore = GridWarsPersistenceStore.applicationDefault()
     private let audio = OriginalAudioEngine()
     private var colorPalette = OriginalColorPalette()
@@ -198,6 +199,18 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private var cyclingRedDelta: CGFloat = -3
     private var cyclingGreenDelta: CGFloat = 5
     private var cyclingBlueDelta: CGFloat = 7
+
+    private var playfieldSize: CGSize {
+        CGSize(
+            width: CGFloat(max(32, menuModel.settings.playfieldWidth)),
+            height: CGFloat(max(32, menuModel.settings.playfieldHeight))
+        )
+    }
+
+    private var configuredGridSpacing: CGFloat {
+        let values: [CGFloat] = [4, 8, 16, 32]
+        return values[min(3, max(0, menuModel.settings.gridSpacing))]
+    }
 
     #if os(iOS)
     private var movementTouch: UITouch?
@@ -236,6 +249,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         setupArena()
         setupPlayer()
         setupHUD()
+        applyRuntimeSettings()
         prepareAttractMode()
         configureCaptureIfRequested(in: view)
     }
@@ -247,8 +261,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         highScores = state.highScores
         particleGravityEnabled = state.settings.particleGravity
         particleSimulation = ParticleSimulation(
-            arenaSize: size,
-            capacity: max(1, state.settings.particleCount),
+            arenaSize: playfieldSize,
+            capacity: max(0, min(50_000, state.settings.particleCount)),
             particleLife: state.settings.particleLife,
             decay: state.settings.particleDecay
         )
@@ -289,8 +303,13 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private func setupArena() {
         renderGrid()
         ensureStarCapacity(through: 300)
+        rebuildArenaBorder()
+    }
 
-        let border = SKShapeNode(rect: CGRect(origin: .zero, size: size))
+    private func rebuildArenaBorder() {
+        gridLayer.childNode(withName: "arenaBorder")?.removeFromParent()
+        let border = SKShapeNode(rect: CGRect(origin: .zero, size: playfieldSize))
+        border.name = "arenaBorder"
         border.strokeColor = SKColor(red: 0.15, green: 0.45, blue: 1, alpha: 0.75)
         border.lineWidth = 3
         border.glowWidth = 3
@@ -411,7 +430,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         gameplayPaused = false
         player.removeAllActions()
         player.alpha = 1
-        player.position = CGPoint(x: size.width / 2, y: size.height / 2)
+        centerPlayerAndCamera()
         playerMotion.reset()
         inputResolver.reset()
         frameInput = OriginalResolvedInput()
@@ -430,6 +449,13 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         startGetReadySequence()
     }
 
+    private func centerPlayerAndCamera() {
+        let arena = playfieldSize
+        player.position = CGPoint(x: arena.width / 2, y: arena.height / 2)
+        cameraOffset = OriginalCameraRule.centeredOffset(playfield: arena, viewport: size)
+        updateWorldTransformAndStars()
+    }
+
     private func prepareAttractMode() {
         enemyLayer.removeAllChildren()
         projectileLayer.removeAllChildren()
@@ -441,6 +467,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         screenFlow.returnToTitle()
         clearScorePresentation()
         gameplayPaused = false
+        cameraOffset = .zero
+        updateWorldTransformAndStars()
         gridLayer.isHidden = true
         enemyLayer.isHidden = true
         projectileLayer.isHidden = true
@@ -479,7 +507,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             beginGame()
             getReadyFrame = -1
             player.isHidden = false
-            player.position = CGPoint(x: size.width / 2, y: size.height / 2)
+            player.position = CGPoint(x: playfieldSize.width / 2, y: playfieldSize.height / 2)
             let samples: [(EnemyKind, CGPoint)] = [
                 (.pinwheel, CGPoint(x: 180, y: 180)),
                 (.diamond, CGPoint(x: 330, y: 560)),
@@ -851,6 +879,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         projectileLayer.removeAllChildren()
         pickupLayer.removeAllChildren()
         effectLayer.removeAllChildren()
+        cameraOffset = .zero
+        updateWorldTransformAndStars()
         gridLayer.isHidden = true
         enemyLayer.isHidden = true
         projectileLayer.isHidden = true
@@ -926,6 +956,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             triggerBomb()
         }
         updatePlayer()
+        updateCamera()
         updatePlayerTrails()
         updateAim()
         updatePlayerShield()
@@ -955,14 +986,18 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     private func resolveFrameInput() {
+        let playerOnScreen = CGPoint(
+            x: player.position.x - cameraOffset.x,
+            y: player.position.y - cameraOffset.y
+        )
         var snapshot = OriginalInputSnapshot(
             pressedKeys: pressedOriginalKeys,
             mouseButtons: mouseButtons,
             mouseDelta: relativeMouseMovement,
             pointerFromPlayer: hasPointerLocation
                 ? CGVector(
-                    dx: pointerLocation.x - player.position.x,
-                    dy: pointerLocation.y - player.position.y
+                    dx: pointerLocation.x - playerOnScreen.x,
+                    dy: pointerLocation.y - playerOnScreen.y
                 )
                 : .zero,
             pointerFromCenter: hasPointerLocation
@@ -1180,6 +1215,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     private func applyRuntimeSettings() {
+        configurePlayfieldIfNeeded()
         audio.configure(settings: menuModel.settings)
         applyGraphicsSetIfNeeded()
         for blackHole in enemies(of: .blackHole)
@@ -1192,7 +1228,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 id: id,
                 at: blackHole.position,
                 listener: player.position,
-                playfieldSize: size,
+                playfieldSize: playfieldSize,
                 size: blackHoleSize
             )
         }
@@ -1212,6 +1248,37 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 menuModel.settings.gridBlue = color.blue
             }
         }
+    }
+
+    private func configurePlayfieldIfNeeded() {
+        let arena = playfieldSize
+        let spacing = configuredGridSpacing
+        let gridNeedsRebuild = gridSimulation.arenaSize != arena
+            || gridSimulation.spacing != spacing
+        let particleCapacity = max(0, min(50_000, menuModel.settings.particleCount))
+        let particlesNeedRebuild = particleSimulation.arenaSize != arena
+            || particleSimulation.capacity != particleCapacity
+
+        if arena.width > size.width || arena.height > size.height {
+            menuModel.settings.scroll = true
+        }
+        if gridNeedsRebuild {
+            gridSimulation = GridSimulation(arenaSize: arena, spacing: spacing)
+            rebuildArenaBorder()
+            for star in starNodes { star.removeFromParent() }
+            starNodes.removeAll(keepingCapacity: true)
+            ensureStarCapacity(through: menuModel.settings.starCount)
+            centerPlayerAndCamera()
+        }
+        if particlesNeedRebuild {
+            particleSimulation = ParticleSimulation(
+                arenaSize: arena,
+                capacity: particleCapacity,
+                particleLife: menuModel.settings.particleLife,
+                decay: menuModel.settings.particleDecay
+            )
+        }
+        updateWorldTransformAndStars()
     }
 
     private func applyGraphicsSetIfNeeded() {
@@ -1266,6 +1333,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private func ensureStarCapacity(through requestedIndex: Int) {
         let finalIndex = min(OriginalRuntimeSettings.maximumStars, max(0, requestedIndex))
         guard starNodes.count <= finalIndex else { return }
+        let arena = playfieldSize
         for index in starNodes.count...finalIndex {
             let depth = 2 + CGFloat(index % 8) / 4
             let brightness = min(1, (480 / depth) / 255)
@@ -1274,13 +1342,45 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             star.strokeColor = .clear
             star.alpha = 0.8
             star.name = "star"
-            star.position = CGPoint(
-                x: CGFloat(Int.random(in: -100...Int(size.width + 100))),
-                y: CGFloat(Int.random(in: -100...Int(size.height + 100)))
+            let basePosition = CGPoint(
+                x: CGFloat(Int.random(in: -100...Int(max(arena.width, size.width) + 100))),
+                y: CGFloat(Int.random(in: -100...Int(max(arena.height, size.height) + 100)))
             )
+            star.position = basePosition
+            star.userData = NSMutableDictionary(dictionary: [
+                "baseX": basePosition.x,
+                "baseY": basePosition.y,
+                "depth": depth,
+            ])
             starNodes.append(star)
             gridLayer.addChild(star)
         }
+        updateWorldTransformAndStars()
+    }
+
+    private func updateWorldTransformAndStars() {
+        worldLayer.position = CGPoint(x: -cameraOffset.x, y: -cameraOffset.y)
+        for star in starNodes {
+            guard let data = star.userData else { continue }
+            let baseX = CGFloat((data["baseX"] as? NSNumber)?.doubleValue ?? Double(star.position.x))
+            let baseY = CGFloat((data["baseY"] as? NSNumber)?.doubleValue ?? Double(star.position.y))
+            let depth = max(1, CGFloat((data["depth"] as? NSNumber)?.doubleValue ?? 2))
+            star.position = CGPoint(
+                x: baseX + cameraOffset.x * (1 - 1 / depth),
+                y: baseY + cameraOffset.y * (1 - 1 / depth)
+            )
+        }
+    }
+
+    private func updateCamera() {
+        cameraOffset = OriginalCameraRule.advance(
+            offset: cameraOffset,
+            player: player.position,
+            playfield: playfieldSize,
+            viewport: size,
+            scrolling: menuModel.settings.scroll
+        )
+        updateWorldTransformAndStars()
     }
 
     private func originalGridColor(at position: Int) -> (red: Int, green: Int, blue: Int)? {
@@ -1339,9 +1439,10 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     private func randomPowerUpPosition() -> CGPoint {
-        CGPoint(
-            x: randomCoordinate(250...Int(size.width - 250)),
-            y: randomCoordinate(150...Int(size.height - 150))
+        let arena = playfieldSize
+        return CGPoint(
+            x: randomCoordinate(inset: 250, length: arena.width),
+            y: randomCoordinate(inset: 150, length: arena.height)
         )
     }
 
@@ -1417,7 +1518,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         let result = playerMotion.advance(
             from: player.position,
             input: frameInput.movement,
-            arenaSize: size,
+            arenaSize: playfieldSize,
             inertia: menuModel.settings.inertia,
             movementLimit: frameInput.movementLimit
         )
@@ -1667,8 +1768,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         let interceptorTurn = turnToFace(
             velocity: initialVelocity,
             target: CGVector(
-                dx: size.width / 2 - enemy.position.x,
-                dy: size.height / 2 - enemy.position.y
+                dx: playfieldSize.width / 2 - enemy.position.x,
+                dy: playfieldSize.height / 2 - enemy.position.y
             )
         )
         enemy.userData = NSMutableDictionary(dictionary: [
@@ -1736,6 +1837,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     private func position(for corner: SpawnCorner) -> CGPoint {
+        let arena = playfieldSize
         let resolved: SpawnCorner
         switch corner {
         case .anyCorner:
@@ -1758,11 +1860,11 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
         switch resolved {
         case .topLeft:
-            return CGPoint(x: randomCoordinate(30...80), y: size.height - randomCoordinate(30...80))
+            return CGPoint(x: randomCoordinate(30...80), y: arena.height - randomCoordinate(30...80))
         case .topRight:
-            return CGPoint(x: size.width - randomCoordinate(30...80), y: size.height - randomCoordinate(30...80))
+            return CGPoint(x: arena.width - randomCoordinate(30...80), y: arena.height - randomCoordinate(30...80))
         case .bottomRight:
-            return CGPoint(x: size.width - randomCoordinate(30...80), y: randomCoordinate(30...80))
+            return CGPoint(x: arena.width - randomCoordinate(30...80), y: randomCoordinate(30...80))
         case .bottomLeft:
             return CGPoint(x: randomCoordinate(30...80), y: randomCoordinate(30...80))
         case .nearPlayer:
@@ -1770,8 +1872,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             return CGPoint(x: player.position.x + cos(angle) * 240, y: player.position.y + sin(angle) * 240)
         default:
             return CGPoint(
-                x: randomCoordinate(30...Int(size.width - 30)),
-                y: randomCoordinate(30...Int(size.height - 30))
+                x: randomCoordinate(inset: 30, length: arena.width),
+                y: randomCoordinate(inset: 30, length: arena.height)
             )
         }
     }
@@ -1780,10 +1882,18 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         CGFloat(Int.random(in: range))
     }
 
+    private func randomCoordinate(inset: Int, length: CGFloat) -> CGFloat {
+        let midpoint = max(0, Int(length) / 2)
+        let lowerBound = min(inset, midpoint)
+        let upperBound = max(lowerBound, Int(length) - inset)
+        return randomCoordinate(lowerBound...upperBound)
+    }
+
     private func safePosition(_ proposed: CGPoint, minimumPlayerDistance: CGFloat) -> CGPoint {
+        let arena = playfieldSize
         var result = CGPoint(
-            x: min(size.width - 20, max(20, proposed.x)),
-            y: min(size.height - 20, max(20, proposed.y))
+            x: min(arena.width - 20, max(20, proposed.x)),
+            y: min(arena.height - 20, max(20, proposed.y))
         )
         var fromSpawnToPlayer = CGVector(
             dx: player.position.x - result.x,
@@ -1818,8 +1928,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                     x: player.position.x + sin(angle) * minimumPlayerDistance,
                     y: player.position.y + cos(angle) * minimumPlayerDistance
                 )
-                result.x = min(size.width - 20, max(20, result.x))
-                result.y = min(size.height - 20, max(20, result.y))
+                result.x = min(arena.width - 20, max(20, result.x))
+                result.y = min(arena.height - 20, max(20, result.y))
                 fromSpawnToPlayer = CGVector(
                     dx: player.position.x - result.x,
                     dy: player.position.y - result.y
@@ -2197,11 +2307,11 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             if kind == .interceptor {
                 enemy.position.x += velocity.dx
                 enemy.position.y += velocity.dy
-                if enemy.position.x < 16 || enemy.position.x > size.width - 16 {
+                if enemy.position.x < 16 || enemy.position.x > playfieldSize.width - 16 {
                     enemy.position.x -= velocity.dx
                     enemy.position.y -= velocity.dy
                 }
-                if enemy.position.y < 16 || enemy.position.y > size.height - 16 {
+                if enemy.position.y < 16 || enemy.position.y > playfieldSize.height - 16 {
                     enemy.position.x -= velocity.dx
                     enemy.position.y -= velocity.dy
                 }
@@ -2768,17 +2878,18 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     private func bounce(_ enemy: SKNode, velocity: inout CGVector, margin: CGFloat) {
+        let arena = playfieldSize
         if enemy.position.x < margin {
             velocity.dx = abs(velocity.dx)
             enemy.position.x += velocity.dx
-        } else if enemy.position.x > size.width - margin {
+        } else if enemy.position.x > arena.width - margin {
             velocity.dx = -abs(velocity.dx)
             enemy.position.x += velocity.dx
         }
         if enemy.position.y < margin {
             velocity.dy = abs(velocity.dy)
             enemy.position.y += velocity.dy
-        } else if enemy.position.y > size.height - margin {
+        } else if enemy.position.y > arena.height - margin {
             velocity.dy = -abs(velocity.dy)
             enemy.position.y += velocity.dy
         }
@@ -2901,7 +3012,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                     id: id,
                     at: blackHole.position,
                     listener: player.position,
-                    playfieldSize: size,
+                    playfieldSize: playfieldSize,
                     size: blackHoleSize
                 )
             }
@@ -2946,7 +3057,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 id: id,
                 at: blackHole.position,
                 listener: player.position,
-                playfieldSize: size,
+                playfieldSize: playfieldSize,
                 size: blackHoleSize
             )
         }
@@ -3004,6 +3115,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     private func updateProjectiles() {
+        let arena = playfieldSize
         for projectile in projectileLayer.children {
             guard projectile.parent != nil else { continue }
             if let sprite = projectile as? SKSpriteNode {
@@ -3019,7 +3131,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 projectile.position.x += velocity.dx / 2
                 projectile.position.y += velocity.dy / 2
 
-                if projectile.position.x < 0 || projectile.position.x > size.width - 1 {
+                if projectile.position.x < 0 || projectile.position.x > arena.width - 1 {
                     projectile.position.x -= velocity.dx
                     if session.bouncyShotFrames == 0 {
                         shouldRemove = true
@@ -3027,7 +3139,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                         velocity.dx = -velocity.dx
                     }
                 }
-                if projectile.position.y < 0 || projectile.position.y > size.height - 1 {
+                if projectile.position.y < 0 || projectile.position.y > arena.height - 1 {
                     projectile.position.y -= velocity.dy
                     if session.bouncyShotFrames == 0 {
                         shouldRemove = true
@@ -3390,7 +3502,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                     id: id,
                     at: enemy.position,
                     listener: player.position,
-                    playfieldSize: size,
+                    playfieldSize: playfieldSize,
                     size: blackHoleSize
                 )
             }
@@ -3689,7 +3801,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             effect,
             at: position,
             listener: player.position,
-            playfieldSize: size,
+            playfieldSize: playfieldSize,
             rate: rate,
             volume: volume
         )
@@ -3747,11 +3859,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             audio.play(.multiplierIncrease)
         case let .spawnPowerUp(requestedKind):
             let kind = requestedKind ?? choosePowerUpKind()
-            let position = CGPoint(
-                x: randomCoordinate(250...Int(size.width - 250)),
-                y: randomCoordinate(150...Int(size.height - 150))
-            )
-            spawnPowerUp(at: position, kind: kind)
+            spawnPowerUp(at: randomPowerUpPosition(), kind: kind)
             switch requestedKind {
             case .extraPlayer: audio.play(.extraLife)
             case .extraBomb: audio.play(.extraBomb)
@@ -4013,7 +4121,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
     private func startGetReadySequence() {
         getReadyFrame = 0
-        player.position = CGPoint(x: size.width / 2, y: size.height / 2)
+        centerPlayerAndCamera()
         playerMotion.reset()
         player.isHidden = true
         player.alpha = 1
@@ -4091,7 +4199,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         }
         session.registerPlayerHit()
         updateHUD()
-        player.position = CGPoint(x: size.width / 2, y: size.height / 2)
+        centerPlayerAndCamera()
         playerMotion.reset()
 
         if session.isGameOver {
@@ -4203,7 +4311,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         hudRenderer.render(
             session: session,
             highScore: highScore,
-            playerY: player.position.y,
+            playerY: playfieldSize.height - player.position.y,
             simulationFrame: simulationFrame,
             debugEnabled: debugEnabled,
             message: messageLabel,

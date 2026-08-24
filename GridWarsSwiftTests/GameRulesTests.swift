@@ -2,6 +2,70 @@ import AVFoundation
 import XCTest
 
 final class GameRulesTests: XCTestCase {
+    func testCameraMatchesOriginalThresholdsAndOverscroll() {
+        let playfield = CGSize(width: 1_280, height: 960)
+        let viewport = CGSize(width: 1_024, height: 768)
+        let centered = OriginalCameraRule.centeredOffset(
+            playfield: playfield,
+            viewport: viewport
+        )
+        XCTAssertEqual(centered, CGPoint(x: 128, y: 96))
+
+        let stable = OriginalCameraRule.advance(
+            offset: centered,
+            player: CGPoint(x: 640, y: 480),
+            playfield: playfield,
+            viewport: viewport,
+            scrolling: true
+        )
+        XCTAssertEqual(stable, centered)
+
+        let nearEdge = OriginalCameraRule.advance(
+            offset: centered,
+            player: CGPoint(x: 16, y: 480),
+            playfield: playfield,
+            viewport: viewport,
+            scrolling: true
+        )
+        XCTAssertEqual(nearEdge.x, 116)
+
+        let farEdge = OriginalCameraRule.advance(
+            offset: centered,
+            player: CGPoint(x: 1_264, y: 480),
+            playfield: playfield,
+            viewport: viewport,
+            scrolling: true
+        )
+        XCTAssertEqual(farEdge.x, 136)
+
+        let clampedNear = OriginalCameraRule.advance(
+            offset: CGPoint(x: -100, y: 96),
+            player: CGPoint(x: 0, y: 480),
+            playfield: playfield,
+            viewport: viewport,
+            scrolling: true
+        )
+        XCTAssertEqual(clampedNear.x, -80)
+
+        let clampedFar = OriginalCameraRule.advance(
+            offset: CGPoint(x: 400, y: 96),
+            player: CGPoint(x: 1_280, y: 480),
+            playfield: playfield,
+            viewport: viewport,
+            scrolling: true
+        )
+        XCTAssertEqual(clampedFar.x, 336)
+
+        let disabled = OriginalCameraRule.advance(
+            offset: centered,
+            player: .zero,
+            playfield: playfield,
+            viewport: viewport,
+            scrolling: false
+        )
+        XCTAssertEqual(disabled, centered)
+    }
+
     func testDifficultyMatchesOriginalInitialState() {
         let easy = GameSession(difficulty: .easy)
         XCTAssertEqual(easy.lives, 4)
