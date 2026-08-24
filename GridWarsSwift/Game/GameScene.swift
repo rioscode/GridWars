@@ -353,7 +353,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             ring.fillColor = .clear
             ring.strokeColor = SKColor(red: 1, green: 1, blue: 0.78, alpha: 1)
             ring.lineWidth = 2
-            ring.glowWidth = 3
+            ring.glowWidth = 0
             ring.zPosition = 3
             ring.isHidden = true
             worldLayer.addChild(ring)
@@ -590,24 +590,36 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         case let .getReady(frame):
             prepareGameplayCapture()
             startGetReadySequence()
+            if frame >= 60 {
+                gridSimulation.pull(at: player.position, radiusInPoints: 20, amount: 20)
+                for _ in 60...frame { gridSimulation.update() }
+            }
             getReadyFrame = frame
             advanceGetReadySequence()
         case .death:
             prepareGameplayCapture()
             _ = hitPlayer()
+            cycleColors()
+            cycleColors()
+            gridSimulation.update()
+            particleSimulation.update()
         case let .gameOver(frame):
             prepareGameplayCapture()
-            session.registerPlayerHit()
-            session.registerPlayerHit()
-            _ = hitPlayer()
-            deathFramesRemaining = 1
-            advanceDeathSequence()
+            player.isHidden = true
+            messageLabel.isHidden = true
+            screenFlow.showGameOver()
+            for _ in 0...frame {
+                cycleColors()
+                cycleColors()
+                gridSimulation.update()
+                particleSimulation.update()
+            }
             for _ in 0..<frame { _ = screenFlow.advance() }
         case .highScoreEntry:
             screenFlow.configureCapture(page: .scores, frame: 600)
             pendingHighScore = PendingHighScore(
                 score: 123_456,
-                playTime: "03:21",
+                playTime: LegacyHighScoreTable.playTime(frames: 10_050),
                 difficulty: .medium,
                 settings: "0,0,0,0,0,0,0,0,0,0"
             )
@@ -737,7 +749,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         }
         menuModel.open(duringGame: duringGame)
         menuPresentationPage = .options
-        menuPresentationFrame = 0
+        menuPresentationFrame = 20
         if capture == .options || capture == .optionsGame { return }
         if capture == .confirmExit {
             menuModel.select(0)

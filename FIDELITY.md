@@ -17,8 +17,10 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   Get Ready states in `GameScene`: 256 death particles, non-killer removal,
   100 death frames, 60 title frames, 40 contraction frames, delayed life loss,
   respawn downgrade/reset, and 80 shield frames. Matching fixed-state captures
-  now cover Get Ready, death, Game Over, and high-score entry; visual correction
-  and a full interactive continuation check remain outstanding.
+  now cover Get Ready, death, Game Over, and high-score entry. Their capture
+  setup reproduces the original pre-draw grid/particle updates, ring deformation,
+  Game Over counter, and `3 mns, 21 secs` score text; a full interactive
+  continuation check remains outstanding.
 - Gameplay entity audit: `gridwars.bmx:190-3167, 4752-4977, 5691-5777` maps to
   `SpawnDirector`, `TriangleBondState`, `SnakeSegmentRule`, `BlackHoleRule`,
   `InterceptorShieldGeometry`, and the generator/enemy/power-up/projectile
