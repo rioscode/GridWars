@@ -124,6 +124,14 @@ Raw OpenGL calls have their own state. In the original:
 - repeated additive draws are part of the output and must not be merged unless
   the blend result remains identical.
 
+This last point also applies to `DrawPoly`. Alternating filled Grid styles
+14–17 draw every cell separately. Combining many cells into one compound
+`SKShapeNode` loses repeated additive fills where deformed cells overlap.
+Style 17 additionally changes alpha after every polygon, so its source loop
+must run from top to bottom; in scene coordinates that means descending rows.
+Keep those per-cell nodes separate unless a replacement renderer explicitly
+preserves drawcall-level accumulation.
+
 SpriteKit cannot reproduce OpenGL per-vertex color interpolation exactly with
 a single `SKShapeNode`. The port uses bounded color buckets for the RGB-split,
 stretched, and sine paths. Increase bucket counts only when captures improve.

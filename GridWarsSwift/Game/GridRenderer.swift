@@ -403,22 +403,16 @@ final class GridRenderer {
     }
 
     private func addStretchedQuads(_ grid: GridSimulation, alpha: CGFloat) {
-        let bucketCount = 64
-        let paths = (0..<(bucketCount * 8)).map { _ in CGMutablePath() }
         for column in 0..<grid.columns {
             for row in 0..<grid.rows where isAlternatingCell(column, row, rows: grid.rows) {
                 let points = cellPoints(grid, column: column, row: row)
-                let bucket = min(
-                    bucketCount - 1,
-                    max(0, Int(stretchIntensity(points, spacing: 16) * CGFloat(bucketCount)))
+                let path = CGMutablePath()
+                addClosedPolygon(points, to: path)
+                addShape(
+                    path: path,
+                    fill: blueStretchColor(stretchIntensity(points, spacing: 16)),
+                    alpha: alpha
                 )
-                addClosedPolygon(points, to: paths[bucket * 8 + overlapGroup(column, row)])
-            }
-        }
-        for bucket in 0..<bucketCount {
-            let color = blueStretchColor(CGFloat(bucket) / CGFloat(bucketCount - 1))
-            for group in 0..<8 {
-                addShape(path: paths[bucket * 8 + group], fill: color, alpha: alpha)
             }
         }
     }
@@ -428,17 +422,12 @@ final class GridRenderer {
         color: SKColor,
         alpha: CGFloat
     ) {
-        let paths = (0..<8).map { _ in CGMutablePath() }
         for column in 0..<grid.columns {
             for row in 0..<grid.rows where isAlternatingCell(column, row, rows: grid.rows) {
-                addClosedPolygon(
-                    cellPoints(grid, column: column, row: row),
-                    to: paths[overlapGroup(column, row)]
-                )
+                let path = CGMutablePath()
+                addClosedPolygon(cellPoints(grid, column: column, row: row), to: path)
+                addShape(path: path, fill: color, alpha: alpha)
             }
-        }
-        for path in paths {
-            addShape(path: path, fill: color, alpha: alpha)
         }
     }
 
@@ -448,8 +437,6 @@ final class GridRenderer {
         cyclingColor: SKColor,
         alpha: CGFloat
     ) {
-        let bucketCount = 64
-        let paths = (0..<(bucketCount * 8)).map { _ in CGMutablePath() }
         var sequence = 0
         var columnSequence = 0
         var cyclingRed: CGFloat = 0
@@ -465,28 +452,21 @@ final class GridRenderer {
         let greenPhase = Int((cyclingGreen * 255).rounded())
         for column in 0..<grid.columns {
             columnSequence += 1
-            for row in 0..<grid.rows where isAlternatingCell(column, row, rows: grid.rows) {
+            // Source b increases from the top; scene rows therefore descend.
+            // Keep each DrawPoly separate so overlapping quads add repeatedly.
+            for row in stride(from: grid.rows - 1, through: 0, by: -1)
+                where isAlternatingCell(column, row, rows: grid.rows) {
                 sequence += 2
                 let cellAlpha = alpha - 0.25 * (
                     sin(CGFloat(greenPhase + sequence) * .pi / 180)
                         + cos(CGFloat(columnSequence) * .pi / 180)
                 )
-                let bucket = min(
-                    bucketCount - 1,
-                    max(0, Int(max(0, min(1, cellAlpha)) * CGFloat(bucketCount)))
-                )
-                addClosedPolygon(
-                    cellPoints(grid, column: column, row: row),
-                    to: paths[bucket * 8 + overlapGroup(column, row)]
-                )
-            }
-        }
-        for bucket in 0..<bucketCount {
-            for group in 0..<8 {
+                let path = CGMutablePath()
+                addClosedPolygon(cellPoints(grid, column: column, row: row), to: path)
                 addShape(
-                    path: paths[bucket * 8 + group],
+                    path: path,
                     fill: color,
-                    alpha: CGFloat(bucket) / CGFloat(bucketCount - 1)
+                    alpha: cellAlpha
                 )
             }
         }
@@ -764,10 +744,6 @@ final class GridRenderer {
             blue: (63 - 23 * intensity) / 255,
             alpha: 1
         )
-    }
-
-    private func overlapGroup(_ column: Int, _ row: Int) -> Int {
-        (column % 4) * 2 + (row % 4) / 2
     }
 
     private func isAlternatingCell(_ column: Int, _ row: Int, rows: Int) -> Bool {

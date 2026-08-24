@@ -115,7 +115,10 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   from 0.03046 to 0.02549. Increasing only the per-cell source-value
   approximation for filled stretched/sine quads from 16 to 64 levels lowers
   styles 16 and 17 from 0.02980/0.01852 to 0.02924/0.01746; changing their
-  SpriteKit fill alpha was measured and rejected as a regression.
+  SpriteKit fill alpha was measured and rejected as a regression. Preserving
+  every original `DrawPoly` as a separate additive node subsequently lowers
+  styles 14, 15, and 16 to 0.01030, 0.00741, and 0.02861. Restoring style 17's
+  source top-to-bottom alpha sequence at the same time lowers it to 0.00835.
   Moiré style 18 now maps the top-down source row into scene order and keeps
   the raw-OpenGL triangle at the cell's bottom-right corner after Y inversion;
   the former top-right triangle was a double inversion. Six bounded colour
