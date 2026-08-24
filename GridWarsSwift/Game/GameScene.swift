@@ -1,5 +1,6 @@
 @preconcurrency import SpriteKit
 @preconcurrency import ImageIO
+@preconcurrency import GameController
 
 #if os(iOS)
 import UIKit
@@ -122,16 +123,23 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private var session = GameSession()
     private var configured = false
     private var pressedKeys = Set<UInt16>()
+    private var pressedOriginalKeys = Set<Int>()
     private var pointerLocation = CGPoint(x: 512, y: 600)
     private var hasPointerLocation = false
-    private var mouseIsFiring = false
-    private var mouseBombIsHeld = false
+    private var mouseButtons = Set<Int>()
+    private var relativeMouseMovement = CGVector.zero
     private var touchMovement = CGVector.zero
     private var touchAim = CGVector.zero
-    private var touchIsFiring = false
     private var currentAim = CGVector(dx: 0, dy: 1)
-    private var mouseAutofireArmed = false
-    private var keyboardAutofireArmed = false
+    private var inputResolver = OriginalInputResolver()
+    private var frameInput = OriginalResolvedInput()
+    private var controllerAxes = Array(repeating: CGFloat.zero, count: 15)
+    private var controllerDPad = CGVector.zero
+    private var joypadDPad = CGVector.zero
+    private var controllerButtons = Set<Int>()
+    private var previousControllerButtons = Set<Int>()
+    private var controllerHorizontalIsLatched = false
+    private var controllerVerticalIsLatched = false
     private var playerMotion = PlayerMotionState()
     private var gridSimulation = GridSimulation(arenaSize: CGSize(width: 1_024, height: 768))
     private var particleSimulation = ParticleSimulation(arenaSize: CGSize(width: 1_024, height: 768))
@@ -410,6 +418,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         player.alpha = 1
         player.position = CGPoint(x: size.width / 2, y: size.height / 2)
         playerMotion.reset()
+        inputResolver.reset()
+        frameInput = OriginalResolvedInput()
         gridSimulation.reset()
         particleSimulation.reset()
         playerShield.isHidden = true
@@ -418,10 +428,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         messageLabel.isHidden = true
         touchMovement = .zero
         touchAim = .zero
-        touchIsFiring = false
-        mouseAutofireArmed = false
-        keyboardAutofireArmed = false
-        mouseBombIsHeld = false
+        relativeMouseMovement = .zero
+        mouseButtons.removeAll()
         currentAim = CGVector(dx: 0, dy: 1)
         updateHUD()
         startGetReadySequence()
@@ -471,6 +479,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     override func update(_ currentTime: TimeInterval) {
+        pollController()
         if lastUpdateTime == 0 {
             lastUpdateTime = currentTime
             renderPresentation()
@@ -735,8 +744,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
         session.tick()
         bombCooldownFrames = max(0, bombCooldownFrames - 1)
-        if bombCooldownFrames == 0,
-           pressedKeys.contains(49) || mouseBombIsHeld {
+        resolveFrameInput()
+        if bombCooldownFrames == 0, frameInput.bombIsHeld {
             triggerBomb()
         }
         updatePlayer()
@@ -766,6 +775,211 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         guard deathFramesRemaining > 0 else { return false }
         simulationFrame += 1
         return true
+    }
+
+    private func resolveFrameInput() {
+        var snapshot = OriginalInputSnapshot(
+            pressedKeys: pressedOriginalKeys,
+            mouseButtons: mouseButtons,
+            mouseDelta: relativeMouseMovement,
+            pointerFromPlayer: hasPointerLocation
+                ? CGVector(
+                    dx: pointerLocation.x - player.position.x,
+                    dy: pointerLocation.y - player.position.y
+                )
+                : .zero,
+            pointerFromCenter: hasPointerLocation
+                ? CGVector(
+                    dx: pointerLocation.x - size.width / 2,
+                    dy: pointerLocation.y - size.height / 2
+                )
+                : .zero,
+            controllerAxes: controllerAxes,
+            // Joypad mode calls JoyX()/JoyY() without a port in the original.
+            controllerDPad: joypadDPad,
+            controllerButtons: controllerButtons,
+            touchMovement: touchMovement,
+            touchAim: touchAim
+        )
+        #if os(iOS)
+        snapshot.touchIsActive = movementTouch != nil || aimingTouch != nil
+        #endif
+        frameInput = inputResolver.resolve(settings: menuModel.settings, snapshot: snapshot)
+        relativeMouseMovement = .zero
+    }
+
+    private func pollController() {
+        let state = captureControllerState()
+        controllerAxes = state.axes
+        controllerDPad = state.dPad
+        controllerButtons = state.buttons
+        joypadDPad = captureDPad(from: GCController.controllers().first)
+        let newlyPressed = controllerButtons.subtracting(previousControllerButtons)
+        previousControllerButtons = controllerButtons
+
+        if menuModel.isOpen {
+            handleControllerMenuNavigation(newlyPressedButtons: newlyPressed)
+            return
+        }
+        releaseControllerNavigationLatchesIfNeeded()
+
+        guard !newlyPressed.isEmpty else { return }
+        switch screenFlow.phase {
+        case .attract:
+            beginGame()
+            return
+        case .gameOver:
+            skipGameOverToScores()
+            return
+        case .playing:
+            break
+        }
+
+        let settings = menuModel.settings
+        let optionButton: Int? = switch settings.controllerType {
+        case .dualAnalog: settings.dualAnalogOptionButton
+        case .joypad: settings.joypadOptionButton
+        case .mouse, .keyboard, .hybrid: nil
+        }
+        if let optionButton, newlyPressed.contains(optionButton) {
+            openOptions()
+            return
+        }
+
+        let bombButton: Int? = switch settings.controllerType {
+        case .dualAnalog: settings.dualAnalogBombButton
+        case .joypad: settings.joypadBombButton
+        case .mouse, .keyboard, .hybrid: nil
+        }
+        if let bombButton, newlyPressed.contains(bombButton) {
+            triggerBomb()
+        }
+    }
+
+    private func handleControllerMenuNavigation(newlyPressedButtons: Set<Int>) {
+        if let button = newlyPressedButtons.min(),
+           menuModel.captureControllerButton(button) {
+            applyRuntimeSettings()
+            renderPresentation()
+            return
+        }
+        let navigation = controllerMenuNavigationVector()
+        var changed = false
+        if abs(navigation.dy) < 0.35 {
+            controllerVerticalIsLatched = false
+        } else if !controllerVerticalIsLatched, abs(navigation.dy) > 0.6 {
+            menuModel.moveSelection(by: navigation.dy > 0 ? 1 : -1)
+            controllerVerticalIsLatched = true
+            changed = true
+        }
+        if abs(navigation.dx) < 0.35 {
+            controllerHorizontalIsLatched = false
+        } else if !controllerHorizontalIsLatched, abs(navigation.dx) > 0.6 {
+            handleMenuOutcome(menuModel.adjust(by: navigation.dx > 0 ? 1 : -1))
+            controllerHorizontalIsLatched = true
+            changed = true
+        }
+
+        if !newlyPressedButtons.isEmpty {
+            handleMenuOutcome(menuModel.activate())
+            changed = true
+        }
+        if changed {
+            applyRuntimeSettings()
+            renderPresentation()
+        }
+    }
+
+    private func releaseControllerNavigationLatchesIfNeeded() {
+        let navigation = controllerMenuNavigationVector()
+        if abs(navigation.dx) < 0.35 { controllerHorizontalIsLatched = false }
+        if abs(navigation.dy) < 0.35 { controllerVerticalIsLatched = false }
+    }
+
+    private func controllerMenuNavigationVector() -> CGVector {
+        if abs(controllerDPad.dx) > 0.1 || abs(controllerDPad.dy) > 0.1 {
+            return controllerDPad
+        }
+        return CGVector(dx: controllerAxes[0], dy: controllerAxes[1])
+    }
+
+    private func captureControllerState() -> (
+        axes: [CGFloat],
+        dPad: CGVector,
+        buttons: Set<Int>
+    ) {
+        let controllers = GCController.controllers()
+        let port = min(3, max(0, menuModel.settings.dualAnalogPort))
+        guard controllers.indices.contains(port) else {
+            return (Array(repeating: 0, count: 15), .zero, [])
+        }
+
+        var axes = Array(repeating: CGFloat.zero, count: 15)
+        var dPad = CGVector.zero
+        var buttons = Set<Int>()
+        func record(_ button: GCControllerButtonInput?, as index: Int) {
+            if button?.isPressed == true { buttons.insert(index) }
+        }
+
+        if let gamepad = controllers[port].extendedGamepad {
+            axes[0] = CGFloat(gamepad.leftThumbstick.xAxis.value)
+            axes[1] = -CGFloat(gamepad.leftThumbstick.yAxis.value)
+            axes[2] = -CGFloat(gamepad.rightThumbstick.yAxis.value)
+            axes[3] = CGFloat(gamepad.rightThumbstick.xAxis.value)
+            axes[4] = CGFloat(gamepad.leftTrigger.value)
+            axes[5] = CGFloat(gamepad.rightTrigger.value)
+            axes[6] = CGFloat(gamepad.dpad.xAxis.value)
+            axes[7] = -CGFloat(gamepad.dpad.yAxis.value)
+            axes[9] = CGFloat(gamepad.dpad.xAxis.value)
+            dPad = CGVector(
+                dx: CGFloat(gamepad.dpad.xAxis.value),
+                dy: -CGFloat(gamepad.dpad.yAxis.value)
+            )
+
+            record(gamepad.buttonA, as: 0)
+            record(gamepad.buttonB, as: 1)
+            record(gamepad.buttonX, as: 2)
+            record(gamepad.buttonY, as: 3)
+            record(gamepad.leftShoulder, as: 4)
+            record(gamepad.rightShoulder, as: 5)
+            record(gamepad.leftTrigger, as: 6)
+            record(gamepad.rightTrigger, as: 7)
+            record(gamepad.buttonMenu, as: 8)
+            record(gamepad.leftThumbstickButton, as: 9)
+            record(gamepad.rightThumbstickButton, as: 10)
+            record(gamepad.dpad.up, as: 11)
+            record(gamepad.dpad.down, as: 12)
+            record(gamepad.dpad.left, as: 13)
+            record(gamepad.dpad.right, as: 14)
+            record(gamepad.buttonOptions ?? gamepad.buttonHome, as: 15)
+        } else if let gamepad = controllers[port].microGamepad {
+            dPad = CGVector(
+                dx: CGFloat(gamepad.dpad.xAxis.value),
+                dy: -CGFloat(gamepad.dpad.yAxis.value)
+            )
+            axes[0] = dPad.dx
+            axes[1] = dPad.dy
+            record(gamepad.buttonA, as: 0)
+            record(gamepad.buttonX, as: 2)
+            record(gamepad.buttonMenu, as: 8)
+        }
+        return (axes, dPad, buttons)
+    }
+
+    private func captureDPad(from controller: GCController?) -> CGVector {
+        if let dPad = controller?.extendedGamepad?.dpad {
+            return CGVector(
+                dx: CGFloat(dPad.xAxis.value),
+                dy: -CGFloat(dPad.yAxis.value)
+            )
+        }
+        if let dPad = controller?.microGamepad?.dpad {
+            return CGVector(
+                dx: CGFloat(dPad.xAxis.value),
+                dy: -CGFloat(dPad.yAxis.value)
+            )
+        }
+        return .zero
     }
 
     private func renderGrid() {
@@ -973,13 +1187,12 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     private func updatePlayer() {
-        let keyboard = keyboardMovement
-        let combined = keyboard.length > 0 ? keyboard : touchMovement
         let result = playerMotion.advance(
             from: player.position,
-            input: combined,
+            input: frameInput.movement,
             arenaSize: size,
-            inertia: menuModel.settings.inertia
+            inertia: menuModel.settings.inertia,
+            movementLimit: frameInput.movementLimit
         )
         player.position = result.position
         if result.movement.length > 0 {
@@ -1094,42 +1307,18 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     private func updateAim() {
-        let arrowAim = keyboardAim
-        if arrowAim.length > 0 {
-            currentAim = arrowAim.normalized
-            keyboardAutofireArmed = menuModel.settings.autoFire
-        } else {
-            if !menuModel.settings.autoFire { keyboardAutofireArmed = false }
-            if touchAim.length > 0 {
-                currentAim = touchAim.normalized
-            } else if hasPointerLocation, mouseIsFiring {
-                let pointerAim = CGVector(
-                    dx: pointerLocation.x - player.position.x,
-                    dy: pointerLocation.y - player.position.y
-                )
-                if pointerAim.length > 2 {
-                    currentAim = pointerAim.normalized
-                    mouseAutofireArmed = menuModel.settings.autoFire
-                }
-            } else if !menuModel.settings.autoFire {
-                mouseAutofireArmed = false
-            }
+        if frameInput.aim.length > 0 {
+            currentAim = frameInput.aim.normalized
         }
-
     }
 
     private func fireIfNeeded() {
         shotTimerFrames = max(0, shotTimerFrames - 1)
-        let shouldFire = mouseIsFiring
-            || touchIsFiring
-            || keyboardAim.length > 0
-            || mouseAutofireArmed
-            || keyboardAutofireArmed
         guard shotTimerFrames == 0 else { return }
         shotTimerFrames = debugEnabled
             ? PlayerWeaponRule.debugTimerFrames(cannons: session.cannons)
             : PlayerWeaponRule.timerFrames(cannons: session.cannons)
-        guard shouldFire else { return }
+        guard frameInput.isFiring else { return }
 
         let launches = if debugEnabled {
             PlayerWeaponRule.debugLaunches(
@@ -3521,16 +3710,14 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         if session.isGameOver {
             player.isHidden = true
             playerShield.isHidden = true
-            mouseIsFiring = false
-            touchIsFiring = false
+            frameInput = OriginalResolvedInput()
             messageLabel.isHidden = true
             screenFlow.showGameOver()
             audio.play(.gameOver)
         } else {
             touchAim = .zero
-            touchIsFiring = false
-            mouseAutofireArmed = false
-            keyboardAutofireArmed = false
+            inputResolver.reset()
+            frameInput = OriginalResolvedInput()
             startGetReadySequence()
         }
     }
@@ -3627,6 +3814,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
     func setKey(
         _ keyCode: UInt16,
+        originalKeyCode: Int? = nil,
         pressed: Bool,
         isRepeat: Bool,
         characters: String? = nil
@@ -3635,6 +3823,13 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             pressedKeys.insert(keyCode)
         } else {
             pressedKeys.remove(keyCode)
+        }
+        if let originalKeyCode {
+            if pressed {
+                pressedOriginalKeys.insert(originalKeyCode)
+            } else {
+                pressedOriginalKeys.remove(originalKeyCode)
+            }
         }
 
         if highScoreNameEntry != nil {
@@ -3678,6 +3873,12 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             return
         }
         if menuModel.isOpen {
+            if let originalKeyCode,
+               menuModel.captureKeyboardKey(originalKeyCode) {
+                applyRuntimeSettings()
+                renderPresentation()
+                return
+            }
             switch keyCode {
             case 126: menuModel.moveSelection(by: -1)
             case 125: menuModel.moveSelection(by: 1)
@@ -3701,49 +3902,72 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             openOptions()
             return
         }
-        if keyCode == 49 {
-            triggerBomb()
-        } else if keyCode == 15, screenFlow.phase == .gameOver {
+        switch screenFlow.phase {
+        case .attract:
+            beginGame()
+            return
+        case .gameOver:
             skipGameOverToScores()
+            return
+        case .playing:
+            break
+        }
+        if originalKeyCode == menuModel.settings.keyBomb {
+            triggerBomb()
         }
     }
 
-    func setPointerLocation(_ location: CGPoint) {
+    func setPointerLocation(_ location: CGPoint, relativeDelta: CGVector = .zero) {
         pointerLocation = location
+        if !menuModel.isOpen {
+            relativeMouseMovement = relativeMouseMovement + relativeDelta
+        }
         hasPointerLocation = true
         if menuModel.isOpen, let index = screenRenderer.menuIndex(at: location) {
             menuModel.select(index)
         }
     }
 
-    func setMouseFiring(_ firing: Bool) {
-        if firing, menuModel.isOpen {
+    func setMouseButton(_ button: Int, pressed: Bool) {
+        guard (1...3).contains(button) else { return }
+        if pressed {
+            mouseButtons.insert(button)
+        } else {
+            mouseButtons.remove(button)
+        }
+        guard pressed else { return }
+
+        if highScoreNameEntry != nil {
+            if button == 2 {
+                finishHighScoreNameEntry()
+                renderPresentation()
+            }
+            return
+        }
+        if menuModel.isOpen {
             if let index = screenRenderer.menuIndex(at: pointerLocation) {
                 menuModel.select(index)
             }
-            handleMenuOutcome(menuModel.activate())
+            let outcome = switch button {
+            case 1: menuModel.activate()
+            case 2: menuModel.adjust(by: 1)
+            default: menuModel.adjust(by: -1)
+            }
+            handleMenuOutcome(outcome)
             applyRuntimeSettings()
             renderPresentation()
             return
         }
-        mouseIsFiring = firing
-    }
 
-    func setMouseBomb(_ pressed: Bool) {
-        mouseBombIsHeld = pressed
-        if pressed {
-            if highScoreNameEntry != nil {
-                finishHighScoreNameEntry()
-                renderPresentation()
-                return
+        switch screenFlow.phase {
+        case .attract:
+            beginGame()
+        case .gameOver:
+            skipGameOverToScores()
+        case .playing:
+            if button == menuModel.settings.mouseBombButton {
+                triggerBomb()
             }
-            if menuModel.isOpen {
-                handleMenuOutcome(menuModel.adjust(by: 1))
-                applyRuntimeSettings()
-                renderPresentation()
-                return
-            }
-            triggerBomb()
         }
     }
 
@@ -3805,8 +4029,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private func openOptions() {
         let duringGame = screenFlow.phase == .playing || screenFlow.phase == .gameOver
         menuModel.open(duringGame: duringGame)
-        mouseIsFiring = false
-        touchIsFiring = false
+        mouseButtons.removeAll()
+        frameInput = OriginalResolvedInput()
         particleRenderer.node.zPosition = 201
         renderPresentation()
     }
@@ -3843,32 +4067,6 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             enterAttractPresentation()
             #endif
         }
-    }
-
-    private var keyboardMovement: CGVector {
-        var vector = CGVector.zero
-        if pressedKeys.contains(0) || pressedKeys.contains(123) && pressedKeys.contains(56) {
-            vector.dx -= 1
-        }
-        if pressedKeys.contains(2) || pressedKeys.contains(124) && pressedKeys.contains(56) {
-            vector.dx += 1
-        }
-        if pressedKeys.contains(13) || pressedKeys.contains(126) && pressedKeys.contains(56) {
-            vector.dy += 1
-        }
-        if pressedKeys.contains(1) || pressedKeys.contains(125) && pressedKeys.contains(56) {
-            vector.dy -= 1
-        }
-        return vector
-    }
-
-    private var keyboardAim: CGVector {
-        var vector = CGVector.zero
-        if pressedKeys.contains(123), !pressedKeys.contains(56) { vector.dx -= 1 }
-        if pressedKeys.contains(124), !pressedKeys.contains(56) { vector.dx += 1 }
-        if pressedKeys.contains(126), !pressedKeys.contains(56) { vector.dy += 1 }
-        if pressedKeys.contains(125), !pressedKeys.contains(56) { vector.dy -= 1 }
-        return vector.length > 1 ? vector.normalized : vector
     }
 
     #if os(iOS)
@@ -3943,7 +4141,6 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 movementStick.update(vector: touchMovement)
             } else if touch === aimingTouch {
                 touchAim = stickVector(from: aimingTouchOrigin, to: location).normalized
-                touchIsFiring = touchAim.length > 0
                 aimingStick.update(vector: stickVector(from: aimingTouchOrigin, to: location))
             }
         }
@@ -3966,7 +4163,6 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             } else if touch === aimingTouch {
                 aimingTouch = nil
                 touchAim = .zero
-                touchIsFiring = false
                 aimingStick.hide()
             }
         }

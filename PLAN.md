@@ -89,6 +89,8 @@ The first playable milestone is complete on the `codex/swift-port` branch:
 - [x] Shared SwiftUI/SpriteKit app sources
 - [x] macOS keyboard and mouse input
 - [x] iOS twin-stick touch input
+- [x] All five original control modes and all three Hybrid configurations
+- [x] Apple controller ports, button remapping, axis mapping, and calibration
 - [x] Core combat, scoring, lives, bombs, enemies, and power-ups
 - [x] Original PNG and WAV resources packaged for both targets
 - [x] macOS Debug build

@@ -293,6 +293,7 @@ struct OriginalMenuModel: Equatable {
     private(set) var selection = 0
     private(set) var openedDuringGame = false
     private(set) var isOpen = false
+    private(set) var awaitingKeyboardBinding = false
     private var pageStack: [OriginalMenuPage] = []
     var settings = OriginalRuntimeSettings()
 
@@ -301,15 +302,18 @@ struct OriginalMenuModel: Equatable {
         openedDuringGame = duringGame
         selection = duringGame ? 3 : 2
         isOpen = true
+        awaitingKeyboardBinding = false
         pageStack = []
     }
 
     mutating func close() {
         isOpen = false
+        awaitingKeyboardBinding = false
         pageStack = []
     }
 
     mutating func moveSelection(by delta: Int) {
+        guard !awaitingKeyboardBinding else { return }
         let count = lines.count
         guard count > 0 else { return }
         selection = (selection + delta) % count
@@ -322,6 +326,7 @@ struct OriginalMenuModel: Equatable {
     }
 
     mutating func adjust(by direction: Int) -> OriginalMenuOutcome {
+        guard !awaitingKeyboardBinding else { return .none }
         guard direction != 0 else { return .none }
         switch page {
         case .options, .confirmExit, .confirmEndGame, .settings, .controller:
@@ -338,6 +343,7 @@ struct OriginalMenuModel: Equatable {
             adjustMouse(by: direction)
         case .keyboard:
             if selection == 9 { return navigateBack() }
+            awaitingKeyboardBinding = true
         case .joypad:
             adjustJoypad(by: direction)
         case .dualAnalog:
@@ -401,6 +407,7 @@ struct OriginalMenuModel: Equatable {
             return adjust(by: 1)
         case .keyboard:
             if selection == 9 { return navigateBack() }
+            awaitingKeyboardBinding = true
             return .none
         case .joypad:
             if selection == 7 { return navigateBack() }
@@ -412,11 +419,62 @@ struct OriginalMenuModel: Equatable {
     }
 
     mutating func back() -> OriginalMenuOutcome {
+        if awaitingKeyboardBinding {
+            awaitingKeyboardBinding = false
+            return .none
+        }
         if page == .options {
             close()
             return .close
         }
         return navigateBack()
+    }
+
+    @discardableResult
+    mutating func captureKeyboardKey(_ key: Int) -> Bool {
+        guard page == .keyboard, awaitingKeyboardBinding, (8...255).contains(key) else {
+            return false
+        }
+        switch selection {
+        case 0: settings.keyMoveLeft = key
+        case 1: settings.keyMoveRight = key
+        case 2: settings.keyMoveUp = key
+        case 3: settings.keyMoveDown = key
+        case 4: settings.keyFireLeft = key
+        case 5: settings.keyFireRight = key
+        case 6: settings.keyFireUp = key
+        case 7: settings.keyFireDown = key
+        case 8: settings.keyBomb = key
+        default: return false
+        }
+        awaitingKeyboardBinding = false
+        return true
+    }
+
+    @discardableResult
+    mutating func captureControllerButton(_ button: Int) -> Bool {
+        guard (0...15).contains(button) else { return false }
+        switch page {
+        case .joypad:
+            switch selection {
+            case 1: settings.joypadBombButton = button
+            case 2: settings.joypadOptionButton = button
+            case 3...6:
+                settings.joypadButtons[[3, 0, 2, 1][selection - 3]] = button
+            default: return false
+            }
+        case .dualAnalog:
+            if selection == 21 {
+                settings.dualAnalogOptionButton = button
+            } else if selection == 22 {
+                settings.dualAnalogBombButton = button
+            } else {
+                return false
+            }
+        default:
+            return false
+        }
+        return true
     }
 
     var title: String {
@@ -505,9 +563,16 @@ struct OriginalMenuModel: Equatable {
             ]
         case .keyboard:
             return [
-                "Move Left : S", "Move Right: D", "Move Up   : E", "Move Down : X",
-                "Fire Left : Left", "Fire Right: Right", "Fire Up   : Up",
-                "Fire Down : Down", "Bomb : Space", "Done",
+                keyboardLine("Move Left ", key: settings.keyMoveLeft, index: 0),
+                keyboardLine("Move Right", key: settings.keyMoveRight, index: 1),
+                keyboardLine("Move Up   ", key: settings.keyMoveUp, index: 2),
+                keyboardLine("Move Down ", key: settings.keyMoveDown, index: 3),
+                keyboardLine("Fire Left ", key: settings.keyFireLeft, index: 4),
+                keyboardLine("Fire Right", key: settings.keyFireRight, index: 5),
+                keyboardLine("Fire Up   ", key: settings.keyFireUp, index: 6),
+                keyboardLine("Fire Down ", key: settings.keyFireDown, index: 7),
+                keyboardLine("Bomb      ", key: settings.keyBomb, index: 8),
+                "Done",
             ]
         case .joypad:
             let mapping = settings.joypadConfiguration == 0
@@ -524,12 +589,33 @@ struct OriginalMenuModel: Equatable {
                 "Done",
             ]
         case .dualAnalog:
+            let axes = settings.dualAnalogAxes
+            let inversion = settings.dualAnalogInverted
+            let scale = settings.dualAnalogScale
+            let center = settings.dualAnalogCenter
+            let deadZone = settings.dualAnalogDeadZone
             return [
                 "Controller: \(settings.dualAnalogPort)",
-                "Stick 1 X axis: \(axisTitle(settings.dualAnalogAxes[0]))",
-                "Stick 1 Y axis: \(axisTitle(settings.dualAnalogAxes[1]))",
-                "Stick 2 X axis: \(axisTitle(settings.dualAnalogAxes[2]))",
-                "Stick 2 Y axis: \(axisTitle(settings.dualAnalogAxes[3]))",
+                "Stick 1 X axis: \(axisTitle(axes[0]))",
+                "Stick 1 Y axis: \(axisTitle(axes[1]))",
+                "Stick 2 X axis: \(axisTitle(axes[2]))",
+                "Stick 2 Y axis: \(axisTitle(axes[3]))",
+                "Stick 1 X invert: \(onOff(inversion[0]))",
+                "Stick 1 Y invert: \(onOff(inversion[1]))",
+                "Stick 2 X invert: \(onOff(inversion[2]))",
+                "Stick 2 Y invert: \(onOff(inversion[3]))",
+                "Stick 1 X scale: \(Int(scale[0]))",
+                "Stick 1 Y scale: \(Int(scale[1]))",
+                "Stick 2 X scale: \(Int(scale[2]))",
+                "Stick 2 Y scale: \(Int(scale[3]))",
+                "Stick 1 X center: \(formattedAxisValue(center[0]))",
+                "Stick 1 Y center: \(formattedAxisValue(center[1]))",
+                "Stick 2 X center: \(formattedAxisValue(center[2]))",
+                "Stick 2 Y center: \(formattedAxisValue(center[3]))",
+                "Stick 1 X dead zone: \(formattedAxisValue(deadZone[0]))",
+                "Stick 1 Y dead zone: \(formattedAxisValue(deadZone[1]))",
+                "Stick 2 X dead zone: \(formattedAxisValue(deadZone[2]))",
+                "Stick 2 Y dead zone: \(formattedAxisValue(deadZone[3]))",
                 "Option = \(settings.dualAnalogOptionButton + 1)",
                 "Bomb = \(settings.dualAnalogBombButton + 1)",
                 "Done",
@@ -541,6 +627,7 @@ struct OriginalMenuModel: Equatable {
         pageStack.append(page)
         page = target
         selection = defaultSelection(for: target)
+        awaitingKeyboardBinding = false
         return .none
     }
 
@@ -551,6 +638,7 @@ struct OriginalMenuModel: Equatable {
         }
         page = previous
         selection = defaultSelection(for: previous)
+        awaitingKeyboardBinding = false
         return .none
     }
 
@@ -567,7 +655,7 @@ struct OriginalMenuModel: Equatable {
         case .mouse: 3
         case .keyboard: 9
         case .joypad: 7
-        case .dualAnalog: 7
+        case .dualAnalog: 23
         }
     }
 
@@ -657,10 +745,41 @@ struct OriginalMenuModel: Equatable {
         case 1...4:
             let index = selection - 1
             settings.dualAnalogAxes[index] = wrapped(settings.dualAnalogAxes[index] + direction - 1, count: 15) + 1
-        case 5: settings.dualAnalogOptionButton = min(15, max(0, settings.dualAnalogOptionButton + direction))
-        case 6: settings.dualAnalogBombButton = min(15, max(0, settings.dualAnalogBombButton + direction))
+        case 5...8:
+            let index = selection - 5
+            settings.dualAnalogInverted[index].toggle()
+        case 9...12:
+            let index = selection - 9
+            let values: [CGFloat] = [1, 180, 255]
+            let oldIndex = values.firstIndex(of: settings.dualAnalogScale[index]) ?? 0
+            settings.dualAnalogScale[index] = values[wrapped(oldIndex + direction, count: values.count)]
+        case 13...16:
+            let index = selection - 13
+            settings.dualAnalogCenter[index] = min(
+                0.9,
+                max(-0.9, settings.dualAnalogCenter[index] + CGFloat(direction) * 0.01)
+            )
+        case 17...20:
+            let index = selection - 17
+            settings.dualAnalogDeadZone[index] = min(
+                index < 2 ? 0.5 : 0.9,
+                max(0, settings.dualAnalogDeadZone[index] + CGFloat(direction) * 0.01)
+            )
+        case 21: settings.dualAnalogOptionButton = min(15, max(0, settings.dualAnalogOptionButton + direction))
+        case 22: settings.dualAnalogBombButton = min(15, max(0, settings.dualAnalogBombButton + direction))
         default: break
         }
+    }
+
+    private func keyboardLine(_ label: String, key: Int, index: Int) -> String {
+        let value = awaitingKeyboardBinding && selection == index
+            ? "Press a key"
+            : OriginalKeyName.displayName(for: key)
+        return "\(label): \(value)"
+    }
+
+    private func formattedAxisValue(_ value: CGFloat) -> String {
+        String(format: "%.2f", Double(value))
     }
 
     private func onOff(_ value: Bool) -> String { value ? "On" : "Off" }

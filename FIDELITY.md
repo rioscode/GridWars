@@ -70,19 +70,31 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   Theme0/1/2 were rendered from the preserved Impulse Tracker modules to
   lossless 44.1-kHz stereo ALAC for AVFoundation, and the Original/User sound
   set plus SFX/music volume controls update the live engine.
+- Input: `gridwars.bmx:4982-5321`, `control.bmx:2187-3389`, and
+  `utils.bmx:286-399` map to `OriginalInputResolver`, `PlayerMotionState`, the
+  controller polling/input paths in `GameScene`, the macOS event bridge in
+  `GameView`, and the configuration pages in `OriginalMenuModel`. The five
+  device modes and all three Hybrid variants preserve the original movement,
+  retained-autofire aim, mouse sensitivity divisor, configured bomb/option
+  buttons, four-button/D-pad swap, axis formula, paired dead zones and port
+  behavior. Apple GameController supplies 15 legacy axis slots and 16 button
+  slots; macOS events translate to the original 8...255 key namespace; iOS
+  twin sticks feed the same movement/weapon rules. Nine focused rule tests
+  cover the modes, remapping, calibration, and touch equivalence.
 - Language semantics: `docs/bb/blitzmax-ng/brl/random.mod/random.bmx` confirms
   inclusive integer `Rand` and upper-exclusive floating-point `Rnd`; the
   archived legacy `Language/Data types.bbdoc` documents the implicit numeric
   conversions used by the original. Swift random ranges and intentional
   integer truncations follow those references.
-- Build evidence (2026-08-24): the macOS unit-test action (47 tests) and generic
-  iOS device Debug build both pass with code signing disabled. The rule suite
+- Build evidence (2026-08-24): the macOS unit-test action (56 tests) and generic
+  iOS Simulator Debug build both pass. The rule suite
   covers initial difficulty, motion, weapons, scoring, upgrades, spawn timing,
   triangle bonds, snake following, black-hole integer conversions,
   interceptor geometry, generator non-kill scoring, grid deformation and the
       original particle ring, legacy persistence, checksum handling, and
       high-score name entry, audio manifest/spatial mixing, and readable
-      lossless tracker conversions.
+      lossless tracker conversions, all five input modes, remapping,
+      calibration, and touch equivalence.
 
 ## Core loop and progression
 
@@ -161,11 +173,11 @@ the corresponding Swift implementation, and a test or visual/runtime check.
 
 ## Input
 
-- [ ] Dual Analog, Mouse, Keyboard, Joypad, and all three Hybrid modes.
-- [ ] Autofire, remappable keys/buttons, axes, inversion, scale, center, dead
+- [x] Dual Analog, Mouse, Keyboard, Joypad, and all three Hybrid modes.
+- [x] Autofire, remappable keys/buttons, axes, inversion, scale, center, dead
       zones, joystick port selection, and calibration.
-- [ ] macOS keyboard/mouse/controller equivalents.
-- [ ] iPhone/iPad touch equivalents without changing gameplay rules.
+- [x] macOS keyboard/mouse/controller equivalents.
+- [x] iPhone/iPad touch equivalents without changing gameplay rules.
 
 ## Persistence and data compatibility
 

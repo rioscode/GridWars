@@ -133,6 +133,242 @@ final class GameRulesTests: XCTestCase {
         XCTAssertEqual(motion.memory.dx, 1, accuracy: 0.0001)
     }
 
+    func testKeyboardInputUsesEveryConfiguredOriginalKey() {
+        var settings = OriginalRuntimeSettings()
+        settings.controllerType = .keyboard
+        settings.keyMoveLeft = 10
+        settings.keyMoveRight = 11
+        settings.keyMoveUp = 12
+        settings.keyMoveDown = 13
+        settings.keyFireLeft = 14
+        settings.keyFireRight = 15
+        settings.keyFireUp = 16
+        settings.keyFireDown = 17
+        settings.keyBomb = 18
+        let snapshot = OriginalInputSnapshot(pressedKeys: [11, 12, 14, 16, 18])
+
+        var resolver = OriginalInputResolver()
+        let result = resolver.resolve(settings: settings, snapshot: snapshot)
+
+        XCTAssertEqual(result.movement, CGVector(dx: 1, dy: 1))
+        XCTAssertEqual(result.aim, CGVector(dx: -1, dy: 1))
+        XCTAssertTrue(result.isFiring)
+        XCTAssertTrue(result.bombIsHeld)
+    }
+
+    func testKeyboardAutofireRetainsTheLastDirectionLikeOriginalGlobals() {
+        var settings = OriginalRuntimeSettings()
+        settings.controllerType = .keyboard
+        settings.autoFire = true
+        var resolver = OriginalInputResolver()
+
+        let pressed = resolver.resolve(
+            settings: settings,
+            snapshot: OriginalInputSnapshot(pressedKeys: [settings.keyFireRight])
+        )
+        let released = resolver.resolve(settings: settings, snapshot: OriginalInputSnapshot())
+
+        XCTAssertEqual(pressed.aim, CGVector(dx: 1, dy: 0))
+        XCTAssertEqual(released.aim, pressed.aim)
+        XCTAssertTrue(released.isFiring)
+    }
+
+    func testMouseInputUsesConfiguredButtonsSensitivityAndRetainedAim() {
+        var settings = OriginalRuntimeSettings()
+        settings.controllerType = .mouse
+        settings.mouseFireButton = 3
+        settings.mouseBombButton = 1
+        settings.mouseSensitivity = 0.5
+        settings.autoFire = true
+        var resolver = OriginalInputResolver()
+
+        let moving = resolver.resolve(
+            settings: settings,
+            snapshot: OriginalInputSnapshot(
+                mouseButtons: [1, 3],
+                mouseDelta: CGVector(dx: 64, dy: -32)
+            )
+        )
+        let stationary = resolver.resolve(settings: settings, snapshot: OriginalInputSnapshot())
+
+        XCTAssertEqual(moving.movement.dx, 1.75, accuracy: 0.0001)
+        XCTAssertEqual(moving.movement.dy, -0.875, accuracy: 0.0001)
+        XCTAssertEqual(moving.aim, CGVector(dx: 4, dy: -2))
+        XCTAssertTrue(moving.bombIsHeld)
+        XCTAssertEqual(moving.movementLimit, .mouse(sensitivity: 0.5))
+        XCTAssertEqual(stationary.aim, moving.aim)
+        XCTAssertTrue(stationary.isFiring)
+    }
+
+    func testMouseMovementKeepsOriginalSensitivityDivisorBehavior() {
+        var motion = PlayerMotionState()
+        let result = motion.advance(
+            from: CGPoint(x: 100, y: 100),
+            input: CGVector(dx: 8, dy: 0),
+            arenaSize: CGSize(width: 1_024, height: 768),
+            inertia: 0,
+            movementLimit: .mouse(sensitivity: 0.5)
+        )
+
+        XCTAssertEqual(result.movement.dx, 8.0 / 6.0, accuracy: 0.0001)
+        XCTAssertEqual(result.position.x, 108, accuracy: 0.0001)
+    }
+
+    func testDualAnalogUsesOriginalAxisFormulaAndPairedDeadZones() {
+        var settings = OriginalRuntimeSettings()
+        settings.controllerType = .dualAnalog
+        settings.joyPorts[0] = OriginalJoyPortSettings(
+            axes: [1, 2, 3, 4],
+            inversion: [-1, 1, 1, -1],
+            scale: [2, 2, 1, 1],
+            center: [0.1, -0.1, 0, 0],
+            deadZone: [0.6, 0.1, 0.4, 0.3],
+            optionButton: 7,
+            bombButton: 6
+        )
+        var snapshot = OriginalInputSnapshot(
+            controllerAxes: [0.8, 0.2, 0.3, -0.4] + Array(repeating: 0, count: 11),
+            controllerButtons: [6, 7]
+        )
+        var resolver = OriginalInputResolver()
+
+        let result = resolver.resolve(settings: settings, snapshot: snapshot)
+        XCTAssertEqual(result.movement.dx, -0.5, accuracy: 0.0001)
+        XCTAssertEqual(result.movement.dy, -0.2, accuracy: 0.0001)
+        XCTAssertEqual(result.aim.dx, 0.3, accuracy: 0.0001)
+        XCTAssertEqual(result.aim.dy, -0.4, accuracy: 0.0001)
+        XCTAssertTrue(result.bombIsHeld)
+        XCTAssertTrue(result.optionIsHeld)
+
+        snapshot.controllerAxes[3] = -0.2
+        let insideBothAxes = resolver.resolve(settings: settings, snapshot: snapshot)
+        XCTAssertEqual(insideBothAxes.aim, .zero)
+    }
+
+    func testJoypadSwapsDPadAndFourButtonRoles() {
+        var settings = OriginalRuntimeSettings()
+        settings.controllerType = .joypad
+        settings.joypadButtons = [0, 1, 2, 3]
+        settings.joypadBombButton = 4
+        settings.joypadOptionButton = 5
+        let snapshot = OriginalInputSnapshot(
+            controllerDPad: CGVector(dx: -1, dy: -1),
+            controllerButtons: [2, 3, 4, 5]
+        )
+        var resolver = OriginalInputResolver()
+
+        let original = resolver.resolve(settings: settings, snapshot: snapshot)
+        XCTAssertEqual(original.movement, CGVector(dx: -1, dy: 1))
+        XCTAssertEqual(original.aim, CGVector(dx: 1, dy: 1))
+        XCTAssertTrue(original.bombIsHeld)
+        XCTAssertTrue(original.optionIsHeld)
+
+        settings.joypadConfiguration = 1
+        let swapped = resolver.resolve(settings: settings, snapshot: snapshot)
+        XCTAssertEqual(swapped.movement, original.aim)
+        XCTAssertEqual(swapped.aim, original.movement)
+    }
+
+    func testAllThreeHybridModesFollowOriginalControlPairings() {
+        var settings = OriginalRuntimeSettings()
+        settings.controllerType = .hybrid
+        settings.mouseFireButton = 1
+        var resolver = OriginalInputResolver()
+
+        settings.hybridConfiguration = 0
+        var snapshot = OriginalInputSnapshot(
+            pressedKeys: [settings.keyMoveRight],
+            mouseButtons: [1],
+            pointerFromPlayer: CGVector(dx: 30, dy: 40)
+        )
+        let relative = resolver.resolve(settings: settings, snapshot: snapshot)
+        XCTAssertEqual(relative.movement, CGVector(dx: 1, dy: 0))
+        XCTAssertEqual(relative.aim.dx, 0.6, accuracy: 0.0001)
+        XCTAssertEqual(relative.aim.dy, 0.8, accuracy: 0.0001)
+
+        settings.hybridConfiguration = 1
+        snapshot = OriginalInputSnapshot(
+            pressedKeys: [settings.keyFireUp],
+            mouseDelta: CGVector(dx: 64, dy: 0)
+        )
+        let mouseMove = resolver.resolve(settings: settings, snapshot: snapshot)
+        XCTAssertGreaterThan(mouseMove.movement.dx, 0)
+        XCTAssertEqual(mouseMove.aim, CGVector(dx: 0, dy: 1))
+        XCTAssertEqual(mouseMove.movementLimit, .mouse(sensitivity: settings.mouseSensitivity))
+
+        settings.hybridConfiguration = 2
+        snapshot = OriginalInputSnapshot(
+            pressedKeys: [settings.keyFireRight],
+            mouseButtons: [1],
+            pointerFromCenter: CGVector(dx: 0, dy: 100)
+        )
+        let centered = resolver.resolve(settings: settings, snapshot: snapshot)
+        XCTAssertEqual(centered.aim.dx, 0.1, accuracy: 0.0001)
+        XCTAssertEqual(centered.aim.dy, 0.8, accuracy: 0.0001)
+    }
+
+    func testTouchTwinSticksOverrideLegacyDeviceWithoutChangingVectors() {
+        var settings = OriginalRuntimeSettings()
+        settings.controllerType = .mouse
+        let snapshot = OriginalInputSnapshot(
+            mouseButtons: [settings.mouseFireButton],
+            mouseDelta: CGVector(dx: 100, dy: 100),
+            touchMovement: CGVector(dx: -0.4, dy: 0.2),
+            touchAim: CGVector(dx: 0, dy: -1),
+            touchIsActive: true
+        )
+        var resolver = OriginalInputResolver()
+
+        let result = resolver.resolve(settings: settings, snapshot: snapshot)
+
+        XCTAssertEqual(result.movement, snapshot.touchMovement)
+        XCTAssertEqual(result.aim, snapshot.touchAim)
+        XCTAssertTrue(result.isFiring)
+        XCTAssertEqual(result.movementLimit, .unit)
+    }
+
+    func testControllerMenusCaptureKeysButtonsAndCalibrationValues() {
+        var menu = OriginalMenuModel()
+        menu.open(duringGame: false)
+        menu.select(1)
+        _ = menu.activate()
+        menu.select(2)
+        _ = menu.activate()
+        menu.settings.controllerType = .keyboard
+        menu.select(1)
+        _ = menu.activate()
+        menu.select(0)
+        _ = menu.activate()
+        XCTAssertTrue(menu.awaitingKeyboardBinding)
+        XCTAssertTrue(menu.captureKeyboardKey(65))
+        XCTAssertEqual(menu.settings.keyMoveLeft, 65)
+        XCTAssertTrue(menu.lines[0].contains("A"))
+
+        _ = menu.back()
+        menu.settings.controllerType = .joypad
+        menu.select(1)
+        _ = menu.activate()
+        menu.select(1)
+        XCTAssertTrue(menu.captureControllerButton(12))
+        XCTAssertEqual(menu.settings.joypadBombButton, 12)
+
+        _ = menu.back()
+        menu.settings.controllerType = .dualAnalog
+        menu.select(1)
+        _ = menu.activate()
+        XCTAssertEqual(menu.page, .dualAnalog)
+        XCTAssertEqual(menu.lines.count, 24)
+        menu.select(5)
+        _ = menu.adjust(by: 1)
+        XCTAssertTrue(menu.settings.dualAnalogInverted[0])
+        menu.select(13)
+        _ = menu.adjust(by: 1)
+        XCTAssertEqual(menu.settings.dualAnalogCenter[0], 0.01, accuracy: 0.0001)
+        menu.select(17)
+        _ = menu.adjust(by: 1)
+        XCTAssertEqual(menu.settings.dualAnalogDeadZone[0], 0.01, accuracy: 0.0001)
+    }
+
     func testRespawnShieldAndOriginalWarningFrames() {
         var session = GameSession()
         session.grantRespawnShield()

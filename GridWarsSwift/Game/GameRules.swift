@@ -138,11 +138,20 @@ struct PlayerMotionState: Equatable {
         from position: CGPoint,
         input: CGVector,
         arenaSize: CGSize,
-        inertia: CGFloat = Self.defaultInertia
+        inertia: CGFloat = Self.defaultInertia,
+        movementLimit: OriginalMovementLimit = .unit
     ) -> (position: CGPoint, movement: CGVector) {
         var movement = input + memory * inertia
-        if movement.length > 1 {
-            movement = movement.normalized
+        switch movementLimit {
+        case .unit:
+            if movement.length > 1 {
+                movement = movement.normalized
+            }
+        case let .mouse(sensitivity):
+            let divisor = 1 + sensitivity * 10
+            if movement.length > divisor {
+                movement = movement / divisor
+            }
         }
         memory = movement
 
