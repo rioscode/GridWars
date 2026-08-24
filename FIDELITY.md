@@ -49,12 +49,24 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   the resulting in-place asymmetry. The renderer now follows each selector's
   source draw topology, excluded boundary rows/columns, alternating-cell phase,
   stretch colour/width formula, additive overdraw, original `particle.png`
-  composition, and fixed-50-Hz animation phase. Compared with the preceding
-  complete catalog, 19 selector metrics improved, the empty selector stayed
-  identical, and style 14 fell from 0.2501 to 0.0162 normalized mean absolute
-  difference. The Moiré selector remains open: its source-equivalent subdivided
+  composition, and fixed-50-Hz animation phase. Compared with the catalog from
+  before this source correction, all 20 nonempty selector metrics improved, the
+  empty selector is now pixel-identical, and style 14 fell from 0.2501 to
+  0.01364 normalized mean absolute difference. The Moiré selector remains open:
+  its source-equivalent subdivided
   gradient is visually close, but SpriteKit's triangle rasterization still
-  differs from the original OpenGL per-vertex gradient (0.0805).
+  differs from the original OpenGL per-vertex gradient (0.07842). The four
+  particle render paths now separately use
+  the original doubled line vectors, line widths/alpha, half-scale 7.5-pixel
+  image, and style-3 line-plus-stretched-image bloom. Their isolated differences
+  are 0.00775, 0.00870, 0.00019, and 0.00806; two independent style-3 Swift
+  captures are byte-identical. The isolated Grid/particle harness also hides
+  the gameplay arena border, matching the direct original draw path and making
+  the empty grid selector pixel-identical. The complete 87-state regression
+  improved 46 changed pairs. It also makes the remaining attract-capture phase
+  mismatch more visible: the Swift harness currently injects fixed bursts
+  instead of simulating the original 600-frame firework history, so those four
+  catalog states are the next correction target.
 - Screens and runtime controls: `gridwars.bmx:3622-4319, 5383-5439` and
   `control.bmx:889-2570` map to `OriginalScreenFlow`, `OriginalMenuModel`,
   `OriginalVectorFont`, `OriginalScreenRenderer`, and the presentation/input

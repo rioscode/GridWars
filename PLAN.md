@@ -110,15 +110,17 @@ branch. Each major fidelity milestone has its own commit:
 - [x] Source-ordered Grid simulation and style-specific rendering pass for all
       21 selectors, including fixed-50-Hz animation phases and original
       particle-image composition
+- [x] All four BlitzMax particle draw paths, including doubled vector lines,
+      half-scale image particles, and the separate bloom-image pass
 
 `FIDELITY.md` is the acceptance ledger. The isolated BlitzMax harness and the
 Swift port now each capture the same 87 attract, transition, gameplay, HUD,
 entity, generator, power-up, grid, particle, graphics-set, and menu states. Two
 independent complete original runs produced byte-identical PNGs, and the
 comparison tool verified all 87 1024×768 pairs. Style-by-style visual
-correction reduced the pixel difference for 19 grid selectors and left the
-already-empty selector unchanged. The Moiré selector still exposes a known
-OpenGL per-vertex-gradient versus SpriteKit rasterization difference. A full
-manual playthrough on macOS and physical iPhone/iPad hardware also remains
+correction reduced the pixel difference for all 20 nonempty grid selectors and
+made the empty selector pixel-identical. The Moiré selector still exposes a
+known OpenGL per-vertex-gradient versus SpriteKit rasterization difference. A
+full manual playthrough on macOS and physical iPhone/iPad hardware also remains
 verification work; these evidence gaps are not represented as completed 1:1
 proof.

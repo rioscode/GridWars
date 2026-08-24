@@ -556,6 +556,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             )
         case let .grid(style):
             prepareGameplayCapture()
+            gridLayer.childNode(withName: "arenaBorder")?.isHidden = true
             menuModel.settings.gridStyle = style
             menuModel.settings.starCount = 0
             applyRuntimeSettings()
@@ -569,6 +570,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             for _ in 0..<12 { gridSimulation.update() }
         case let .particleStyle(style):
             prepareGameplayCapture()
+            gridLayer.childNode(withName: "arenaBorder")?.isHidden = true
             menuModel.settings.gridStyle = GridStyle.none.rawValue
             menuModel.settings.starCount = 0
             menuModel.settings.particleStyle = style
