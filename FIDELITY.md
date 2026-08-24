@@ -60,18 +60,29 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   settings string. Fixture and store tests exercise round trips, corruption
   reset, legacy import, and Application Support writes; the loaded colour
   palette is applied to sprites, HUD, projectiles, generators, and particles.
+- Audio: `sound.bmx:1-355` and every `PlaySound2` call in
+  `gridwars.bmx:190-5604` map to `OriginalSoundEffect`,
+  `OriginalSpatialAudio`, `OriginalAudioEngine`, and the entity lifecycle in
+  `GameScene`. All shipped mappings use the original effect, rate, playfield-
+  relative pan and attenuation; the archive's referenced-but-missing
+  `shieldwarning.wav` remains intentionally silent just as its null BlitzMax
+  `TSound` did. Eight rate-shifted black-hole loop channels are supported.
+  Theme0/1/2 were rendered from the preserved Impulse Tracker modules to
+  lossless 44.1-kHz stereo ALAC for AVFoundation, and the Original/User sound
+  set plus SFX/music volume controls update the live engine.
 - Language semantics: `docs/bb/blitzmax-ng/brl/random.mod/random.bmx` confirms
   inclusive integer `Rand` and upper-exclusive floating-point `Rnd`; the
   archived legacy `Language/Data types.bbdoc` documents the implicit numeric
   conversions used by the original. Swift random ranges and intentional
   integer truncations follow those references.
-- Build evidence (2026-08-24): the macOS unit-test action (44 tests) and generic
+- Build evidence (2026-08-24): the macOS unit-test action (47 tests) and generic
   iOS device Debug build both pass with code signing disabled. The rule suite
   covers initial difficulty, motion, weapons, scoring, upgrades, spawn timing,
   triangle bonds, snake following, black-hole integer conversions,
   interceptor geometry, generator non-kill scoring, grid deformation and the
       original particle ring, legacy persistence, checksum handling, and
-      high-score name entry.
+      high-score name entry, audio manifest/spatial mixing, and readable
+      lossless tracker conversions.
 
 ## Core loop and progression
 
@@ -168,12 +179,12 @@ the corresponding Swift implementation, and a test or visual/runtime check.
 
 ## Audio and music
 
-- [ ] Every sound mapping in `sound.bmx:84-206` with SFX volume, distance
+- [x] Every sound mapping in `sound.bmx:84-206` with SFX volume, distance
       attenuation, stereo pan, and pitch/rate changes.
-- [ ] Eight concurrent black-hole loops and lifecycle management.
-- [ ] Intro, gameplay, and high-score tracker music, looped at configured
+- [x] Eight concurrent black-hole loops and lifecycle management.
+- [x] Intro, gameplay, and high-score tracker music, looped at configured
       volume; convert only when required by AVFoundation/SpriteKit.
-- [ ] Original and User sound-set selection.
+- [x] Original and User sound-set selection.
 
 ## Final verification
 

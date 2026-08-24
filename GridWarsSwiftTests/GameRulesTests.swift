@@ -1,3 +1,4 @@
+import AVFoundation
 import XCTest
 
 final class GameRulesTests: XCTestCase {
@@ -730,6 +731,57 @@ final class GameRulesTests: XCTestCase {
         XCTAssertEqual(entry.selectedIndex, 0)
         entry.setASCII(31)
         XCTAssertEqual(entry.name, "a      Z")
+    }
+
+    func testOriginalSoundManifestMatchesSourceIncludingItsMissingWarningAsset() {
+        let soundDirectory = repositoryRoot.appendingPathComponent("sounds", isDirectory: true)
+        let missing = OriginalSoundEffect.allCases.map(\.fileName).filter {
+            !FileManager.default.fileExists(atPath: soundDirectory.appendingPathComponent($0).path)
+        }
+
+        // The 5.4 source loads this file, but it is absent from the shipped archive;
+        // BlitzMax therefore leaves that TSound null and PlaySound2 stays silent.
+        XCTAssertEqual(missing, ["shieldwarning.wav"])
+        XCTAssertEqual(OriginalSoundEffect.blackHoleKilled.fileName, "Explo1.wav")
+        XCTAssertEqual(OriginalSoundEffect.highScore.fileName, "bonus1.wav")
+        XCTAssertEqual(OriginalSoundEffect.interceptorHit.fileName, "quarkhit2.wav")
+    }
+
+    func testOriginalSpatialAudioUsesPlayfieldRelativePanAndAttenuation() {
+        XCTAssertEqual(
+            OriginalSpatialAudio.mix(
+                source: CGPoint(x: 512, y: 384),
+                listener: CGPoint(x: 512, y: 384),
+                playfieldSize: CGSize(width: 1_024, height: 768)
+            ),
+            OriginalAudioMix(pan: 0, volume: 1)
+        )
+
+        let mix = OriginalSpatialAudio.mix(
+            source: CGPoint(x: 768, y: 768),
+            listener: CGPoint(x: 512, y: 384),
+            playfieldSize: CGSize(width: 1_024, height: 768)
+        )
+        XCTAssertEqual(mix.pan, 0.25, accuracy: 0.0001)
+        XCTAssertEqual(mix.volume, 0.92625, accuracy: 0.0001)
+    }
+
+    func testConvertedTrackerMusicFilesAreReadableAndKeepOriginalDurations() throws {
+        let minimumDurations: [OriginalMusicTrack: TimeInterval] = [
+            .intro: 30,
+            .gameplay: 261,
+            .highScore: 38,
+        ]
+        for track in OriginalMusicTrack.allCases {
+            let url = repositoryRoot
+                .appendingPathComponent("music", isDirectory: true)
+                .appendingPathComponent(track.fileName)
+            let file = try AVAudioFile(forReading: url)
+            let duration = Double(file.length) / file.processingFormat.sampleRate
+            XCTAssertGreaterThanOrEqual(duration, minimumDurations[track] ?? 0)
+            XCTAssertEqual(file.processingFormat.sampleRate, 44_100, accuracy: 0.1)
+            XCTAssertEqual(file.processingFormat.channelCount, 2)
+        }
     }
 
     func testPersistenceStoreImportsLegacyDirectoryAndWritesApplicationSupportCopies() throws {

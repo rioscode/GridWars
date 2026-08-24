@@ -146,6 +146,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private var starNodes: [SKShapeNode] = []
     private var appliedGridColorPosition = 0
     private let persistenceStore = GridWarsPersistenceStore.applicationDefault()
+    private let audio = OriginalAudioEngine()
     private var colorPalette = OriginalColorPalette()
     private var highScores = LegacyHighScoreTable()
     private var highScoreNameEntry: OriginalHighScoreNameEntry?
@@ -201,6 +202,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         physicsWorld.gravity = .zero
         physicsWorld.contactDelegate = nil
         loadPersistentState()
+        audio.configure(settings: menuModel.settings)
         setupLayers()
         setupArena()
         setupPlayer()
@@ -431,6 +433,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         pickupLayer.removeAllChildren()
         effectLayer.removeAllChildren()
         particleSimulation.reset()
+        audio.stopAllBlackHoleLoops()
+        audio.startMusic(.intro)
         screenFlow.returnToTitle()
         clearScorePresentation()
         gameplayPaused = false
@@ -450,6 +454,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private func beginGame() {
         clearScorePresentation()
         menuModel.close()
+        audio.stopMusic()
+        audio.stopAllBlackHoleLoops()
         screenFlow.startGame()
         screenRenderer.hide()
         particleSimulation.reset()
@@ -517,6 +523,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         let wasScorePage = screenFlow.phase == .attract(.scores)
         if screenFlow.advance(), wasScorePage {
             clearScorePresentation()
+            audio.startMusic(.intro)
         }
     }
 
@@ -538,13 +545,18 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
     private func preparePostGameScores() {
         let score = session.score
-        guard score > 0 else { return }
+        guard score > 0 else {
+            audio.startMusic(.intro)
+            return
+        }
         let playTime = LegacyHighScoreTable.playTime(frames: simulationFrame)
         scorePageDifficulty = session.difficulty
         highlightedScorePosition = nil
         unrankedScoreEntry = nil
 
         if session.isScoreValid, highScores.qualifies(score: score, difficulty: session.difficulty) {
+            audio.startMusic(.highScore)
+            audio.play(.highScore)
             pendingHighScore = PendingHighScore(
                 score: score,
                 playTime: playTime,
@@ -553,6 +565,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             )
             highScoreNameEntry = OriginalHighScoreNameEntry()
         } else {
+            audio.startMusic(.intro)
             unrankedScoreEntry = LegacyHighScoreEntry(
                 score: score,
                 playTime: playTime,
@@ -647,6 +660,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     private func enterAttractPresentation() {
+        audio.stopAllBlackHoleLoops()
         enemyLayer.removeAllChildren()
         projectileLayer.removeAllChildren()
         pickupLayer.removeAllChildren()
@@ -775,6 +789,21 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     private func applyRuntimeSettings() {
+        audio.configure(settings: menuModel.settings)
+        for blackHole in enemies(of: .blackHole)
+            where (blackHole.userData?["blackHoleActive"] as? NSNumber)?.boolValue ?? false {
+            guard let id = blackHole.userData?["enemyID"] as? String else { continue }
+            let blackHoleSize = CGFloat(
+                (blackHole.userData?["blackHoleSize"] as? NSNumber)?.doubleValue ?? 20
+            )
+            audio.startBlackHoleLoop(
+                id: id,
+                at: blackHole.position,
+                listener: player.position,
+                playfieldSize: size,
+                size: blackHoleSize
+            )
+        }
         gridStyle = GridStyle(rawValue: menuModel.settings.gridStyle) ?? .pointsSolid
         particleGravityEnabled = menuModel.settings.particleGravity
         particleSimulation.particleLife = menuModel.settings.particleLife
@@ -1034,6 +1063,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private func updatePlayerShield() {
         playerShield.position = player.position
         let frames = session.shieldFrames
+        if frames == 100 || frames == 70 || frames == 40 {
+            audio.play(.shieldWarning)
+        }
         playerShield.isHidden = frames == 0 || (frames <= 60 && frames % 15 <= 7)
         playerShield.setScale(2.75 + CGFloat(frames) / 128)
         playerShield.fillColor = SKColor(
@@ -1123,7 +1155,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 offset: launch.offset
             )
         }
-        run(.playSoundFileNamed("shotborn.wav", waitForCompletion: false))
+        audio.play(.shotBorn)
     }
 
     private func spawnProjectile(
@@ -1157,7 +1189,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         kind: EnemyKind,
         at position: CGPoint,
         freezeFrames: Int,
-        closeToPlayer: Bool = false
+        closeToPlayer: Bool = false,
+        playBornSound: Bool = true
     ) -> SKNode? {
         let matchingEnemyCount = enemyLayer.children.filter {
             $0.name == "enemy" && $0.userData?["kind"] as? String == kind.rawValue
@@ -1249,6 +1282,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         aura.zPosition = -1
         enemy.addChild(aura)
         enemyLayer.addChild(enemy)
+        if playBornSound {
+            playSpatial(enemyBornSound(for: kind), at: enemy.position)
+        }
         if kind == .snake {
             spawnSnakeSegments(for: enemy, freezeFrames: freezeFrames)
         }
@@ -1405,7 +1441,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         inner.glowWidth = 1
         generator.addChild(inner)
         enemyLayer.addChild(generator)
-        run(.playSoundFileNamed("cat.wav", waitForCompletion: false))
+        playSpatial(.generatorBorn, at: generator.position)
     }
 
     private func generatorPath(kind: EnemyKind, radius: CGFloat) -> CGPath {
@@ -1593,7 +1629,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 var lastPlayed = (enemy.userData?["interceptorLastPlayed"] as? NSNumber)?.intValue ?? 0
                 if turnRemaining == 0, lastPlayed == 0 {
                     lastPlayed = 60
-                    run(.playSoundFileNamed("shield1.wav", waitForCompletion: false))
+                    playSpatial(.interceptorShield, at: enemy.position)
                 }
                 if lastPlayed > 0 { lastPlayed -= 1 }
                 let headingRadians = heading * .pi / 180
@@ -1895,7 +1931,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                         color: colorPalette[.snakeTail]
                     )
                     if nextMove < 50 {
-                        run(.playSoundFileNamed("snakehit.wav", waitForCompletion: false))
+                        playSpatial(.snakeTailExplode, at: position)
                     }
                     continue
                 }
@@ -2285,6 +2321,17 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 radiusInPoints: 5 + Int(blackHoleSize / 2),
                 amount: 4
             )
+            let rotation = (blackHole.userData?["rotation"] as? NSNumber)?.intValue ?? 0
+            if rotation.isMultiple(of: 25),
+               let id = blackHole.userData?["enemyID"] as? String {
+                audio.updateBlackHoleLoop(
+                    id: id,
+                    at: blackHole.position,
+                    listener: player.position,
+                    playfieldSize: size,
+                    size: blackHoleSize
+                )
+            }
         }
 
         for otherBlackHole in enemyLayer.children where otherBlackHole !== blackHole
@@ -2321,11 +2368,23 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         if !wasActive {
             gridSimulation.push(at: blackHole.position, radiusInPoints: 6, amount: 1)
         }
+        if let id = blackHole.userData?["enemyID"] as? String {
+            audio.startBlackHoleLoop(
+                id: id,
+                at: blackHole.position,
+                listener: player.position,
+                playfieldSize: size,
+                size: blackHoleSize
+            )
+        }
         let absorbed = (blackHole.userData?["absorbCount"] as? NSNumber)?.intValue ?? 0
         blackHole.userData?["absorbCount"] = absorbed + 1
 
         if blackHoleSize > 64 {
             let position = blackHole.position
+            if let id = blackHole.userData?["enemyID"] as? String {
+                audio.stopBlackHoleLoop(id: id)
+            }
             blackHole.removeFromParent()
             for index in 0..<16 {
                 let angle = CGFloat(index) * 22.5 * .pi / 180
@@ -2365,6 +2424,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                     )
                 }
             )
+            playSpatial(.blackHoleExplode, at: position)
+        } else {
+            playSpatial(.blackHoleGrow, at: blackHole.position)
         }
     }
 
@@ -2442,13 +2504,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     private var projectileColor: SKColor {
-        if session.superShotFrames > 0 {
-            return SKColor(red: 200 / 255, green: 32 / 255, blue: 32 / 255, alpha: 1)
-        }
-        if session.bouncyShotFrames > 0 {
-            return SKColor(red: 32 / 255, green: 200 / 255, blue: 32 / 255, alpha: 1)
-        }
-        return SKColor(red: 200 / 255, green: 200 / 255, blue: 128 / 255, alpha: 1)
+        if session.superShotFrames > 0 { return skColor(colorPalette[.superShot]) }
+        if session.bouncyShotFrames > 0 { return skColor(colorPalette[.bouncyShot]) }
+        return skColor(colorPalette[.shot])
     }
 
     private var projectileParticleColor: ParticleColor {
@@ -2464,7 +2522,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             kind: .random,
             color: projectileParticleColor
         )
-        run(.playSoundFileNamed("shotwall.wav", waitForCompletion: false))
+        playSpatial(.shotWall, at: position)
     }
 
     private func projectileVelocity(_ projectile: SKNode) -> CGVector {
@@ -2679,7 +2737,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 kind: .random,
                 color: colorPalette[.snakeTail]
             )
-            run(.playSoundFileNamed("tailhit.wav", waitForCompletion: false))
+            playSpatial(.snakeTailHit, at: enemy.position)
             return
         }
         guard enemy.name == "enemy" || enemy.name == "generator" else { return }
@@ -2735,6 +2793,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 enemy.userData?["dy"] = velocity.dy
                 enemy.userData?["triangleStrength"] = bond.strength
                 if bond.isBroken { detachTriangle(enemy) }
+                playSpatial(.triangleHit, at: enemy.position)
                 return
             }
         }
@@ -2753,13 +2812,23 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             }
             blackHoleSize -= 0.75
             enemy.userData?["blackHoleSize"] = blackHoleSize
+            if let id = enemy.userData?["enemyID"] as? String {
+                audio.startBlackHoleLoop(
+                    id: id,
+                    at: enemy.position,
+                    listener: player.position,
+                    playfieldSize: size,
+                    size: blackHoleSize
+                )
+            }
             if blackHoleSize < 4 {
                 gridSimulation.push(at: enemy.position, radiusInPoints: 8, amount: 2)
                 let absorbed = (enemy.userData?["absorbCount"] as? NSNumber)?.intValue ?? 0
                 enemy.userData?["score"] = BlackHoleRule.destructionScore(absorbedEnemies: absorbed)
                 destroyEnemy(enemy, preHitParticlesEmitted: true)
             } else {
-                run(.playSoundFileNamed("sunhit1.wav", waitForCompletion: false))
+                let rate = 1.1 + (64 - blackHoleSize) / 64
+                playSpatial(.blackHoleShrink, at: enemy.position, rate: rate)
             }
             return
         }
@@ -2785,7 +2854,13 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 .fadeAlpha(to: 0.25, duration: 0.035),
                 .fadeAlpha(to: 1, duration: 0.07),
             ]))
-            run(.playSoundFileNamed("genhit1.wav", waitForCompletion: false))
+            if enemy.name == "generator" {
+                playSpatial(
+                    .generatorHit,
+                    at: enemy.position,
+                    rate: 1 + CGFloat(newHealth) / 64
+                )
+            }
         } else {
             destroyEnemy(enemy, preHitParticlesEmitted: trianglePreHitParticlesEmitted)
         }
@@ -2820,6 +2895,10 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         if kind == .snake, originalName == "enemy" {
             scheduleSnakeTailExplosion(for: enemy, awardPoints: awardPoints)
         }
+        if kind == .blackHole,
+           let id = enemy.userData?["enemyID"] as? String {
+            audio.stopBlackHoleLoop(id: id)
+        }
         enemy.name = "destroying"
         enemy.physicsBody?.categoryBitMask = 0
         let score = (enemy.userData?["score"] as? NSNumber)?.intValue ?? 100
@@ -2845,7 +2924,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                     kind: .cube,
                     at: CGPoint(x: position.x - 30, y: position.y + randomCoordinate(-30...30)),
                     freezeFrames: 2,
-                    closeToPlayer: true
+                    closeToPlayer: true,
+                    playBornSound: false
                 ) {
                     smallCube.userData?["cubeTier"] = 4
                     smallCube.userData?["score"] = 50
@@ -2857,7 +2937,12 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             handleProgressionEvent(event)
         }
         if playSound {
-            run(.playSoundFileNamed("Explo1.wav", waitForCompletion: false))
+            playEnemyDestroyedSound(
+                kind: kind,
+                originalName: originalName,
+                cubeTier: cubeTier,
+                at: position
+            )
         }
         updateHUD()
     }
@@ -3014,13 +3099,72 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         )
     }
 
+    private func playSpatial(
+        _ effect: OriginalSoundEffect,
+        at position: CGPoint,
+        rate: CGFloat = 1,
+        volume: CGFloat = 1
+    ) {
+        audio.play(
+            effect,
+            at: position,
+            listener: player.position,
+            playfieldSize: size,
+            rate: rate,
+            volume: volume
+        )
+    }
+
+    private func enemyBornSound(for kind: EnemyKind) -> OriginalSoundEffect {
+        switch kind {
+        case .greenSquare: .squareBorn
+        case .pinwheel: .pinwheelBorn
+        case .diamond: .diamondBorn
+        case .cube: .cubeBorn
+        case .seeker: .seekerBorn
+        case .blackHole: .blackHoleBorn
+        case .triangle: .triangleBorn
+        case .snake: .snakeBorn
+        case .interceptor: .interceptorBorn
+        case .butterfly: .butterflyBorn
+        }
+    }
+
+    private func playEnemyDestroyedSound(
+        kind: EnemyKind,
+        originalName: String?,
+        cubeTier: Int,
+        at position: CGPoint
+    ) {
+        if originalName == "generator" {
+            playSpatial(.generatorKilled, at: position)
+            return
+        }
+        switch kind {
+        case .greenSquare:
+            playSpatial(.enemyHit, at: position, rate: 1.1)
+        case .diamond:
+            playSpatial(.enemyHit, at: position, rate: 0.98)
+        case .cube:
+            playSpatial(.enemyHit, at: position, rate: cubeTier == 0 ? 1 : 1.25)
+        case .interceptor:
+            playSpatial(.interceptorHit, at: position)
+        case .blackHole:
+            playSpatial(.blackHoleKilled, at: position)
+        case .triangle:
+            playSpatial(.triangleKilled, at: position)
+        case .pinwheel, .seeker, .snake, .butterfly:
+            playSpatial(.enemyHit, at: position)
+        }
+    }
+
     private func handleProgressionEvent(_ event: ProgressionEvent) {
         switch event {
         case let .multiplierIncreased(value):
             messageLabel.text = "\(value)X Multiplier"
             messageLabel.isHidden = false
             messageLabel.run(.sequence([.wait(forDuration: 0.7), .hide()]))
-            run(.playSoundFileNamed("bonus2.wav", waitForCompletion: false))
+            audio.play(.multiplierIncrease)
         case let .spawnPowerUp(requestedKind):
             let kind = requestedKind ?? choosePowerUpKind()
             let position = CGPoint(
@@ -3028,7 +3172,11 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 y: randomCoordinate(150...Int(size.height - 150))
             )
             spawnPowerUp(at: position, kind: kind)
-            run(.playSoundFileNamed("bonusborn.wav", waitForCompletion: false))
+            switch requestedKind {
+            case .extraPlayer: audio.play(.extraLife)
+            case .extraBomb: audio.play(.extraBomb)
+            default: audio.play(.bonusBorn)
+            }
         case .powerUpCollected:
             break
         }
@@ -3269,11 +3417,12 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
     private func collect(_ powerUp: SKNode) {
         guard powerUp.parent != nil else { return }
+        let position = powerUp.position
         powerUp.removeFromParent()
         let rawKind = (powerUp.userData?["kind"] as? NSNumber)?.intValue ?? PowerUpKind.extraBomb.rawValue
         let kind = PowerUpKind(rawValue: rawKind) ?? .extraBomb
         let events = session.collectPowerUp(kind)
-        run(.playSoundFileNamed("bonus1.wav", waitForCompletion: false))
+        playSpatial(.powerUpCollected, at: position)
         for event in events {
             if case let .powerUpCollected(_, message) = event {
                 messageLabel.text = message
@@ -3297,7 +3446,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         messageLabel.text = "GET READY"
         messageLabel.setScale(1)
         messageLabel.isHidden = false
-        run(.playSoundFileNamed("startup.wav", waitForCompletion: false))
+        audio.play(.getReady)
     }
 
     private func advanceGetReadySequence() {
@@ -3347,6 +3496,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             player.isHidden = false
             session.grantRespawnShield()
             updatePlayerShield()
+            audio.startMusic(.gameplay)
         }
     }
 
@@ -3375,7 +3525,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             touchIsFiring = false
             messageLabel.isHidden = true
             screenFlow.showGameOver()
-            run(.playSoundFileNamed("gameover.wav", waitForCompletion: false))
+            audio.play(.gameOver)
         } else {
             touchAim = .zero
             touchIsFiring = false
@@ -3409,6 +3559,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     private func removeNonKillerEntities() {
+        audio.stopAllBlackHoleLoops()
         for node in enemyLayer.children {
             let isKiller = (node.userData?["killer"] as? NSNumber)?.boolValue ?? false
             if !isKiller {
@@ -3445,7 +3596,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             kind: .random,
             color: colorPalette[.player]
         )
-        run(.playSoundFileNamed("die1.wav", waitForCompletion: false))
+        audio.stopMusic()
+        audio.play(.playerHit)
         return true
     }
 
@@ -3488,6 +3640,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         if highScoreNameEntry != nil {
             guard pressed, !isRepeat else { return }
             var entry = highScoreNameEntry ?? OriginalHighScoreNameEntry()
+            let previousEntry = entry
             switch keyCode {
             case 123: entry.moveSelection(by: -1)
             case 124: entry.moveSelection(by: 1)
@@ -3504,6 +3657,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                     entry.setASCII(Int(scalar.value))
                 }
             }
+            if entry != previousEntry { audio.play(.enemyHit) }
             highScoreNameEntry = entry
             renderPresentation()
             return
@@ -3644,7 +3798,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             ]),
             .removeFromParent(),
         ]))
-        run(.playSoundFileNamed("Explo1.wav", waitForCompletion: false))
+        audio.play(.superBomb)
         updateHUD()
     }
 
@@ -3668,6 +3822,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         case .endGame:
             menuModel.close()
             persistState()
+            audio.stopAllBlackHoleLoops()
+            audio.startMusic(.intro)
             screenFlow.returnToTitle()
             particleSimulation.reset()
             clearScorePresentation()
@@ -3675,9 +3831,13 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         case .exitApplication:
             persistState()
             #if os(macOS)
+            audio.stopAllBlackHoleLoops()
+            audio.stopMusic()
             NSApplication.shared.terminate(nil)
             #else
             menuModel.close()
+            audio.stopAllBlackHoleLoops()
+            audio.startMusic(.intro)
             screenFlow.returnToTitle()
             particleSimulation.reset()
             enterAttractPresentation()
@@ -3717,6 +3877,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             let location = touch.location(in: self)
             let control = min(4, max(0, Int(location.x / (size.width / 5))))
             var entry = highScoreNameEntry ?? OriginalHighScoreNameEntry()
+            let previousEntry = entry
             switch control {
             case 0: entry.moveSelection(by: -1)
             case 1: entry.moveSelection(by: 1)
@@ -3727,6 +3888,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 renderPresentation()
                 return
             }
+            if entry != previousEntry { audio.play(.enemyHit) }
             highScoreNameEntry = entry
             renderPresentation()
             return
