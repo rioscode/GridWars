@@ -142,6 +142,8 @@ branch. Each major fidelity milestone has its own commit:
       per-vertex colour approximation
 - [x] 64-level per-cell colour/alpha approximation for stretched and sine
       filled grid quads
+- [x] 64-level continuous colour/width approximation for stretched line grids
+      and selector-specific hard rasterization for Grid style 11
 - [x] Get Ready's two source-ordered Grid updates per displayed frame, including
       pull-before-update ordering
 - [x] Top-left 1×1 `Plot` pixel anchoring for midpoint-circle Get Ready rings

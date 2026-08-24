@@ -28,6 +28,7 @@ enum GridStyle: Int, CaseIterable {
 final class GridRenderer {
     let node = SKNode()
 
+    private let stretchBucketCount = 64
     private var animationFrame = 0
     private lazy var particleImage = OriginalGraphics.cgImage(named: "particle", setIndex: 0)
 
@@ -304,7 +305,7 @@ final class GridRenderer {
         color: SKColor,
         alpha: CGFloat
     ) {
-        let paths = (0..<16).map { _ in CGMutablePath() }
+        let paths = (0..<stretchBucketCount).map { _ in CGMutablePath() }
         for column in 0..<grid.columns {
             for row in 0..<grid.rows {
                 let points = cellPoints(grid, column: column, row: row)
@@ -333,8 +334,8 @@ final class GridRenderer {
     }
 
     private func addStretchedEdges(_ grid: GridSimulation) {
-        let regular = (0..<16).map { _ in CGMutablePath() }
-        let highlighted = (0..<16).map { _ in CGMutablePath() }
+        let regular = (0..<stretchBucketCount).map { _ in CGMutablePath() }
+        let highlighted = (0..<stretchBucketCount).map { _ in CGMutablePath() }
         for column in 0..<grid.columns {
             for row in 0..<grid.rows {
                 let points = cellPoints(grid, column: column, row: row)
@@ -353,7 +354,7 @@ final class GridRenderer {
                 }
             }
         }
-        for bucket in 0..<16 {
+        for bucket in 0..<stretchBucketCount {
             let intensity = bucketIntensity(bucket)
             let color = blueStretchColor(intensity)
             let lineWidth = 1 + intensity * 1.5
@@ -375,7 +376,7 @@ final class GridRenderer {
     }
 
     private func addStretchedCheckerLines(_ grid: GridSimulation, diagonals: Bool) {
-        let paths = (0..<16).map { _ in CGMutablePath() }
+        let paths = (0..<stretchBucketCount).map { _ in CGMutablePath() }
         for column in 0..<grid.columns {
             for row in 0..<grid.rows where isAlternatingCell(column, row, rows: grid.rows) {
                 let points = cellPoints(grid, column: column, row: row)
@@ -397,7 +398,8 @@ final class GridRenderer {
                 stroke: diagonals ? raspberryStretchColor(intensity) : blueStretchColor(intensity),
                 alpha: diagonals ? 0.6 + intensity * 0.2 : 1 - intensity * 0.3,
                 lineWidth: 1 + intensity * (diagonals ? 1.5 : 2),
-                pixelAlignedStroke: true
+                pixelAlignedStroke: true,
+                antialiased: diagonals
             )
         }
     }
@@ -721,11 +723,14 @@ final class GridRenderer {
     }
 
     private func stretchBucket(_ points: [CGPoint]) -> Int {
-        min(15, max(0, Int(stretchIntensity(points, spacing: 16) * 15.999)))
+        min(
+            stretchBucketCount - 1,
+            max(0, Int(stretchIntensity(points, spacing: 16) * CGFloat(stretchBucketCount)))
+        )
     }
 
     private func bucketIntensity(_ bucket: Int) -> CGFloat {
-        CGFloat(bucket) / 15
+        CGFloat(bucket) / CGFloat(stretchBucketCount - 1)
     }
 
     private func blueStretchColor(_ intensity: CGFloat) -> SKColor {
@@ -775,14 +780,17 @@ final class GridRenderer {
         alpha: CGFloat,
         lineWidth: CGFloat = 1,
         glowWidth: CGFloat = 0,
-        pixelAlignedStroke: Bool = false
+        pixelAlignedStroke: Bool = false,
+        antialiased: Bool = true
     ) {
+        guard !path.isEmpty else { return }
         let shape = SKShapeNode(path: path)
         shape.strokeColor = stroke
         shape.fillColor = fill
         shape.alpha = max(0, min(1, alpha))
         shape.lineWidth = lineWidth
         shape.glowWidth = glowWidth
+        shape.isAntialiased = antialiased
         shape.blendMode = .add
         if pixelAlignedStroke {
             shape.position = OriginalLineRasterRule.scenePixelCenter(.zero)

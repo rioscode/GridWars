@@ -109,10 +109,15 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   style 8 carries Max2D's source alpha through SpriteKit's premultiplied
   additive node using `sqrt(alpha)`, while style 9's explicit `glColor3f`
   resets alpha to 1. Their differences fall from 0.03074/0.00935 to
-  0.02865/0.00811. RGB-split style 13 likewise uses alpha 1, converts its red
-  source offset from `(-4,-4)` to scene `(-4,+4)`, and uses 64 colour buckets
-  to approximate the original per-vertex interpolation; its difference falls
-  from 0.03046 to 0.02549. Increasing only the per-cell source-value
+  0.02865/0.00811. Raising the continuous stretch colour/width approximation
+  from 16 to 64 buckets further lowers styles 9–12 to
+  0.00810/0.01939/0.02667/0.01538. The source-style hard line raster is useful
+  only for style 11's closed `DrawLine` cells: disabling SpriteKit antialiasing
+  there lowers it again to 0.02542, while the same change was measured and
+  rejected for style 12. RGB-split style 13 likewise uses alpha 1, converts its
+  red source offset from `(-4,-4)` to scene `(-4,+4)`, and uses 64 colour
+  buckets to approximate the original per-vertex interpolation; its difference
+  falls from 0.03046 to 0.02549. Increasing only the per-cell source-value
   approximation for filled stretched/sine quads from 16 to 64 levels lowers
   styles 16 and 17 from 0.02980/0.01852 to 0.02924/0.01746; changing their
   SpriteKit fill alpha was measured and rejected as a regression. Preserving

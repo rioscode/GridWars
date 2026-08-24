@@ -134,7 +134,12 @@ preserves drawcall-level accumulation.
 
 SpriteKit cannot reproduce OpenGL per-vertex color interpolation exactly with
 a single `SKShapeNode`. The port uses bounded color buckets for the RGB-split,
-stretched, and sine paths. Increase bucket counts only when captures improve.
+stretched, and sine paths. The continuous stretch colour/width functions use
+64 buckets; 16 levels produced measurable banding and larger reference errors.
+Increase bucket counts only when captures improve. Raster policy is likewise
+selector-specific: disabling `SKShapeNode` antialiasing improves the closed
+`DrawLine` cell outlines of Grid style 11, but slightly worsens the two
+diagonal lines of style 12, so do not apply it to every grid path.
 The Moiré style uses six constant-color subdivisions per triangle as a bounded
 Gouraud approximation; 12 subdivisions rendered slower and compared slightly
 worse. Its source `b` phase index must be recovered as `rows-1-sceneRow`, and
