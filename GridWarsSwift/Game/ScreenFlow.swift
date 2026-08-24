@@ -972,7 +972,7 @@ struct OriginalMenuModel: Equatable {
             settings.dualAnalogInverted[index].toggle()
         case 9...12:
             let index = selection - 9
-            let values: [CGFloat] = [1, 180, 255]
+            let values: [CGFloat] = [1, 128, 255]
             let oldIndex = values.firstIndex(of: settings.dualAnalogScale[index]) ?? 0
             settings.dualAnalogScale[index] = values[wrapped(oldIndex + direction, count: values.count)]
         case 13...16:

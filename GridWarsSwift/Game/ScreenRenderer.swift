@@ -1,5 +1,124 @@
 @preconcurrency import SpriteKit
 
+private struct BlitzMaxFontColor: Hashable {
+    let red: UInt8
+    let green: UInt8
+    let blue: UInt8
+
+    static let white = BlitzMaxFontColor(red: 255, green: 255, blue: 255)
+    static let gray = BlitzMaxFontColor(red: 128, green: 128, blue: 128)
+    static let red = BlitzMaxFontColor(red: 255, green: 32, blue: 32)
+    static let blue = BlitzMaxFontColor(red: 32, green: 32, blue: 240)
+    static let darkBlue = BlitzMaxFontColor(red: 35, green: 65, blue: 115)
+    static let borderBlue = BlitzMaxFontColor(red: 0, green: 0, blue: 100)
+    static let axisBlue = BlitzMaxFontColor(red: 50, green: 65, blue: 220)
+    static let orange = BlitzMaxFontColor(red: 255, green: 128, blue: 0)
+    static let green = BlitzMaxFontColor(red: 0, green: 255, blue: 0)
+    static let buttonGray = BlitzMaxFontColor(red: 64, green: 64, blue: 64)
+
+    var spriteKitColor: SKColor {
+        SKColor(
+            red: CGFloat(red) / 255,
+            green: CGFloat(green) / 255,
+            blue: CGFloat(blue) / 255,
+            alpha: 1
+        )
+    }
+}
+
+private struct BlitzMaxFontTextureKey: Hashable {
+    let text: String
+    let color: BlitzMaxFontColor
+}
+
+private enum BlitzMaxBitmapFont {
+    static let glyphWidth = 8
+    static let glyphHeight = 16
+    static let glyphCount = 96
+
+    // Official BRL Max2D default font from
+    // docs/bb/blitzmax-ng/brl/max2d.mod/blitzfont.bin.
+    static let bytes: [UInt8] = {
+        let encoded = """
+        AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwDAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA8ADwQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAYAAAAABhsbBAGHBgYGBgAAAAAAHwYfHwg/nz+fHwAAAAAAHx8fH58fv7+fMZ+/MYGxsZ8fnx+fH7GxsaCxv4MADA4ABgABgDAAHAABgAABhgAAAAAAAAAAAAAAAAAAHAYDAAAABhsbHzGNhgMMFoAAAAAgMYcxsYwBsbAxsYAAAAAAMbGxsbGxgYGxsYYMGYGxsbGxsbGxhjGxsbGxsAMAjBsABgABgDAABgABhgwBhgAAAAAAAAAGAAAAAAAABgYGAA4ABhI/tbgNhAMMDwQAAAAwMYcwMA4BgbAxsYAAGAADMbWxsYGxgYGBsYYMDYG7s7GxsbGBhjGxsZsxmAMBjDGAAgABgDAABgABgAABhgAAAAAAAAAGAAAAAAAABgYGAA4ABgkbBZwHAgMMBgQAAAAYOYYwMA0BgZgxsYYGDAAGMDWxsYGxgYGBsYYMB4G/t7GxsbGBhjGxsY4xiAMDDAAABB8fnz8fBh8fhgwZhhsfnx+/H58PMbGxsbG/hgYGIw4ABgAbHw4DAAMMH4QAAAAMNYYfHAyfn4wfPwYGBh8MGDW/n4Gxj4+Bv4YMA4G/v7GfsZ+fBjGxtYQ/BAMGDAAAADAxsbGxnhmxhgwNhj+xsbGxsbGGMbGxmzGYBwYOJ44ABgAbNAc3gAMMBj+AH4AGM4YBsAywMYYxsAAAAwAYDDWxsYGxgYG5sYYMB4G1vbGBsYewBjGxv44wAgMMDAAAAD8xgbG/hhmxhgwHhjWxsbGxgYcGMbG1jjGMA4YcPI4AAAA/tYOdgAMMDwQAAAADMYYBsB+wMYMxsAAABh8MBh2xsYGxgYGxsYYNjYGxubGBsY2wBjGbP5swAwMYDAAAADGxgbGBhhmxhgwHhjGxsbGxgZwGMZs/jjGGBwYOGI4ABgAbHzGdgAMMFoQGAAYBsYYBsYwxsYGxsYYGDAAGAAGxsbGxgYGxsYYNmYGxsbGBmZmxhjGOO7GxgYMwDAAAADGxsbGxhhmxhgwNhjGxsbGxgbGGMY4/mzGDBgYGAA4ABgAbBDA3AAMMBgQGAAYAnx+/nwwfHwGfHwYGGAADBh8xn58fv4GfMZ+HMb+xsZ8BjzGfBh8EMaCfP4MgDAA/gD8fnz8fBh8xjAwZjDGxnx+/AZ8MHwQbMb8/hgYGAA4AAAAAAAAAAAYGAAAEAAAAAAAAAAAAAAAAAAAGAAAAAAAAAAAAAAAAAAAAAAAAAAAAOAAAAAAAAAAAAAMADAAAAAAAAAAAABgAAAwAAAAAAAGwAAAAAAAAADAABgYGAA4AAAAAAAAAAAwDAAACAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA8ADwAAAAAAAAAAAA8AAAcAAAAAAAGwAAAAAAAAAB8AHAYDAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+        """
+        guard let decoded = Data(base64Encoded: encoded, options: .ignoreUnknownCharacters) else {
+            return []
+        }
+        return Array(decoded.prefix(glyphCount * glyphHeight))
+    }()
+
+    static func texture(for text: String, color: BlitzMaxFontColor) -> SKTexture? {
+        let scalars = text.unicodeScalars
+        let width = scalars.count * glyphWidth
+        guard bytes.count == glyphCount * glyphHeight, width > 0 else { return nil }
+
+        var pixels = Array(repeating: UInt8(0), count: width * glyphHeight * 4)
+        for (characterIndex, scalar) in scalars.enumerated() {
+            let ascii = Int(scalar.value)
+            guard (32..<128).contains(ascii) else { continue }
+            let glyph = ascii - 32
+            for row in 0..<glyphHeight {
+                let bits = bytes[row * glyphCount + glyph]
+                for column in 0..<glyphWidth where bits & UInt8(1 << column) != 0 {
+                    let pixel = (row * width + characterIndex * glyphWidth + column) * 4
+                    pixels[pixel] = color.red
+                    pixels[pixel + 1] = color.green
+                    pixels[pixel + 2] = color.blue
+                    pixels[pixel + 3] = 255
+                }
+            }
+        }
+
+        guard
+            let provider = CGDataProvider(data: Data(pixels) as CFData),
+            let image = CGImage(
+                width: width,
+                height: glyphHeight,
+                bitsPerComponent: 8,
+                bitsPerPixel: 32,
+                bytesPerRow: width * 4,
+                space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue),
+                provider: provider,
+                decode: nil,
+                shouldInterpolate: false,
+                intent: .defaultIntent
+            )
+        else {
+            return nil
+        }
+        let texture = SKTexture(cgImage: image)
+        texture.filteringMode = .nearest
+        return texture
+    }
+
+    static func solidTexture(color: BlitzMaxFontColor) -> SKTexture? {
+        let pixels = [color.red, color.green, color.blue, UInt8(255)]
+        guard
+            let provider = CGDataProvider(data: Data(pixels) as CFData),
+            let image = CGImage(
+                width: 1,
+                height: 1,
+                bitsPerComponent: 8,
+                bitsPerPixel: 32,
+                bytesPerRow: 4,
+                space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue),
+                provider: provider,
+                decode: nil,
+                shouldInterpolate: false,
+                intent: .defaultIntent
+            )
+        else {
+            return nil
+        }
+        let texture = SKTexture(cgImage: image)
+        texture.filteringMode = .nearest
+        return texture
+    }
+}
+
 @MainActor
 final class OriginalScreenRenderer {
     private struct MenuLayout {
@@ -18,6 +137,8 @@ final class OriginalScreenRenderer {
     private var friendTrailColors = Array(repeating: SKColor.white, count: 8)
     private var friendTrailFrame = -1
     private var menuBackgroundTexture: SKTexture?
+    private var blitzFontTextures: [BlitzMaxFontTextureKey: SKTexture] = [:]
+    private var blitzSolidTextures: [BlitzMaxFontColor: SKTexture] = [:]
     private(set) var menuHitFrames: [CGRect] = []
 
     init() {
@@ -648,33 +769,49 @@ final class OriginalScreenRenderer {
         background.alpha = 1
         let originX = (size.width - 640) / 2
         let originY = (size.height - 480) / 2
-        let white = SKColor.white
-        let gray = SKColor(white: 0.5, alpha: 1)
-        let darkBlue = SKColor(red: 35 / 255, green: 65 / 255, blue: 115 / 255, alpha: 1)
-        let borderBlue = SKColor(red: 0, green: 0, blue: 100 / 255, alpha: 1)
+        let white = BlitzMaxFontColor.white
+        let gray = BlitzMaxFontColor.gray
+        let darkBlue = BlitzMaxFontColor.darkBlue
+        let borderBlue = BlitzMaxFontColor.borderBlue
 
-        func textLine(_ text: String, _ x: CGFloat, _ y: CGFloat, color: SKColor = .white, scale: CGFloat = 1.35) {
-            addText(text, x: originX + x, y: originY + y, scale: scale, color: color, size: size)
+        func textLine(
+            _ text: String,
+            _ x: CGFloat,
+            _ y: CGFloat,
+            color: BlitzMaxFontColor = .white
+        ) {
+            addBlitzMaxText(text, x: originX + x, y: originY + y, color: color, size: size)
         }
         func rectangle(
             _ x: CGFloat,
             _ y: CGFloat,
             _ width: CGFloat,
             _ height: CGFloat,
-            color: SKColor,
+            color: BlitzMaxFontColor,
             filled: Bool = false,
             lineWidth: CGFloat = 1
         ) {
-            addRectangle(
-                x: originX + x,
-                yFromTop: originY + y,
-                width: width,
-                height: height,
-                color: color,
-                filled: filled,
-                size: size,
-                lineWidth: lineWidth
-            )
+            if filled {
+                addBlitzMaxFilledRectangle(
+                    x: originX + x,
+                    y: originY + y,
+                    width: width,
+                    height: height,
+                    color: color,
+                    size: size
+                )
+            } else {
+                addRectangle(
+                    x: originX + x,
+                    yFromTop: originY + y,
+                    width: width,
+                    height: height,
+                    color: color.spriteKitColor,
+                    filled: false,
+                    size: size,
+                    lineWidth: lineWidth
+                )
+            }
         }
         func sceneFrame(_ x: CGFloat, _ y: CGFloat, _ width: CGFloat, _ height: CGFloat) -> CGRect {
             CGRect(
@@ -685,7 +822,7 @@ final class OriginalScreenRenderer {
             )
         }
 
-        textLine("Dual Stick Configuration", 170, 10, scale: 1.5)
+        textLine("Dual Stick Configuration", 170, 10)
         rectangle(10, 32, 600, 130, color: gray)
         let instructions = [
             "Select controller port (0 for  single joypad)",
@@ -699,7 +836,7 @@ final class OriginalScreenRenderer {
             "If it drifts, press SHIFT+Cursor Keys to adjust Dead Zone.",
         ]
         for (index, instruction) in instructions.enumerated() {
-            textLine(instruction, 15, 35 + CGFloat(index * 12), scale: 1.15)
+            textLine(instruction, 15, 35 + CGFloat(index * 12), color: .gray)
         }
 
         for port in 0..<4 {
@@ -708,16 +845,16 @@ final class OriginalScreenRenderer {
                 rectangle(x, 175, 45, 25, color: darkBlue, filled: true)
             }
             rectangle(x, 175, 45, 25, color: borderBlue)
-            textLine(String(port), x + 17, 183, scale: 1.2)
+            textLine(String(port), x + 17, 183)
         }
-        textLine("Controller:", 10, 180, scale: 1.2)
+        textLine("Controller:", 10, 180)
 
         rectangle(10, 225, 135, 25, color: white)
-        textLine("AXIS WIZARD", 25, 230, scale: 1.2)
+        textLine("AXIS WIZARD", 25, 230)
         rectangle(180, 225, 100, 25, color: white)
-        textLine("OPTION = \(menu.settings.dualAnalogOptionButton + 1)", 190, 230, scale: 1.05)
+        textLine("OPTION = \(menu.settings.dualAnalogOptionButton + 1)", 190, 230)
         rectangle(320, 225, 100, 25, color: white)
-        textLine("BOMB = \(menu.settings.dualAnalogBombButton + 1)", 330, 230, scale: 1.05)
+        textLine("BOMB = \(menu.settings.dualAnalogBombButton + 1)", 330, 230)
 
         let axes = menu.settings.dualAnalogAxes
         let inverted = menu.settings.dualAnalogInverted
@@ -733,16 +870,16 @@ final class OriginalScreenRenderer {
             "JoyYaw()", "JoyPitch()", "JoyRoll()", "JoyHat()", "JoyWheel()",
             "JoyAxis12()", "JoyAxis13()", "JoyAxis14()", "JoyAxis15()",
         ]
-        textLine("Stick 1", 10, 380, scale: 1.2)
-        textLine("Stick 2", 250, 380, scale: 1.2)
+        textLine("Stick 1", 10, 380)
+        textLine("Stick 2", 250, 380)
         for index in 0..<4 {
             let box = axisBoxes[index]
             let axisColor = inverted[index]
-                ? SKColor(red: 1, green: 128 / 255, blue: 0, alpha: 1)
-                : SKColor(red: 50 / 255, green: 65 / 255, blue: 220 / 255, alpha: 1)
+                ? BlitzMaxFontColor.orange
+                : BlitzMaxFontColor.axisBlue
             rectangle(box.minX, box.minY, box.width, box.height, color: axisColor, filled: true)
             let axis = min(15, max(0, axes[index]))
-            textLine("\(axisLabels[index]): \(joyLabels[axis])", box.minX + 10, box.minY + 1, scale: 1.05)
+            textLine("\(axisLabels[index]): \(joyLabels[axis])", box.minX + 10, box.minY + 1)
         }
 
         let centers = menu.settings.dualAnalogCenter
@@ -752,21 +889,23 @@ final class OriginalScreenRenderer {
             let valueX = stick * 2
             rectangle(boxX + 42, 317, 16, 16, color: .green)
             rectangle(boxX, 275, 100, 100, color: white)
-            rectangle(
+            let dot = SKShapeNode(ellipseIn: sceneFrame(
                 boxX + 45 - centers[valueX] * 50,
                 320 - centers[valueX + 1] * 50,
                 10,
-                10,
-                color: SKColor(red: 185 / 255, green: 0, blue: 0, alpha: 1),
-                filled: true
-            )
+                10
+            ))
+            dot.fillColor = SKColor(red: 185 / 255, green: 0, blue: 0, alpha: 1)
+            dot.strokeColor = .clear
+            dot.isAntialiased = false
+            content.addChild(dot)
             let valueXPosition = stick == 0 ? CGFloat(120) : 360
-            textLine("DZ \(stick + 1)", valueXPosition, 270, color: .red, scale: 1.1)
-            textLine("X: \(String(format: "%.2f", Double(deadZones[valueX])))", valueXPosition, 290, color: .blue, scale: 1.0)
-            textLine("Y: \(String(format: "%.2f", Double(deadZones[valueX + 1])))", valueXPosition, 305, color: .blue, scale: 1.0)
-            textLine("C \(stick + 1)", valueXPosition, 330, color: .red, scale: 1.1)
-            textLine("X: \(String(format: "%.2f", Double(centers[valueX])))", valueXPosition, 350, color: .blue, scale: 1.0)
-            textLine("Y: \(String(format: "%.2f", Double(centers[valueX + 1])))", valueXPosition, 365, color: .blue, scale: 1.0)
+            textLine("DZ \(stick + 1)", valueXPosition, 270, color: .red)
+            textLine("X: \(blitzMaxFloat(deadZones[valueX]))", valueXPosition, 290, color: .blue)
+            textLine("Y: \(blitzMaxFloat(deadZones[valueX + 1]))", valueXPosition, 305, color: .blue)
+            textLine("C \(stick + 1)", valueXPosition, 330, color: .red)
+            textLine("X: \(blitzMaxFloat(centers[valueX]))", valueXPosition, 350, color: .blue)
+            textLine("Y: \(blitzMaxFloat(centers[valueX + 1]))", valueXPosition, 365, color: .blue)
         }
 
         let scaleValues = menu.settings.dualAnalogScale
@@ -774,22 +913,22 @@ final class OriginalScreenRenderer {
             let rightStick = axis >= 2
             let xBase: CGFloat = rightStick ? 250 : 10
             let y: CGFloat = axis % 2 == 0 ? 455 : 495
-            textLine(axis % 2 == 0 ? "X Scaling Factor" : "Y Scaling Factor", xBase, y - 15, scale: 1.1)
-            let choices: [CGFloat] = [1, 180, 255]
+            textLine(axis % 2 == 0 ? "X Scaling Factor" : "Y Scaling Factor", xBase, y - 15)
+            let choices: [CGFloat] = [1, 128, 255]
             for choice in 0..<3 {
                 let x = xBase + CGFloat(choice * 50)
                 if scaleValues[axis] == choices[choice] {
                     rectangle(x, y, 45, 20, color: darkBlue, filled: true)
                 }
                 rectangle(x, y, 45, 20, color: borderBlue)
-                textLine(["1", "180", "255"][choice], x + CGFloat(choice == 0 ? 17 : 10), y + 5, scale: 1.0)
+                textLine(["1", "180", "255"][choice], x + CGFloat(choice == 0 ? 17 : 10), y + 5)
             }
         }
 
         let commandLabels = ["(D)ebug", "(S)ave Config", "(L)oad Config", "(E)xit"]
         for (index, label) in commandLabels.enumerated() {
-            rectangle(490, 315 + CGFloat(index * 25), 110, 20, color: SKColor(white: 0.25, alpha: 1), filled: true)
-            textLine(label, 493, 317 + CGFloat(index * 25), scale: 1.05)
+            rectangle(490, 315 + CGFloat(index * 25), 110, 20, color: .buttonGray)
+            textLine(label, 493, 317 + CGFloat(index * 25))
         }
 
         menuHitFrames = Array(repeating: .null, count: menu.lines.count)
@@ -808,38 +947,9 @@ final class OriginalScreenRenderer {
         menuHitFrames[22] = sceneFrame(320, 225, 100, 25)
         menuHitFrames[23] = sceneFrame(490, 390, 110, 20)
 
-        let highlightFrame: CGRect = switch menu.selection {
-        case 0: sceneFrame(110, 175, 195, 25)
-        case 1...4: sceneFrame(
-            axisBoxes[menu.selection - 1].minX,
-            axisBoxes[menu.selection - 1].minY,
-            axisBoxes[menu.selection - 1].width,
-            axisBoxes[menu.selection - 1].height
-        )
-        case 5...8: sceneFrame(
-            axisBoxes[menu.selection - 5].minX,
-            axisBoxes[menu.selection - 5].minY,
-            axisBoxes[menu.selection - 5].width,
-            axisBoxes[menu.selection - 5].height
-        )
-        case 9: sceneFrame(10, 455, 145, 20)
-        case 10: sceneFrame(10, 495, 145, 20)
-        case 11: sceneFrame(250, 455, 145, 20)
-        case 12: sceneFrame(250, 495, 145, 20)
-        case 13, 14, 17, 18: sceneFrame(10, 275, 100, 100)
-        case 15, 16, 19, 20: sceneFrame(250, 275, 100, 100)
-        case 21: sceneFrame(180, 225, 100, 25)
-        case 22: sceneFrame(320, 225, 100, 25)
-        default: sceneFrame(490, 390, 110, 20)
-        }
-        let highlight = SKShapeNode(rect: highlightFrame.insetBy(dx: -2, dy: -2))
-        highlight.strokeColor = menuColor(selected: true, frame: frame)
-        highlight.lineWidth = 2
-        highlight.fillColor = .clear
-        content.addChild(highlight)
         addTarget(
-            at: CGPoint(x: highlightFrame.minX - 8, y: highlightFrame.midY),
-            frame: frame,
+            at: CGPoint(x: originX, y: size.height - originY),
+            frame: max(20, frame),
             size: 4
         )
     }
@@ -966,6 +1076,63 @@ final class OriginalScreenRenderer {
             arenaHeight: size.height,
             color: color
         ))
+    }
+
+    private func addBlitzMaxText(
+        _ text: String,
+        x: CGFloat,
+        y: CGFloat,
+        color: BlitzMaxFontColor,
+        size: CGSize
+    ) {
+        let key = BlitzMaxFontTextureKey(text: text, color: color)
+        let texture: SKTexture
+        if let cached = blitzFontTextures[key] {
+            texture = cached
+        } else if let created = BlitzMaxBitmapFont.texture(for: text, color: color) {
+            blitzFontTextures[key] = created
+            texture = created
+        } else {
+            return
+        }
+        let sprite = SKSpriteNode(texture: texture)
+        sprite.anchorPoint = CGPoint(x: 0, y: 1)
+        sprite.position = CGPoint(x: x, y: size.height - y)
+        sprite.size = CGSize(
+            width: CGFloat(text.unicodeScalars.count * BlitzMaxBitmapFont.glyphWidth),
+            height: CGFloat(BlitzMaxBitmapFont.glyphHeight)
+        )
+        sprite.blendMode = .alpha
+        content.addChild(sprite)
+    }
+
+    private func addBlitzMaxFilledRectangle(
+        x: CGFloat,
+        y: CGFloat,
+        width: CGFloat,
+        height: CGFloat,
+        color: BlitzMaxFontColor,
+        size: CGSize
+    ) {
+        let texture: SKTexture
+        if let cached = blitzSolidTextures[color] {
+            texture = cached
+        } else if let created = BlitzMaxBitmapFont.solidTexture(color: color) {
+            blitzSolidTextures[color] = created
+            texture = created
+        } else {
+            return
+        }
+        let sprite = SKSpriteNode(texture: texture)
+        sprite.anchorPoint = CGPoint(x: 0, y: 1)
+        sprite.position = CGPoint(x: x, y: size.height - y)
+        sprite.size = CGSize(width: width, height: height)
+        sprite.blendMode = .alpha
+        content.addChild(sprite)
+    }
+
+    private func blitzMaxFloat(_ value: CGFloat) -> String {
+        String(Double(value))
     }
 
     private func makeSprite(

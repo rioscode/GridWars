@@ -95,7 +95,12 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   0.01779 to 0.00723 (scores), 0.01565 to 0.00968 (friends), and 0.01396 to
   0.01055 (enemies). Two independent title captures are byte-identical. Further
   style-by-style correction is still required before checking the broad screen
-  and menu entries.
+  and menu entries. The Dual Stick page now uses the exact archived
+  `brl/max2d.mod/blitzfont.bin` 8×16 glyph data used by BlitzMax `DrawText`,
+  direct 8-bit text/fill colours, the original outlined command boxes and oval
+  stick indicators, and the source's `1/128/255` scale values (while preserving
+  its displayed `180` typo). Its normalized difference fell from 0.03857 to
+  0.01011; the embedded font bytes have the same SHA-256 as the official file.
 - Graphics and HUD: `images.bmx:34-100`, `gridwars.bmx:3266-3272, 5911-5932`,
   and the deterministic fixed-frame original images in
   `docs/captures/original/` map to
