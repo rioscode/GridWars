@@ -44,9 +44,17 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   half-ring black-hole gravity, lifetime/decay/bounce behaviour, and exact
   gameplay emission counts. Unit tests cover lattice impulses, reset and
   damping plus particle lifetime, wrap, colour fade, palette and black-hole
-  parity. Matching original and Swift fixed states now cover every grid and
-  particle selector; style-by-style visual correction is still required before
-  checking the broad rendering entries.
+  parity. The Grid update traverses visible rows in the original top-to-bottom
+  order despite SpriteKit's inverted world y-axis, and a regression test locks
+  the resulting in-place asymmetry. The renderer now follows each selector's
+  source draw topology, excluded boundary rows/columns, alternating-cell phase,
+  stretch colour/width formula, additive overdraw, original `particle.png`
+  composition, and fixed-50-Hz animation phase. Compared with the preceding
+  complete catalog, 19 selector metrics improved, the empty selector stayed
+  identical, and style 14 fell from 0.2501 to 0.0162 normalized mean absolute
+  difference. The Moiré selector remains open: its source-equivalent subdivided
+  gradient is visually close, but SpriteKit's triangle rasterization still
+  differs from the original OpenGL per-vertex gradient (0.0805).
 - Screens and runtime controls: `gridwars.bmx:3622-4319, 5383-5439` and
   `control.bmx:889-2570` map to `OriginalScreenFlow`, `OriginalMenuModel`,
   `OriginalVectorFont`, `OriginalScreenRenderer`, and the presentation/input
@@ -131,7 +139,7 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   archived legacy `Language/Data types.bbdoc` documents the implicit numeric
   conversions used by the original. Swift random ranges and intentional
   integer truncations follow those references.
-- Build evidence (2026-08-24): the macOS unit-test action (64 tests) and generic
+- Build evidence (2026-08-24): the macOS unit-test action (65 tests) and generic
   iOS Simulator Debug build both pass. The rule suite
   covers initial difficulty, motion, weapons, scoring, upgrades, spawn timing,
   triangle bonds, snake following, black-hole integer conversions,

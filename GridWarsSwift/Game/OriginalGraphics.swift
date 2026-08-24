@@ -55,14 +55,9 @@ enum OriginalGraphics {
     }
 
     static func texture(named name: String, setIndex: Int) -> SKTexture {
-        let set = OriginalGraphicsSet(index: setIndex)
         let texture: SKTexture
-        if let url = Bundle.main.url(
-            forResource: name,
-            withExtension: "png",
-            subdirectory: "gfx/\(set.folderName)"
-        ), let loadedTexture = loadTexture(contentsOf: url) {
-            texture = loadedTexture
+        if let image = cgImage(named: name, setIndex: setIndex) {
+            texture = SKTexture(cgImage: image)
         } else {
             // The top-level High assets remain a compatibility fallback for
             // test hosts and older builds made before all five sets shipped.
@@ -70,6 +65,18 @@ enum OriginalGraphics {
         }
         texture.filteringMode = .linear
         return texture
+    }
+
+    static func cgImage(named name: String, setIndex: Int) -> CGImage? {
+        let set = OriginalGraphicsSet(index: setIndex)
+        guard let url = Bundle.main.url(
+            forResource: name,
+            withExtension: "png",
+            subdirectory: "gfx/\(set.folderName)"
+        ), let source = CGImageSourceCreateWithURL(url as CFURL, nil) else {
+            return nil
+        }
+        return CGImageSourceCreateImageAtIndex(source, 0, nil)
     }
 
     private static func loadTexture(contentsOf url: URL) -> SKTexture? {

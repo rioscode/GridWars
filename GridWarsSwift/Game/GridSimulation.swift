@@ -44,7 +44,10 @@ struct GridSimulation: Equatable {
     mutating func update() {
         guard columns > 1, rows > 1 else { return }
         for column in 1..<columns {
-            for row in 1..<rows {
+            // BlitzMax rows grow down from the top of the screen. SpriteKit's
+            // world y-axis grows upward, so descending here preserves the
+            // original visible in-place update order.
+            for row in stride(from: rows - 1, through: 1, by: -1) {
                 let neighborX = (
                     self[column - 1, row].position.x
                         + self[column, row - 1].position.x

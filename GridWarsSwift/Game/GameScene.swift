@@ -468,6 +468,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         inputResolver.reset()
         frameInput = OriginalResolvedInput()
         gridSimulation.reset()
+        gridRenderer.resetAnimation()
         particleSimulation.reset()
         playerShield.isHidden = true
         playerShield.position = player.position
@@ -519,6 +520,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         guard let captureRequest else { return }
         audio.stopMusic()
         particleSimulation.reset()
+        gridRenderer.resetAnimation()
         spawnRandom = GameRandomNumberGenerator(seed: 1)
 
         switch captureRequest.scenario.subject {
@@ -907,6 +909,16 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         lastUpdateTime = currentTime
         fixedTimeAccumulator += deltaTime
         while fixedTimeAccumulator >= 0.02 {
+            let gridIsAnimating = menuModel.page == .video && menuModel.isOpen
+                || (!menuModel.isOpen && !gameplayPaused && {
+                    switch screenFlow.phase {
+                    case .playing, .gameOver: true
+                    case .attract: false
+                    }
+                }())
+            if gridIsAnimating {
+                gridRenderer.advanceAnimation()
+            }
             if highScoreNameEntry != nil {
                 cycleColors()
                 if Int.random(in: 0...100, using: &spawnRandom) > 90 {

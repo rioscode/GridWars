@@ -696,6 +696,18 @@ final class GameRulesTests: XCTestCase {
         XCTAssertLessThan(abs(grid[11, 10].velocity.dx), 4)
     }
 
+    func testGridUpdatePreservesBlitzMaxTopToBottomInPlaceOrder() {
+        var grid = GridSimulation(arenaSize: CGSize(width: 320, height: 320))
+        grid.pull(at: CGPoint(x: 160, y: 160), radiusInPoints: 4, amount: 4)
+
+        for _ in 0..<10 {
+            grid.update()
+        }
+
+        XCTAssertEqual(grid[10, 8].position.y, 124.103_107_882_786_83, accuracy: 0.0001)
+        XCTAssertEqual(grid[10, 12].position.y, 194.997_892_117_213_18, accuracy: 0.0001)
+    }
+
     func testParticleRingUsesOriginalRadialVelocityLifetimeAndWrap() {
         var random = SeededRandomNumberGenerator(seed: 123)
         var particles = ParticleSimulation(

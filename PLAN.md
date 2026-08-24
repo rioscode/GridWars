@@ -104,15 +104,21 @@ branch. Each major fidelity milestone has its own commit:
 - [x] Official BlitzMax/BlitzBasic language references archived in `docs/bb`
 - [x] macOS Debug build
 - [x] Generic iOS Simulator Debug build
-- [x] 64 gameplay, input, persistence, audio, and rendering-rule unit tests
+- [x] 65 gameplay, input, persistence, audio, and rendering-rule unit tests
 - [x] macOS launch and rendering smoke test
 - [x] Deterministic 87-state Swift capture catalog at 1024×768
+- [x] Source-ordered Grid simulation and style-specific rendering pass for all
+      21 selectors, including fixed-50-Hz animation phases and original
+      particle-image composition
 
 `FIDELITY.md` is the acceptance ledger. The isolated BlitzMax harness and the
 Swift port now each capture the same 87 attract, transition, gameplay, HUD,
 entity, generator, power-up, grid, particle, graphics-set, and menu states. Two
 independent complete original runs produced byte-identical PNGs, and the
 comparison tool verified all 87 1024×768 pairs. Style-by-style visual
-correction and a full manual playthrough on physical iPhone/iPad hardware
-remain verification work; these evidence gaps are not represented as completed
-1:1 proof.
+correction reduced the pixel difference for 19 grid selectors and left the
+already-empty selector unchanged. The Moiré selector still exposes a known
+OpenGL per-vertex-gradient versus SpriteKit rasterization difference. A full
+manual playthrough on macOS and physical iPhone/iPad hardware also remains
+verification work; these evidence gaps are not represented as completed 1:1
+proof.
