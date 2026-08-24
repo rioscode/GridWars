@@ -862,11 +862,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             particleRenderer.render(particleSimulation, style: menuModel.settings.particleStyle)
         case .playing:
             particleRenderer.node.zPosition = 5
-            if gameplayPaused {
-                screenRenderer.renderPause(size: size)
-            } else {
-                screenRenderer.hide()
-            }
+            screenRenderer.hide()
             renderGrid()
             particleRenderer.render(particleSimulation, style: menuModel.settings.particleStyle)
             renderHUD()

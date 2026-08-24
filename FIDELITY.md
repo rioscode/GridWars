@@ -54,7 +54,9 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   original `Keep Changes?` transaction, including selective video rollback and
   the return-code-2 game termination after accepting changes during play.
   F3-F7, F1/F2, the 1-4/X/Z/S cheat actions and the
-  P-held/O-single-step loop are wired to the original macOS key positions.
+  P-held/O-single-step loop are wired to the original macOS key positions;
+  pause preserves the last gameplay frame without adding a non-original
+  overlay.
   Rule tests cover timing, hierarchy, 0...10,000 star wrap, 119-step grid
   brightness, invalid-score state, 450-frame cheat grants, caps, and the
   original debug weapon patterns. `OriginalCameraRule` and the scene now apply
