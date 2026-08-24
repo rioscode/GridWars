@@ -104,7 +104,7 @@ branch. Each major fidelity milestone has its own commit:
 - [x] Official BlitzMax/BlitzBasic language references archived in `docs/bb`
 - [x] macOS Debug build
 - [x] Generic iOS Simulator Debug build
-- [x] 69 gameplay, input, persistence, audio, and rendering-rule unit tests
+- [x] 70 gameplay, input, persistence, audio, and rendering-rule unit tests
 - [x] macOS launch and rendering smoke test
 - [x] Deterministic 87-state Swift capture catalog at 1024×768
 - [x] Source-ordered Grid simulation and style-specific rendering pass for all
@@ -122,6 +122,7 @@ branch. Each major fidelity milestone has its own commit:
       segment wave
 - [x] Source-sized Video Settings preview grid, original 35-entry screen-mode
       table, capture-mode window state, and menu counter/pointer phase
+- [x] SpriteKit-Y-transformed BlitzMax particle boundary response
 
 `FIDELITY.md` is the acceptance ledger. The isolated BlitzMax harness and the
 Swift port now each capture the same 87 attract, transition, gameplay, HUD,

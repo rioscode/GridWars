@@ -234,12 +234,12 @@ struct ParticleSimulation: Equatable {
                 particle.velocity.dx = -abs(particle.velocity.dx)
                 particle.position.x += particle.velocity.dx * 2
             }
-            if particle.position.y <= particle.velocity.dy {
-                particle.velocity.dy = abs(particle.velocity.dy)
+            if particle.position.y >= arenaSize.height + particle.velocity.dy {
+                particle.velocity.dy = -abs(particle.velocity.dy)
                 particle.position.y += particle.velocity.dy * 2
             }
-            if particle.position.y > arenaSize.height - 1 - particle.velocity.dy {
-                particle.velocity.dy = -abs(particle.velocity.dy)
+            if particle.position.y < 1 - particle.velocity.dy {
+                particle.velocity.dy = abs(particle.velocity.dy)
                 particle.position.y += particle.velocity.dy * 2
             }
 

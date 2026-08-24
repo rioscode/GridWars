@@ -72,7 +72,10 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   are 0.00775, 0.00870, 0.00019, and 0.00806; two independent style-3 Swift
   captures are byte-identical. The isolated Grid/particle harness also hides
   the gameplay arena border, matching the direct original draw path and making
-  the empty grid selector pixel-identical.
+  the empty grid selector pixel-identical. Vertical particle boundary checks
+  now apply the algebraic Y inversion of BlitzMax's top-down comparisons before
+  updating SpriteKit coordinates; a focused two-edge test locks both reflected
+  velocities, and the title difference improved from 0.021183 to 0.021162.
 - Screens and runtime controls: `gridwars.bmx:3622-4319, 5383-5439` and
   `control.bmx:889-2570` map to `OriginalScreenFlow`, `OriginalMenuModel`,
   `OriginalVectorFont`, `OriginalScreenRenderer`, and the presentation/input
@@ -179,7 +182,7 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   archived legacy `Language/Data types.bbdoc` documents the implicit numeric
   conversions used by the original. Swift random ranges and intentional
   integer truncations follow those references.
-- Build evidence (2026-08-24): the macOS unit-test action (69 tests) and generic
+- Build evidence (2026-08-24): the macOS unit-test action (70 tests) and generic
   iOS Simulator Debug build both pass. The rule suite
   covers initial difficulty, motion, weapons, scoring, upgrades, spawn timing,
   triangle bonds, snake following, black-hole integer conversions,

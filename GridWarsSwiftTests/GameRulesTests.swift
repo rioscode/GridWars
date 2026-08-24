@@ -810,6 +810,40 @@ final class GameRulesTests: XCTestCase {
         XCTAssertEqual(particles.particles[0].activeFrames, 9)
     }
 
+    func testParticleVerticalBounceTransformsBlitzMaxTopDownBounds() {
+        var topRandom = BlitzMaxRandomNumberGenerator(seed: 1)
+        var top = ParticleSimulation(
+            arenaSize: CGSize(width: 100, height: 100),
+            capacity: 1
+        )
+        top.emit(
+            at: CGPoint(x: 50, y: 70),
+            kind: .radialBomb,
+            color: .init(red: 255, green: 255, blue: 255),
+            rotationDegrees: -90,
+            using: &topRandom
+        )
+        top.update()
+        XCTAssertEqual(top.particles[0].position.y, 70, accuracy: 0.0001)
+        XCTAssertEqual(top.particles[0].velocity.dy, -30.4, accuracy: 0.0001)
+
+        var bottomRandom = BlitzMaxRandomNumberGenerator(seed: 1)
+        var bottom = ParticleSimulation(
+            arenaSize: CGSize(width: 100, height: 100),
+            capacity: 1
+        )
+        bottom.emit(
+            at: CGPoint(x: 50, y: 30),
+            kind: .radialBomb,
+            color: .init(red: 255, green: 255, blue: 255),
+            rotationDegrees: 90,
+            using: &bottomRandom
+        )
+        bottom.update()
+        XCTAssertEqual(bottom.particles[0].position.y, 30, accuracy: 0.0001)
+        XCTAssertEqual(bottom.particles[0].velocity.dy, 30.4, accuracy: 0.0001)
+    }
+
     func testOriginalParticlePaletteMatchesColorDefinitions() {
         XCTAssertEqual(
             OriginalParticleColor.greenSquare,
