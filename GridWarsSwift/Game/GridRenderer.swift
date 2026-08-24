@@ -100,7 +100,10 @@ final class GridRenderer {
                 alpha: alpha
             )
         case .moireTriangles:
-            addMoireTriangles(simulation, alpha: alpha)
+            addMoireTriangles(
+                simulation,
+                alpha: OriginalBlendRule.spriteKitAdditiveNodeAlpha(sourceAlpha: alpha)
+            )
         case .thickStrips:
             addThickStrips(simulation, color: solidColor, alpha: alpha)
         case .none:
@@ -494,20 +497,20 @@ final class GridRenderer {
             .truncatingRemainder(dividingBy: 360)
         let phase = 36 * sin(moirePhase * .pi / 180)
         let paths = (0..<100).map { _ in CGMutablePath() }
-        let divisions = 3
+        let divisions = 6
         for column in 0..<grid.columns {
             for row in 0..<grid.rows {
                 let points = cellPoints(grid, column: column, row: row)
-                let scale = 0.5 + 0.25 * sin(phase * CGFloat(column * row) * .pi / 180)
-                let top = CGPoint(
-                    x: points[1].x,
-                    y: points[2].y + (points[1].y - points[2].y) * scale
+                let sourceRow = OriginalMoireGridRule.sourceRow(
+                    forSceneRow: row,
+                    rowCount: grid.rows
                 )
-                let side = CGPoint(
-                    x: points[2].x + (points[3].x - points[2].x) * scale,
-                    y: points[3].y
+                let scale = 0.5 + 0.25
+                    * sin(phase * CGFloat(column * sourceRow) * .pi / 180)
+                let vertices = OriginalMoireGridRule.sceneTriangle(
+                    cellPoints: points,
+                    scale: scale
                 )
-                let vertices = [top, points[2], side]
                 func subdividedPoint(_ firstWeight: Int, _ secondWeight: Int) -> CGPoint {
                     let first = CGFloat(firstWeight) / CGFloat(divisions)
                     let second = CGFloat(secondWeight) / CGFloat(divisions)

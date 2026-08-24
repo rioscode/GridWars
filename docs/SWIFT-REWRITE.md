@@ -126,8 +126,13 @@ Raw OpenGL calls have their own state. In the original:
 
 SpriteKit cannot reproduce OpenGL per-vertex color interpolation exactly with
 a single `SKShapeNode`. The port uses bounded color buckets for the RGB-split,
-stretched, and sine paths. Increase bucket counts only when captures improve;
-the Moiré grid still exposes a known triangle-rasterization difference.
+stretched, and sine paths. Increase bucket counts only when captures improve.
+The Moiré style uses six constant-color subdivisions per triangle as a bounded
+Gouraud approximation; 12 subdivisions rendered slower and compared slightly
+worse. Its source `b` phase index must be recovered as `rows-1-sceneRow`, and
+after Y inversion its source bottom-right triangle remains at the scene cell's
+bottom-right corner. Flipping it to the top-right corner is a double inversion
+and was the dominant Grid-18 error.
 
 ## Grid simulation and draw order
 

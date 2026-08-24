@@ -116,6 +116,12 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   approximation for filled stretched/sine quads from 16 to 64 levels lowers
   styles 16 and 17 from 0.02980/0.01852 to 0.02924/0.01746; changing their
   SpriteKit fill alpha was measured and rejected as a regression.
+  Moiré style 18 now maps the top-down source row into scene order and keeps
+  the raw-OpenGL triangle at the cell's bottom-right corner after Y inversion;
+  the former top-right triangle was a double inversion. Six bounded colour
+  subdivisions and the measured additive alpha compensation approximate the
+  unavailable OpenGL Gouraud fill, lowering its difference from 0.07842 to
+  0.03088. Twelve subdivisions were slower and slightly worse.
 - Screens and runtime controls: `gridwars.bmx:3622-4319, 5383-5439` and
   `control.bmx:889-2570` map to `OriginalScreenFlow`, `OriginalMenuModel`,
   `OriginalVectorFont`, `OriginalScreenRenderer`, and the presentation/input

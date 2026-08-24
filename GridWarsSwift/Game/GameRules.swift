@@ -22,6 +22,28 @@ enum OriginalLineRasterRule {
     }
 }
 
+enum OriginalMoireGridRule {
+    static func sourceRow(forSceneRow row: Int, rowCount: Int) -> Int {
+        rowCount - 1 - row
+    }
+
+    static func sceneTriangle(cellPoints: [CGPoint], scale: CGFloat) -> [CGPoint] {
+        precondition(cellPoints.count == 4)
+        let bottomRight = cellPoints[1]
+        return [
+            CGPoint(
+                x: bottomRight.x,
+                y: bottomRight.y + (cellPoints[2].y - bottomRight.y) * scale
+            ),
+            bottomRight,
+            CGPoint(
+                x: bottomRight.x + (cellPoints[0].x - bottomRight.x) * scale,
+                y: cellPoints[0].y
+            ),
+        ]
+    }
+}
+
 enum OriginalTargetRule {
     static func scenePivot(position: CGPoint, size: CGFloat) -> CGPoint {
         CGPoint(x: position.x - size, y: position.y + size)

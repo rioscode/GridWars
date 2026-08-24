@@ -1395,6 +1395,29 @@ final class GameRulesTests: XCTestCase {
         )
     }
 
+    func testMoireGridMapsSourceRowAndBottomRightTriangleAfterYInversion() {
+        XCTAssertEqual(
+            OriginalMoireGridRule.sourceRow(forSceneRow: 0, rowCount: 48),
+            47
+        )
+        XCTAssertEqual(
+            OriginalMoireGridRule.sceneTriangle(
+                cellPoints: [
+                    CGPoint(x: 0, y: 0),
+                    CGPoint(x: 16, y: 0),
+                    CGPoint(x: 16, y: 16),
+                    CGPoint(x: 0, y: 16),
+                ],
+                scale: 0.5
+            ),
+            [
+                CGPoint(x: 16, y: 8),
+                CGPoint(x: 16, y: 0),
+                CGPoint(x: 8, y: 0),
+            ]
+        )
+    }
+
     func testMenuTargetRotatesMax2DDeltaAroundSharedStartPoint() {
         let position = CGPoint(x: 100, y: 200)
         let pivot = OriginalTargetRule.scenePivot(position: position, size: 4)
