@@ -19,8 +19,10 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   respawn downgrade/reset, and 80 shield frames. Matching fixed-state captures
   now cover Get Ready, death, Game Over, and high-score entry. Their capture
   setup reproduces the original pre-draw grid/particle updates, ring deformation,
-  Game Over counter, and `3 mns, 21 secs` score text; a full interactive
-  continuation check remains outstanding. The Get Ready title now uses the
+  Game Over counter, and `3 mns, 21 secs` score text. A live macOS continuation
+  now verifies that death hides the player, clears the active wave, enters Get
+  Ready, respawns at center, and returns through Game Over to the attract score
+  pages after the final life. The Get Ready title now uses the
   original vector-font formula and the three contracting rings use the integer
   midpoint-circle `Plot` algorithm from `utils.bmx`. Because the original
   capture hook runs before `Flip`, its PNG contains the preceding frontbuffer;
@@ -298,7 +300,7 @@ the corresponding Swift implementation, and a test or visual/runtime check.
       `25, 100, 200, 400, 800, 1600, 2500, 3500, 5000, 5500` for multipliers
       1× through 10× (`gridwars.bmx:101, 3168-3246`).
 - [ ] Power-up, extra-player, and extra-bomb score thresholds and messages.
-- [ ] Player death sequence, killer preservation, upgrade loss, respawn,
+- [x] Player death sequence, killer preservation, upgrade loss, respawn,
       shield, and game-over sequence (`gridwars.bmx:4433-4590`).
 - [ ] Bomb destroys all eligible enemies without points, resets multiplier,
       distorts the grid, and grants the short shield (`gridwars.bmx:3138-3164`).
@@ -355,12 +357,13 @@ the corresponding Swift implementation, and a test or visual/runtime check.
 - [ ] Animated title/credits screen and timed attract-mode order.
 - [ ] Top-scores screens for all three difficulties and settings inspection.
 - [ ] “Know Your Friends” and “Know Your Enemies” screens.
-- [ ] Get Ready, death, Game Over, pause/step, and exit flows.
+- [x] Get Ready, death/respawn, Game Over, and attract-mode return.
+- [ ] Pause/step and exit flows.
 - [ ] Options, Configure, Video, Game, Audio, Controller, Hybrid, Mouse,
       Keyboard, Joypad, and Dual Analog screens (`control.bmx`).
 - [x] Runtime F3–F7 controls and F1/F2 cheat mode with keys 1–4, X, Z, S, P,
       and O.
-- [ ] Screenshot capture.
+- [x] Screenshot capture.
 
 ## Input
 
@@ -397,6 +400,10 @@ the corresponding Swift implementation, and a test or visual/runtime check.
       Swift 6 strict concurrency.
 - [x] Automated capture scenes cover each entity, grid style, power-up, HUD,
       and menu state.
+- [x] Interactive macOS smoke testing covers attract start, Get Ready, live
+      gameplay, movement/fire input, Options → Settings → Controls, Continue,
+      bomb count/grid distortion, death cleanup, respawn, final Game Over,
+      attract return, and F3–F7/F1 runtime controls.
 - [ ] Side-by-side captures against the BlitzMax reference have been reviewed
       at matching 1024×768 state and frame counts.
 - [ ] Full playthrough smoke tests cover start, death/respawn, game over,

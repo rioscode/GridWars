@@ -166,7 +166,9 @@ independent complete original runs produced byte-identical PNGs, and the
 comparison tool verified all 87 1024×768 pairs. Style-by-style visual
 correction reduced the pixel difference for all 20 nonempty grid selectors and
 made the empty selector pixel-identical. The Moiré selector still exposes a
-known OpenGL per-vertex-gradient versus SpriteKit rasterization difference. A
-full manual playthrough on macOS and physical iPhone/iPad hardware also remains
-verification work; these evidence gaps are not represented as completed 1:1
-proof.
+known OpenGL per-vertex-gradient versus SpriteKit rasterization difference. An
+interactive macOS smoke run now verifies start, menus, Continue, bomb,
+death/respawn, final Game Over, attract return, and runtime function keys.
+High-score insertion/persistence, pause/step/exit, and physical iPhone/iPad
+hardware remain explicit final gates; these evidence gaps are not represented
+as completed 1:1 proof.
