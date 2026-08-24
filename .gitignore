@@ -1,6 +1,13 @@
 # build directory
 .bmx/
+.build/
+DerivedData/
+
+# Xcode user state
+xcuserdata/
+*.xcuserstate
 
 # binaries
-gridwars*
-!gridwars.bmx
+/gridwars
+/gridwars.exe
+/gridwars.app/

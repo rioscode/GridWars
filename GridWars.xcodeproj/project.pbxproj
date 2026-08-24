@@ -1,0 +1,419 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		B10000000000000000000001 /* GridWarsApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000001 /* GridWarsApp.swift */; };
+		B10000000000000000000002 /* GameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000002 /* GameView.swift */; };
+		B10000000000000000000003 /* GameRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000003 /* GameRules.swift */; };
+		B10000000000000000000004 /* GameScene.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000004 /* GameScene.swift */; };
+		B11000000000000000000001 /* GridWarsApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000001 /* GridWarsApp.swift */; };
+		B11000000000000000000002 /* GameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000002 /* GameView.swift */; };
+		B11000000000000000000003 /* GameRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000003 /* GameRules.swift */; };
+		B11000000000000000000004 /* GameScene.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000004 /* GameScene.swift */; };
+		B12000000000000000000001 /* GameRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000003 /* GameRules.swift */; };
+		B12000000000000000000002 /* GameRulesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000005 /* GameRulesTests.swift */; };
+		B20000000000000000000001 /* whiteplayer.png in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000001 /* whiteplayer.png */; };
+		B20000000000000000000002 /* yellowshot.png in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000002 /* yellowshot.png */; };
+		B20000000000000000000003 /* redcircle.png in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000003 /* redcircle.png */; };
+		B20000000000000000000004 /* greensquare.png in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000004 /* greensquare.png */; };
+		B20000000000000000000005 /* bluediamond.png in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000005 /* bluediamond.png */; };
+		B20000000000000000000006 /* whitestar.png in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000006 /* whitestar.png */; };
+		B20000000000000000000007 /* particle.png in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000007 /* particle.png */; };
+		B20000000000000000000008 /* shotborn.wav in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000008 /* shotborn.wav */; };
+		B20000000000000000000009 /* genhit1.wav in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000009 /* genhit1.wav */; };
+		B2000000000000000000000A /* Explo1.wav in Resources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000000A /* Explo1.wav */; };
+		B2000000000000000000000B /* bonus1.wav in Resources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000000B /* bonus1.wav */; };
+		B2000000000000000000000C /* gameover.wav in Resources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000000C /* gameover.wav */; };
+		B21000000000000000000001 /* whiteplayer.png in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000001 /* whiteplayer.png */; };
+		B21000000000000000000002 /* yellowshot.png in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000002 /* yellowshot.png */; };
+		B21000000000000000000003 /* redcircle.png in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000003 /* redcircle.png */; };
+		B21000000000000000000004 /* greensquare.png in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000004 /* greensquare.png */; };
+		B21000000000000000000005 /* bluediamond.png in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000005 /* bluediamond.png */; };
+		B21000000000000000000006 /* whitestar.png in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000006 /* whitestar.png */; };
+		B21000000000000000000007 /* particle.png in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000007 /* particle.png */; };
+		B21000000000000000000008 /* shotborn.wav in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000008 /* shotborn.wav */; };
+		B21000000000000000000009 /* genhit1.wav in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000009 /* genhit1.wav */; };
+		B2100000000000000000000A /* Explo1.wav in Resources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000000A /* Explo1.wav */; };
+		B2100000000000000000000B /* bonus1.wav in Resources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000000B /* bonus1.wav */; };
+		B2100000000000000000000C /* gameover.wav in Resources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000000C /* gameover.wav */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		F10000000000000000000001 /* GridWarsApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GridWarsApp.swift; sourceTree = "<group>"; };
+		F10000000000000000000002 /* GameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameView.swift; sourceTree = "<group>"; };
+		F10000000000000000000003 /* GameRules.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameRules.swift; sourceTree = "<group>"; };
+		F10000000000000000000004 /* GameScene.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameScene.swift; sourceTree = "<group>"; };
+		F10000000000000000000005 /* GameRulesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameRulesTests.swift; sourceTree = "<group>"; };
+		F20000000000000000000001 /* whiteplayer.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = whiteplayer.png; sourceTree = "<group>"; };
+		F20000000000000000000002 /* yellowshot.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = yellowshot.png; sourceTree = "<group>"; };
+		F20000000000000000000003 /* redcircle.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = redcircle.png; sourceTree = "<group>"; };
+		F20000000000000000000004 /* greensquare.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = greensquare.png; sourceTree = "<group>"; };
+		F20000000000000000000005 /* bluediamond.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = bluediamond.png; sourceTree = "<group>"; };
+		F20000000000000000000006 /* whitestar.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = whitestar.png; sourceTree = "<group>"; };
+		F20000000000000000000007 /* particle.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = particle.png; sourceTree = "<group>"; };
+		F20000000000000000000008 /* shotborn.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = shotborn.wav; sourceTree = "<group>"; };
+		F20000000000000000000009 /* genhit1.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = genhit1.wav; sourceTree = "<group>"; };
+		F2000000000000000000000A /* Explo1.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = Explo1.wav; sourceTree = "<group>"; };
+		F2000000000000000000000B /* bonus1.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = bonus1.wav; sourceTree = "<group>"; };
+		F2000000000000000000000C /* gameover.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = gameover.wav; sourceTree = "<group>"; };
+		F30000000000000000000001 /* GridWars.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GridWars.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		F30000000000000000000002 /* GridWars iOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "GridWars iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		F30000000000000000000003 /* GridWarsSwiftTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GridWarsSwiftTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		P10000000000000000000002 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		P11000000000000000000002 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		P12000000000000000000002 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		G00000000000000000000001 = {
+			isa = PBXGroup;
+			children = (
+				G10000000000000000000001 /* GridWarsSwift */,
+				G20000000000000000000001 /* GridWarsSwiftTests */,
+				G30000000000000000000001 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		G10000000000000000000001 /* GridWarsSwift */ = {
+			isa = PBXGroup;
+			children = (
+				G11000000000000000000001 /* App */,
+				G12000000000000000000001 /* Game */,
+				G13000000000000000000001 /* Resources */,
+			);
+			path = GridWarsSwift;
+			sourceTree = "<group>";
+		};
+		G11000000000000000000001 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				F10000000000000000000001 /* GridWarsApp.swift */,
+				F10000000000000000000002 /* GameView.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		G12000000000000000000001 /* Game */ = {
+			isa = PBXGroup;
+			children = (
+				F10000000000000000000003 /* GameRules.swift */,
+				F10000000000000000000004 /* GameScene.swift */,
+			);
+			path = Game;
+			sourceTree = "<group>";
+		};
+		G13000000000000000000001 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				F20000000000000000000001 /* whiteplayer.png */,
+				F20000000000000000000002 /* yellowshot.png */,
+				F20000000000000000000003 /* redcircle.png */,
+				F20000000000000000000004 /* greensquare.png */,
+				F20000000000000000000005 /* bluediamond.png */,
+				F20000000000000000000006 /* whitestar.png */,
+				F20000000000000000000007 /* particle.png */,
+				F20000000000000000000008 /* shotborn.wav */,
+				F20000000000000000000009 /* genhit1.wav */,
+				F2000000000000000000000A /* Explo1.wav */,
+				F2000000000000000000000B /* bonus1.wav */,
+				F2000000000000000000000C /* gameover.wav */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		G20000000000000000000001 /* GridWarsSwiftTests */ = {
+			isa = PBXGroup;
+			children = (F10000000000000000000005 /* GameRulesTests.swift */,);
+			path = GridWarsSwiftTests;
+			sourceTree = "<group>";
+		};
+		G30000000000000000000001 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				F30000000000000000000001 /* GridWars.app */,
+				F30000000000000000000002 /* GridWars iOS.app */,
+				F30000000000000000000003 /* GridWarsSwiftTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		T10000000000000000000001 /* GridWars-macOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = L10000000000000000000001 /* Build configuration list for PBXNativeTarget "GridWars-macOS" */;
+			buildPhases = (P10000000000000000000001 /* Sources */, P10000000000000000000002 /* Frameworks */, P10000000000000000000003 /* Resources */);
+			buildRules = ();
+			dependencies = ();
+			name = "GridWars-macOS";
+			productName = GridWars;
+			productReference = F30000000000000000000001 /* GridWars.app */;
+			productType = "com.apple.product-type.application";
+		};
+		T11000000000000000000001 /* GridWars-iOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = L11000000000000000000001 /* Build configuration list for PBXNativeTarget "GridWars-iOS" */;
+			buildPhases = (P11000000000000000000001 /* Sources */, P11000000000000000000002 /* Frameworks */, P11000000000000000000003 /* Resources */);
+			buildRules = ();
+			dependencies = ();
+			name = "GridWars-iOS";
+			productName = "GridWars iOS";
+			productReference = F30000000000000000000002 /* GridWars iOS.app */;
+			productType = "com.apple.product-type.application";
+		};
+		T12000000000000000000001 /* GridWarsSwiftTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = L12000000000000000000001 /* Build configuration list for PBXNativeTarget "GridWarsSwiftTests" */;
+			buildPhases = (P12000000000000000000001 /* Sources */, P12000000000000000000002 /* Frameworks */, P12000000000000000000003 /* Resources */);
+			buildRules = ();
+			dependencies = ();
+			name = GridWarsSwiftTests;
+			productName = GridWarsSwiftTests;
+			productReference = F30000000000000000000003 /* GridWarsSwiftTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		P00000000000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2660;
+				LastUpgradeCheck = 2660;
+				TargetAttributes = {
+					T10000000000000000000001 = {CreatedOnToolsVersion = 26.6;};
+					T11000000000000000000001 = {CreatedOnToolsVersion = 26.6;};
+					T12000000000000000000001 = {CreatedOnToolsVersion = 26.6;};
+				};
+			};
+			buildConfigurationList = L00000000000000000000001 /* Build configuration list for PBXProject "GridWars" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (en, Base);
+			mainGroup = G00000000000000000000001;
+			productRefGroup = G30000000000000000000001 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (T10000000000000000000001 /* GridWars-macOS */, T11000000000000000000001 /* GridWars-iOS */, T12000000000000000000001 /* GridWarsSwiftTests */);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		P10000000000000000000003 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (B20000000000000000000001, B20000000000000000000002, B20000000000000000000003, B20000000000000000000004, B20000000000000000000005, B20000000000000000000006, B20000000000000000000007, B20000000000000000000008, B20000000000000000000009, B2000000000000000000000A, B2000000000000000000000B, B2000000000000000000000C);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		P11000000000000000000003 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (B21000000000000000000001, B21000000000000000000002, B21000000000000000000003, B21000000000000000000004, B21000000000000000000005, B21000000000000000000006, B21000000000000000000007, B21000000000000000000008, B21000000000000000000009, B2100000000000000000000A, B2100000000000000000000B, B2100000000000000000000C);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		P12000000000000000000003 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		P10000000000000000000001 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (B10000000000000000000001, B10000000000000000000002, B10000000000000000000003, B10000000000000000000004); runOnlyForDeploymentPostprocessing = 0; };
+		P11000000000000000000001 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (B11000000000000000000001, B11000000000000000000002, B11000000000000000000003, B11000000000000000000004); runOnlyForDeploymentPostprocessing = 0; };
+		P12000000000000000000001 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (B12000000000000000000001, B12000000000000000000002); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		C00000000000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = ("DEBUG=1", "$(inherited)");
+				ONLY_ACTIVE_ARCH = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		C00000000000000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		C10000000000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = GridWars;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.action-games";
+				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/../Frameworks");
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = org.gridwars.swift.macos;
+				PRODUCT_MODULE_NAME = GridWars;
+				PRODUCT_NAME = GridWars;
+				SDKROOT = macosx;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		C10000000000000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = GridWars;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.action-games";
+				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/../Frameworks");
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = org.gridwars.swift.macos;
+				PRODUCT_MODULE_NAME = GridWars;
+				PRODUCT_NAME = GridWars;
+				SDKROOT = macosx;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		C11000000000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = GridWars;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UIStatusBarHidden = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks");
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = org.gridwars.swift.ios;
+				PRODUCT_MODULE_NAME = GridWars;
+				PRODUCT_NAME = "GridWars iOS";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		C11000000000000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = GridWars;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UIStatusBarHidden = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks");
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = org.gridwars.swift.ios;
+				PRODUCT_MODULE_NAME = GridWars;
+				PRODUCT_NAME = "GridWars iOS";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		C12000000000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "";
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = org.gridwars.swift.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TEST_HOST = "";
+			};
+			name = Debug;
+		};
+		C12000000000000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "";
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = org.gridwars.swift.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TEST_HOST = "";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		L00000000000000000000001 /* Build configuration list for PBXProject "GridWars" */ = {isa = XCConfigurationList; buildConfigurations = (C00000000000000000000001 /* Debug */, C00000000000000000000002 /* Release */); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		L10000000000000000000001 /* Build configuration list for PBXNativeTarget "GridWars-macOS" */ = {isa = XCConfigurationList; buildConfigurations = (C10000000000000000000001 /* Debug */, C10000000000000000000002 /* Release */); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		L11000000000000000000001 /* Build configuration list for PBXNativeTarget "GridWars-iOS" */ = {isa = XCConfigurationList; buildConfigurations = (C11000000000000000000001 /* Debug */, C11000000000000000000002 /* Release */); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		L12000000000000000000001 /* Build configuration list for PBXNativeTarget "GridWarsSwiftTests" */ = {isa = XCConfigurationList; buildConfigurations = (C12000000000000000000001 /* Debug */, C12000000000000000000002 /* Release */); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+/* End XCConfigurationList section */
+	};
+	rootObject = P00000000000000000000001 /* Project object */;
+}
