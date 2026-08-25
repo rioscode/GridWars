@@ -610,7 +610,7 @@ final class GameRulesTests: XCTestCase {
     }
 
     func testEnemySelectionUnlocksInOriginalStages() {
-        var random = SeededRandomNumberGenerator(seed: 42)
+        var random = BlitzMaxRandomNumberGenerator(seed: 42)
         let director = SpawnDirector()
 
         for _ in 0..<20 {
@@ -625,7 +625,7 @@ final class GameRulesTests: XCTestCase {
     }
 
     func testSpawnDirectorMatchesSingleGeneratorAndSpeedFrames() {
-        var random = SeededRandomNumberGenerator(seed: 7)
+        var random = BlitzMaxRandomNumberGenerator(seed: 7)
         var director = SpawnDirector()
 
         let single = director.advance(frame: 33, spawningIsBlocked: false, using: &random)
@@ -652,7 +652,7 @@ final class GameRulesTests: XCTestCase {
     }
 
     func testBombCooldownBlocksCommandsButNotSchedulerState() {
-        var random = SeededRandomNumberGenerator(seed: 11)
+        var random = BlitzMaxRandomNumberGenerator(seed: 11)
         var director = SpawnDirector()
 
         let blocked = director.advance(frame: 33, spawningIsBlocked: true, using: &random)
@@ -661,7 +661,7 @@ final class GameRulesTests: XCTestCase {
     }
 
     func testSpawnDirectorPreservesAllFourOriginalWaveCadences() {
-        var random = SeededRandomNumberGenerator(seed: 19)
+        var random = BlitzMaxRandomNumberGenerator(seed: 19)
 
         var first = SpawnDirector()
         XCTAssertTrue(first.advance(frame: 777, spawningIsBlocked: false, using: &random).commands.isEmpty)
@@ -923,6 +923,78 @@ final class GameRulesTests: XCTestCase {
 
         XCTAssertEqual(random.rand(0, 360 * 8), 2_504)
         XCTAssertEqual(random.rand(0, 359), 34)
+    }
+
+    func testEnemySpawnStateConsumesEachOriginalKindsExactRandomCalls() {
+        var pinwheelRandom = BlitzMaxRandomNumberGenerator(seed: 1)
+        let pinwheel = OriginalEnemySpawnState.make(
+            kind: .pinwheel,
+            using: &pinwheelRandom
+        )
+        XCTAssertEqual(pinwheel.rotation, 90)
+        XCTAssertEqual(pinwheel.direction, 0)
+        XCTAssertEqual(pinwheel.magnitude, 1.108_115_630_966_928_9, accuracy: 1e-12)
+        XCTAssertEqual(pinwheelRandom.rand(0, 100), 88)
+
+        var diamondRandom = BlitzMaxRandomNumberGenerator(seed: 1)
+        let diamond = OriginalEnemySpawnState.make(
+            kind: .diamond,
+            using: &diamondRandom
+        )
+        XCTAssertEqual(diamond.rotation, 0)
+        XCTAssertEqual(diamond.direction, 145)
+        XCTAssertEqual(diamond.magnitude, 0.903_867_107_399_324_4, accuracy: 1e-12)
+        XCTAssertEqual(diamondRandom.rand(0, 100), 6)
+
+        var interceptorRandom = BlitzMaxRandomNumberGenerator(seed: 1)
+        let interceptor = OriginalEnemySpawnState.make(
+            kind: .interceptor,
+            using: &interceptorRandom
+        )
+        XCTAssertEqual(interceptor.rotation, 313)
+        XCTAssertEqual(interceptor.direction, 0)
+        XCTAssertEqual(interceptor.magnitude, 1.108_115_630_966_928_9, accuracy: 1e-12)
+        XCTAssertEqual(interceptorRandom.rand(0, 100), 6)
+
+        var snakeRandom = BlitzMaxRandomNumberGenerator(seed: 1)
+        let snake = OriginalEnemySpawnState.make(kind: .snake, using: &snakeRandom)
+        XCTAssertEqual(snake.rotation, 0)
+        XCTAssertEqual(snake.direction, 0)
+        XCTAssertEqual(snake.snakeTurnDirection, 0)
+        XCTAssertEqual(snake.magnitude, 1.807_734_214_798_648_8, accuracy: 1e-12)
+        XCTAssertEqual(snakeRandom.rand(0, 100), 1)
+    }
+
+    func testDiamondConsumesDegenerateRandCallsWithoutChangingVelocity() {
+        var branchNotTaken = BlitzMaxRandomNumberGenerator(seed: 1)
+        OriginalDiamondRandomRule.consumeIntegerJitter(using: &branchNotTaken)
+        XCTAssertEqual(branchNotTaken.rand(0, 100), 40)
+
+        var branchTaken = BlitzMaxRandomNumberGenerator(seed: 6_000)
+        OriginalDiamondRandomRule.consumeIntegerJitter(using: &branchTaken)
+        XCTAssertEqual(branchTaken.rand(0, 100), 42)
+    }
+
+    func testSpawnDirectorUsesOriginalGeneratorRandomCallOrder() {
+        var random = BlitzMaxRandomNumberGenerator(seed: 1)
+        var director = SpawnDirector()
+
+        let result = director.advance(
+            frame: 444,
+            spawningIsBlocked: false,
+            using: &random
+        )
+
+        XCTAssertEqual(result.commands, [
+            .generator(
+                kind: .pinwheel,
+                freezeFrames: 20,
+                corner: .diagonalTopRightBottomLeft,
+                rate: 105,
+                size: 1
+            ),
+        ])
+        XCTAssertEqual(random.rand(0, 100), 6)
     }
 
     func testParticleEmissionCanConsumeExactBlitzMaxRandomSequence() {

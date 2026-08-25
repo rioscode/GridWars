@@ -764,6 +764,110 @@ enum OriginalGeneratorRule {
     }
 }
 
+struct OriginalEnemySpawnState: Equatable {
+    let rotation: Int
+    let direction: Int
+    let magnitude: CGFloat
+    let snakeTurnDirection: Int
+
+    static func make(
+        kind: OriginalEnemyKind,
+        using random: inout BlitzMaxRandomNumberGenerator
+    ) -> OriginalEnemySpawnState {
+        switch kind {
+        case .pinwheel:
+            return stateWithFixedRotation(
+                90,
+                magnitude: 0.5..<2,
+                using: &random
+            )
+        case .greenSquare:
+            return stateWithFixedRotation(
+                90,
+                magnitude: 2..<4,
+                using: &random
+            )
+        case .interceptor:
+            // nme7.Create draws direction and magnitude before its visual rotation.
+            let direction = random.rand(0, 359)
+            let magnitude = CGFloat(random.rnd(0.5, 2))
+            let rotation = random.rand(0, 359)
+            return OriginalEnemySpawnState(
+                rotation: rotation,
+                direction: direction,
+                magnitude: magnitude,
+                snakeTurnDirection: 0
+            )
+        case .snake:
+            let rotation = random.rand(0, 359)
+            let turnDirection = random.rand(0, 1)
+            let magnitude = CGFloat(random.rnd(0.5, 2))
+
+            // The recursive nme6.Create builds 24 tail links plus the terminal
+            // link. Their random rotations and every-third-link direction flips
+            // are gameplay-inert, but they still advance BRL.Random's state.
+            _ = random.rand(0, 1) // Head length 24 direction flip.
+            for length in stride(from: 23, through: 0, by: -1) {
+                _ = random.rand(0, 359)
+                if length > 0, length.isMultiple(of: 3) {
+                    _ = random.rand(0, 1)
+                }
+            }
+            return OriginalEnemySpawnState(
+                rotation: rotation,
+                direction: rotation,
+                magnitude: magnitude,
+                snakeTurnDirection: turnDirection
+            )
+        case .diamond, .triangle:
+            return stateWithRandomRotation(magnitude: 0.25..<1, using: &random)
+        case .cube:
+            return stateWithRandomRotation(magnitude: 0.25..<2, using: &random)
+        case .seeker, .butterfly:
+            return stateWithRandomRotation(magnitude: 3..<6, using: &random)
+        case .blackHole:
+            return stateWithRandomRotation(magnitude: 0.05..<0.5, using: &random)
+        }
+    }
+
+    private static func stateWithFixedRotation(
+        _ rotation: Int,
+        magnitude: Range<Double>,
+        using random: inout BlitzMaxRandomNumberGenerator
+    ) -> OriginalEnemySpawnState {
+        OriginalEnemySpawnState(
+            rotation: rotation,
+            direction: random.rand(0, 359),
+            magnitude: CGFloat(random.rnd(magnitude.lowerBound, magnitude.upperBound)),
+            snakeTurnDirection: 0
+        )
+    }
+
+    private static func stateWithRandomRotation(
+        magnitude: Range<Double>,
+        using random: inout BlitzMaxRandomNumberGenerator
+    ) -> OriginalEnemySpawnState {
+        OriginalEnemySpawnState(
+            rotation: random.rand(0, 359),
+            direction: random.rand(0, 359),
+            magnitude: CGFloat(random.rnd(magnitude.lowerBound, magnitude.upperBound)),
+            snakeTurnDirection: 0
+        )
+    }
+}
+
+enum OriginalDiamondRandomRule {
+    static func consumeIntegerJitter(
+        using random: inout BlitzMaxRandomNumberGenerator
+    ) {
+        guard random.rand(0, 1) != 0 else { return }
+        // Rand accepts Int arguments. Both Float literals in
+        // Rand(-0.2, 0.2) truncate to zero, yet each call consumes RNG state.
+        _ = random.rand(0, 0)
+        _ = random.rand(0, 0)
+    }
+}
+
 struct TriangleBondState: Equatable {
     static let initialStrength: CGFloat = 25
 
@@ -939,10 +1043,10 @@ struct SpawnDirector {
         self = SpawnDirector()
     }
 
-    mutating func advance<R: RandomNumberGenerator>(
+    mutating func advance(
         frame: Int,
         spawningIsBlocked: Bool,
-        using random: inout R
+        using random: inout BlitzMaxRandomNumberGenerator
     ) -> SpawnFrameResult {
         var result = SpawnFrameResult()
 
@@ -956,11 +1060,11 @@ struct SpawnDirector {
 
         if frame.isMultiple(of: 444) {
             var kindValue = enemyType(for: frame / 3 + 500, using: &random).rawValue + 1
+            let size = min(randomInt(1...(16 + frame / 2_000), using: &random), 32)
+            let rate = max(60, 80 + randomInt(1...60, using: &random) - frame / 1_000)
             if kindValue == 9 { kindValue = 10 }
             if kindValue == 6 { kindValue = randomInt(3...5, using: &random) }
             let generatorKind = OriginalEnemyKind(rawValue: kindValue - 1) ?? .greenSquare
-            let size = min(randomInt(1...(16 + frame / 2_000), using: &random), 32)
-            let rate = max(60, 80 + randomInt(1...60, using: &random) - frame / 1_000)
             result.commands.append(.generator(
                 kind: generatorKind,
                 freezeFrames: 20,
@@ -1000,18 +1104,21 @@ struct SpawnDirector {
         return result
     }
 
-    func enemyType<R: RandomNumberGenerator>(for frame: Int, using random: inout R) -> OriginalEnemyKind {
+    func enemyType(
+        for frame: Int,
+        using random: inout BlitzMaxRandomNumberGenerator
+    ) -> OriginalEnemyKind {
         let selection = min(frame / 1_100, 8)
         let upperBound: Int
         switch selection {
-        case 0: upperBound = 0
+        case 0: return .pinwheel
         case 1...7: upperBound = selection
         default: upperBound = 9
         }
         return OriginalEnemyKind(rawValue: randomInt(0...upperBound, using: &random)) ?? .pinwheel
     }
 
-    private mutating func startWave<R: RandomNumberGenerator>(
+    private mutating func startWave(
         index: Int,
         frame: Int,
         divisor: Int,
@@ -1020,7 +1127,7 @@ struct SpawnDirector {
         multiplier: Int,
         cap: Int,
         corner: SpawnCorner,
-        using random: inout R
+        using random: inout BlitzMaxRandomNumberGenerator
     ) {
         let kind = enemyType(for: frame / divisor, using: &random)
         var duration = randomInt(base...(growthBase + frame / 750), using: &random) * multiplier
@@ -1035,15 +1142,17 @@ struct SpawnDirector {
         )
     }
 
-    private func randomCorner<R: RandomNumberGenerator>(using random: inout R) -> SpawnCorner {
+    private func randomCorner(
+        using random: inout BlitzMaxRandomNumberGenerator
+    ) -> SpawnCorner {
         SpawnCorner(rawValue: randomInt(0...12, using: &random)) ?? .anywhere
     }
 
-    private func randomInt<R: RandomNumberGenerator>(
+    private func randomInt(
         _ range: ClosedRange<Int>,
-        using random: inout R
+        using random: inout BlitzMaxRandomNumberGenerator
     ) -> Int {
-        Int.random(in: range, using: &random)
+        random.rand(range.lowerBound, range.upperBound)
     }
 }
 

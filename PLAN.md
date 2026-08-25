@@ -106,7 +106,7 @@ branch. Each major fidelity milestone has its own commit:
       textures, blending, timing, randomness, persistence, and verification
 - [x] macOS Debug build
 - [x] Generic iOS Simulator Debug build
-- [x] 88 gameplay, input, persistence, audio, and rendering-rule unit tests
+- [x] 91 gameplay, input, persistence, audio, and rendering-rule unit tests
 - [x] macOS launch and rendering smoke test
 - [x] Deterministic 88-state Swift capture catalog at 1024×768
 - [x] Source-ordered Grid simulation and style-specific rendering pass for all
@@ -116,6 +116,9 @@ branch. Each major fidelity milestone has its own commit:
       half-scale image particles, and the separate bloom-image pass
 - [x] Archived BRL.Random-compatible seeded generator and source-ordered
       600-frame attract capture simulation
+- [x] BRL.Random as the live gameplay RNG, with source-ordered Spawn scheduler,
+      corner/SafeXY sampling, per-kind constructors, recursive Snake calls,
+      Diamond's zero-valued jitter calls, and particle/power-up branches
 - [x] Source-specific Dual Analog configuration renderer using the official
       8×16 BRL Max2D bitmap font and original `1/128/255` scale values
 - [x] Source-rasterized Get Ready rings, vector title, and pre-`Flip`

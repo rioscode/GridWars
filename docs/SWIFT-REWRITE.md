@@ -189,6 +189,15 @@ Use the archived BRL.Random algorithm for deterministic source parity. Swift's
 standard RNG does not produce the same sequence. Also reproduce the source's
 inclusive integer ranges and its implicit Float-to-Int truncation points.
 
+Use that generator in the live game too, not only in screenshot fixtures. A
+capture can look correct while subsequent live waves drift if the scheduler,
+corner expansion, entity constructors, update branches, power-up selection or
+particle emission use Swift's `RandomNumberGenerator` distribution helpers.
+Those helpers consume a different number of underlying state words even when
+the requested numeric range is identical. Route source `Rand`/`Rnd` sites to
+the archived implementations explicitly and seed the live stream from
+milliseconds-since-boot, matching `SeedRnd(MilliSecs())`.
+
 Random-call order is part of behavior. The original capture state creates all
 10,001 stars before spawning the inspected entity; consuming only the visible
 301 star values changes every later randomized entity transform.
@@ -197,6 +206,27 @@ Preserve call order inside constructors too. Generator creation calls
 `SafeXY` before assigning `r = Rand(0,359)`. Reversing those two operations
 uses the intended position sample as the rotation and moves every deterministic
 generator fixture to a different quadrant.
+
+Constructor order is not uniform across enemy types. Pinwheel and Green Square
+fix `r=90` and draw only direction/magnitude; most kinds draw
+rotation/direction/magnitude; Interceptor draws direction/magnitude/rotation.
+Snake recursively creates 24 tail links plus the terminal link. Every link
+draws an otherwise unused rotation, and each positive length divisible by
+three draws a direction-flip value. A flat Swift tail array must still consume
+those calls in the recursive source order.
+
+Remove Swift-only random fields even when their values are never read: they
+still shift the shared stream. Conversely, retain source calls whose numeric
+effect is zero. Diamond's `Rand(-0.2,0.2)` arguments implicitly truncate to
+`Int(0), Int(0)`; both calls return zero but advance BRL.Random whenever the
+preceding `Rand(0,1)` branch succeeds.
+
+Sample spawn coordinates in the source's top-left coordinate system, in X-then-Y
+call order, and only then convert `sceneY = playfieldHeight - sourceY`.
+Sampling an equivalent bottom-left range has the same distribution but maps a
+given seeded value to the opposite point. Directional rotations need the same
+handedness treatment: after Y inversion, an Interceptor drawn at source
+`rot+90` uses SpriteKit `-(rot+90)`.
 
 BlitzMax locals are zero-initialized, including locals that are accidentally
 never assigned. In `ge.Draw`, Triangle and Butterfly fill alpha uses

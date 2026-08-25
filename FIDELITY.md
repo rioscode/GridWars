@@ -62,8 +62,22 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   0.00516–0.00591 to 0.00475–0.00485. Generator rendering also preserves the
   inherited `LIGHTBLEND`, the eight-frame warning window, hit-dependent birth
   period, and the source's uninitialized-`sc` alpha quirk for Triangle and
-  Butterfly fills. Pairwise visual correction of the enemy types themselves
-  is still in progress, so those broad enemy checklist entries stay open.
+  Butterfly fills. The live runtime now uses the archived BRL.Random generator
+  rather than Swift's standard RNG. `SpawnDirector`, corner expansion,
+  `SafeXY`, entity construction, power-up selection, particles, fireworks and
+  update-time random branches therefore share the source's inclusive `Rand`
+  and upper-exclusive `Rnd` state progression. Enemy construction no longer
+  consumes an unused Swift-only `phase` or a Snake turn value for every kind.
+  It preserves each kind's actual constructor order, including Interceptor's
+  direction/magnitude/rotation order and all inert recursive Snake-tail
+  rotations/direction flips. Diamond update also consumes both zero-valued
+  `Rand(-0.2,0.2)` calls whenever its leading branch succeeds. Spawn positions
+  are sampled in source top-left coordinates before the scene-Y conversion.
+  Negating Interceptor's source rotation after that conversion lowers its
+  isolated difference from `0.00488409` to `0.00471283`. Focused sequence
+  tests lock these call orders. Pairwise visual correction of the enemy types
+  themselves is still in progress, so those broad enemy checklist entries
+  stay open.
 - Grid and particle simulation: `gridparttrail.bmx:494-2017` maps to
   `GridSimulation`, `GridRenderer`, `ParticleSimulation`, and
   `ParticleRenderer`. The port has all 21 grid-style selectors, the original
@@ -277,14 +291,16 @@ the corresponding Swift implementation, and a test or visual/runtime check.
 - Language semantics: `docs/bb/blitzmax-ng/brl/random.mod/random.bmx` confirms
   inclusive integer `Rand`, upper-exclusive floating-point `Rnd`, and the
   Park–Miller state plus two-state `RndDouble` construction. The Swift
-  `BlitzMaxRandomNumberGenerator` reproduces the archived algorithm and the
-  capture harness consumes it in the same call order for colour cycling,
-  fireworks, and particle creation; fixed integer, double, and 64-bit test
-  vectors lock the sequence. The
+  `BlitzMaxRandomNumberGenerator` reproduces the archived algorithm. Both the
+  live runtime and capture harness consume it in source order for spawning,
+  corner selection, `SafeXY`, entity construction, colour cycling, fireworks,
+  power-ups, enemy update branches, and particle creation. Fixed integer,
+  double, 64-bit, enemy-constructor, recursive Snake, Diamond-jitter and
+  generator-frame vectors lock the sequence. The
   archived legacy `Language/Data types.bbdoc` documents the implicit numeric
   conversions used by the original. Swift random ranges and intentional
   integer truncations follow those references.
-- Build evidence (2026-08-25): the macOS unit-test action (78 tests) and generic
+- Build evidence (2026-08-25): the macOS unit-test action (91 tests) and generic
   iOS Simulator Debug build both pass. The rule suite
   covers initial difficulty, motion, weapons, scoring, upgrades, spawn timing,
   triangle bonds, snake following, black-hole integer conversions,
