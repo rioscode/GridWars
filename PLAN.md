@@ -107,6 +107,7 @@ time, and each completed fidelity milestone has its own commit:
       textures, blending, timing, randomness, persistence, and verification
 - [x] macOS Debug build
 - [x] Generic iOS Simulator Debug build
+- [x] iPhone 17 Pro Simulator touch, persistence, lifecycle, and exit smoke test
 - [ ] Physical iPhone/iPad gameplay and lifecycle smoke test
 - [x] 127 gameplay, input, persistence, audio, and rendering-rule unit tests
 - [x] macOS launch and rendering smoke test
@@ -220,7 +221,11 @@ the 750-frame post-game Title return, accepted-and-restored settings, the
 source pause latch/O release, attract return, runtime function keys, and actual
 process termination through Exit Program. The held-P single-step branch is
 covered by its source-specific deterministic rule test because the UI driver
-cannot hold two non-modifier keys simultaneously. Physical iPhone/iPad
-hardware remains the final platform gate; this evidence gap is not represented
-as completed 1:1 proof. The complete visual review and the renderer-specific
-acceptance boundary are recorded in `docs/CAPTURE-REVIEW.md`.
+cannot hold two non-modifier keys simultaneously. An iPhone 17 Pro Simulator
+run additionally verifies touch start, both virtual sticks, BOMB, OPT/Continue,
+background/foreground persistence, and the mobile Title-return equivalent for
+Exit Program. The two detected physical iPhones were offline, so physical
+iPhone/iPad hardware remains the final platform gate; this evidence gap is not
+represented as completed 1:1 proof. The complete visual review and the
+renderer-specific acceptance boundary are recorded in
+`docs/CAPTURE-REVIEW.md`.

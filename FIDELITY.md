@@ -509,6 +509,18 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   pause. The attract Options -> Exit Program -> Sure? path terminated the
   process. The same acceptance session changed Autofire from 0 to 1, observed
   the emitted `Config.txt`, and restored it to 0 before completion.
+- iOS Simulator acceptance evidence (2026-08-25): a fresh Debug build ran on
+  an iPhone 17 Pro simulator with iOS 26.5. The BOMB touch target started Get
+  Ready, both virtual-stick touch paths were exercised during live gameplay,
+  BOMB produced the Grid shockwave, and OPT opened the gameplay menu before a
+  touch Continue returned to play. Sending the app Home and opening it again
+  produced a valid foreground presentation and wrote the complete 280-line
+  `Config.txt`, 76-line `Colours.txt`, and 150-line `hiscores.dat` under the
+  simulator's Application Support directory. The mobile Exit Program -> Sure?
+  -> Yes path returned to the animated Title without terminating the app, as
+  required by the iOS platform equivalent. Xcode detected two physical iPhones
+  during this audit, but both were offline; real-device evidence remains
+  explicitly pending in `PLAN.md`.
 
 ## Core loop and progression
 

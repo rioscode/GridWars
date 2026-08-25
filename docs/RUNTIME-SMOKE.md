@@ -52,6 +52,20 @@ The same acceptance series changed Autofire from 0 to 1, confirmed the value
 in Application Support `Config.txt`, then restored and re-verified 0. The
 isolated F8 path did not read or alter the user's high-score table.
 
+## Recorded iOS Simulator acceptance
+
+A 2026-08-25 Debug build ran on the iPhone 17 Pro simulator with iOS 26.5.
+BOMB started Get Ready, both virtual-stick touch paths were exercised during
+live gameplay, BOMB produced the Grid shockwave, OPT opened the original menu,
+and a touch on Continue returned to play. After Home and foreground relaunch,
+the app presented a valid title state and its Application Support directory
+contained the complete legacy files: 280 lines in `Config.txt`, 76 in
+`Colours.txt`, and 150 in `hiscores.dat`. Exit Program -> Sure? -> Yes returned
+to the animated title while the iOS app remained open.
+
+This is simulator evidence, not a substitute for physical-device validation.
+Xcode listed two real iPhones during the run, but both were offline.
+
 For iOS/iPadOS, repeat the normal start, twin-stick movement/aim, BOMB, OPT,
 background/foreground, and persistence checks on a physical device. iOS maps
 the source's application-exit request to a clean title return because mobile
