@@ -75,9 +75,20 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   are sampled in source top-left coordinates before the scene-Y conversion.
   Negating Interceptor's source rotation after that conversion lowers its
   isolated difference from `0.00488409` to `0.00471283`. Focused sequence
-  tests lock these call orders. Pairwise visual correction of the enemy types
-  themselves is still in progress, so those broad enemy checklist entries
-  stay open.
+  tests lock these call orders. Pinwheel, Diamond, Green Square, Cube, Seeker,
+  Triangle, and Butterfly rotations now apply the same scene-Y handedness
+  conversion. The six basic enemies also use source-exact homing acceleration,
+  squared separation tests, boundary margins and double position correction,
+  speed caps, player collision thresholds, Green Square projectile avoidance,
+  Cube orbit direction, and score/sound/split/particle/shockwave ordering.
+  Cube splitting retains the source's constant `Rand(-30,-30)` X offset and
+  inverted random Y offset. Paired captures place two enemies nine pixels
+  around center and execute 30 direct update frames in both renderers. Their
+  normalized differences are `0.00474285` Pinwheel, `0.00474284` Diamond,
+  `0.00476267` Green Square, `0.00475674` Cube, `0.00471401` Seeker, and
+  `0.00472140` Butterfly. Together with focused rule tests and the existing
+  score tests, these accept the six basic enemy checklist entries; the four
+  compound enemy types remain under pairwise behavior audit.
 - Grid and particle simulation: `gridparttrail.bmx:494-2017` maps to
   `GridSimulation`, `GridRenderer`, `ParticleSimulation`, and
   `ParticleRenderer`. The port has all 21 grid-style selectors, the original
@@ -218,7 +229,7 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   center only to the static title credits lowers it again to 0.01489. The
   overdrawn logo remains unshifted because the same offset regresses its
   isolated region. Across the new
-  88-state catalog this common correction improves screens including top
+  94-state catalog this common correction improves screens including top
   scores (0.00708 to 0.00641), options (0.00194 to 0.00151), and high-score
   entry (0.01006 to 0.00819). Two independently rendered high-score-entry
   captures have identical SHA-256 hashes.
@@ -247,11 +258,12 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   graphics-set captures to 0.01588–0.01620. The score, high score, multiplier,
   lives and bomb indicators use the original vector font, coordinates, alpha
   and icon frames. The isolated original
-  renderer now produces 88 valid full-frame 1024×768 attract, transition,
-  gameplay, HUD, entity, generator, power-up, grid, particle, graphics-set, and
-  menu references via `scripts/capture-original.sh`; capture mode bypasses all
+  renderer now produces 94 valid full-frame 1024×768 attract, transition,
+  gameplay, HUD, entity, basic-enemy motion, generator, power-up, grid,
+  particle, graphics-set, and menu references via `scripts/capture-original.sh`;
+  capture mode bypasses all
   legacy configuration and high-score I/O. A persistence-free Swift catalog
-  covers the same 88 states via `scripts/capture-screens.sh`, and
+  covers the same 94 states via `scripts/capture-screens.sh`, and
   `scripts/compare-captures.sh` measures every matching pair. Two independent
   complete original runs produced byte-identical PNGs. Enemy
   pages reproduce the original individual rotation, pulse and squash rates,
@@ -300,7 +312,7 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   archived legacy `Language/Data types.bbdoc` documents the implicit numeric
   conversions used by the original. Swift random ranges and intentional
   integer truncations follow those references.
-- Build evidence (2026-08-25): the macOS unit-test action (91 tests) and generic
+- Build evidence (2026-08-25): the macOS unit-test action (96 tests) and generic
   iOS Simulator Debug build both pass. The rule suite
   covers initial difficulty, motion, weapons, scoring, upgrades, spawn timing,
   triangle bonds, snake following, black-hole integer conversions,
@@ -333,19 +345,19 @@ the corresponding Swift implementation, and a test or visual/runtime check.
 
 ## Enemies and hazards
 
-- [ ] Paul the Pinwheel: bounce/separation, 25 points (`nme1`).
-- [ ] Dimmy the Diamond: jitter, homing, separation, 50 points (`nme2`).
-- [ ] Shy the Square: projectile avoidance, homing, separation, 100 points
+- [x] Paul the Pinwheel: bounce/separation, 25 points (`nme1`).
+- [x] Dimmy the Diamond: jitter, homing, separation, 50 points (`nme2`).
+- [x] Shy the Square: projectile avoidance, homing, separation, 100 points
       (`nme`).
-- [ ] Cubie the Cube: orbit motion, large/small split, 100/50 points (`nme3`).
-- [ ] Sammy the Seeker: fast homing and separation, 10 points (`nme4`).
+- [x] Cubie the Cube: orbit motion, large/small split, 100/50 points (`nme3`).
+- [x] Sammy the Seeker: fast homing and separation, 10 points (`nme4`).
 - [ ] Dwight the Black Hole: activation, growth/shrink, absorption, pull,
       collision, split explosion, dynamic score, and loop audio (`nme5`).
 - [ ] Selena the Snake: 25-segment chain, head navigation, tail hits, staged
       chain explosion, 100 head points (`nme6`).
 - [ ] Ivan the Interceptor: facing AI, shield cone, projectile blocking, 100
       points (`nme7`).
-- [ ] Indy the Butterfly: fast homing/separation, 10 points (`nme8`).
+- [x] Indy the Butterfly: fast homing/separation, 10 points (`nme8`).
 - [ ] Trish the Triangle: pairing, elastic bond, bond collision, black-hole
       interaction, 150 points (`le`).
 - [x] Ten generator variants with original health, birth rate, warning flash,

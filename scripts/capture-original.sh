@@ -68,6 +68,8 @@ else
     hud-default hud-upgraded power-up-message \
     enemy-pinwheel enemy-diamond enemy-green-square enemy-cube enemy-seeker \
     enemy-black-hole enemy-triangle enemy-snake enemy-interceptor enemy-butterfly \
+    motion-pinwheel motion-diamond motion-green-square motion-cube motion-seeker \
+    motion-butterfly \
     generator-pinwheel generator-diamond generator-green-square generator-cube \
     generator-seeker generator-black-hole generator-triangle generator-snake \
     generator-interceptor generator-butterfly \

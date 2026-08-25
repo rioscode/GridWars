@@ -975,6 +975,127 @@ final class GameRulesTests: XCTestCase {
         XCTAssertEqual(branchTaken.rand(0, 100), 42)
     }
 
+    func testBasicEnemyMotionConstantsMatchEachSourceType() {
+        XCTAssertEqual(OriginalBasicEnemyRule.homingAcceleration(for: .pinwheel), 0)
+        XCTAssertEqual(OriginalBasicEnemyRule.homingAcceleration(for: .diamond), 0.5)
+        XCTAssertEqual(OriginalBasicEnemyRule.homingAcceleration(for: .greenSquare), 1)
+        XCTAssertEqual(OriginalBasicEnemyRule.homingAcceleration(for: .cube), 2.5)
+        XCTAssertEqual(OriginalBasicEnemyRule.homingAcceleration(for: .seeker), 4)
+        XCTAssertEqual(OriginalBasicEnemyRule.homingAcceleration(for: .butterfly), 2)
+
+        XCTAssertEqual(
+            OriginalBasicEnemyRule.separation(for: .pinwheel),
+            OriginalEnemySeparationRule(thresholdSquared: 800, force: 1)
+        )
+        XCTAssertEqual(
+            OriginalBasicEnemyRule.separation(for: .diamond),
+            OriginalEnemySeparationRule(thresholdSquared: 1_300, force: 1)
+        )
+        XCTAssertEqual(
+            OriginalBasicEnemyRule.separation(for: .greenSquare),
+            OriginalEnemySeparationRule(thresholdSquared: 1_476, force: 1)
+        )
+        XCTAssertEqual(
+            OriginalBasicEnemyRule.separation(for: .cube, cubeTier: 4),
+            OriginalEnemySeparationRule(thresholdSquared: 1_220, force: 1)
+        )
+        XCTAssertEqual(
+            OriginalBasicEnemyRule.separation(for: .seeker),
+            OriginalEnemySeparationRule(thresholdSquared: 976, force: 1)
+        )
+        XCTAssertEqual(
+            OriginalBasicEnemyRule.separation(for: .butterfly),
+            OriginalEnemySeparationRule(thresholdSquared: 512, force: 0.125)
+        )
+
+        XCTAssertEqual(OriginalBasicEnemyRule.maximumSpeed(
+            for: .cube,
+            baseSpeed: 3,
+            cubeTier: 4
+        ), 2)
+        XCTAssertEqual(OriginalBasicEnemyRule.maximumSpeed(
+            for: .seeker,
+            baseSpeed: 4.35,
+            seekerMean: 1
+        ), 5.35)
+        XCTAssertEqual(
+            OriginalBasicEnemyRule.playerCollisionThresholdSquared(for: .cube, cubeTier: 4),
+            208
+        )
+        XCTAssertEqual(
+            OriginalBasicEnemyRule.playerCollisionThresholdSquared(for: .butterfly),
+            288
+        )
+    }
+
+    func testCubeOrbitAndSplitOffsetsApplySourceYInversion() {
+        XCTAssertEqual(
+            OriginalBasicEnemyRule.cubeSceneOrbit(rotation: 0, tier: 4),
+            CGVector(dx: 0, dy: -4)
+        )
+        XCTAssertEqual(
+            OriginalBasicEnemyRule.cubeSceneOrbit(rotation: 9, tier: 4).dx,
+            4,
+            accuracy: 0.000_001
+        )
+
+        var random = BlitzMaxRandomNumberGenerator(seed: 1)
+        XCTAssertEqual(
+            OriginalCubeSplitRule.sceneOffset(using: &random),
+            CGVector(dx: -30, dy: 6)
+        )
+        XCTAssertEqual(random.rand(0, 100), 88)
+    }
+
+    func testSourceRotationChangesHandednessAfterSceneYInversion() {
+        XCTAssertEqual(
+            OriginalSourceTransform.sceneRadians(sourceDegrees: 90),
+            -.pi / 2,
+            accuracy: 0.000_001
+        )
+        XCTAssertEqual(
+            OriginalSourceTransform.sceneRadians(sourceDegrees: 242),
+            -242 * .pi / 180,
+            accuracy: 0.000_001
+        )
+    }
+
+    func testBoundaryBounceMatchesOriginalDoublePositionAdjustment() {
+        var position = CGPoint(x: 5, y: 95)
+        var velocity = CGVector(dx: -3, dy: 4)
+
+        OriginalBoundaryRule.bounce(
+            position: &position,
+            velocity: &velocity,
+            arenaSize: CGSize(width: 100, height: 100),
+            margin: 8
+        )
+
+        XCTAssertEqual(velocity, CGVector(dx: 3, dy: -4))
+        XCTAssertEqual(position, CGPoint(x: 8, y: 91))
+    }
+
+    func testGreenSquareProjectileAvoidanceMatchesRunAwayAndSpeedCap() {
+        let avoided = OriginalGreenSquareRule.velocityAvoidingProjectile(
+            squarePosition: CGPoint(x: 100, y: 100),
+            squareVelocity: CGVector(dx: 1, dy: 0),
+            projectilePosition: CGPoint(x: 80, y: 100),
+            projectileVelocity: CGVector(dx: 5, dy: 0),
+            maximumSpeed: 3.41
+        )
+        XCTAssertEqual(avoided.length, 3.41, accuracy: 0.000_001)
+        XCTAssertLessThan(avoided.dx, 0)
+
+        let distant = OriginalGreenSquareRule.velocityAvoidingProjectile(
+            squarePosition: .zero,
+            squareVelocity: CGVector(dx: 1, dy: 2),
+            projectilePosition: CGPoint(x: 200, y: 200),
+            projectileVelocity: CGVector(dx: 1, dy: 0),
+            maximumSpeed: 3.41
+        )
+        XCTAssertEqual(distant, CGVector(dx: 1, dy: 2))
+    }
+
     func testSpawnDirectorUsesOriginalGeneratorRandomCallOrder() {
         var random = BlitzMaxRandomNumberGenerator(seed: 1)
         var director = SpawnDirector()
@@ -1738,7 +1859,7 @@ final class GameRulesTests: XCTestCase {
 
     func testCaptureCatalogCoversEveryFidelityCategory() {
         let scenarios = OriginalCaptureScenario.all
-        XCTAssertEqual(scenarios.count, 88)
+        XCTAssertEqual(scenarios.count, 94)
         XCTAssertEqual(Set(scenarios.map(\.name)).count, scenarios.count)
         XCTAssertEqual(
             OriginalCaptureScenario(name: "power-up-message")?.subject,
@@ -1754,6 +1875,7 @@ final class GameRulesTests: XCTestCase {
         )
 
         var enemies = 0
+        var enemyMotions = 0
         var generators = 0
         var powerUps = 0
         var grids = 0
@@ -1764,6 +1886,7 @@ final class GameRulesTests: XCTestCase {
             XCTAssertEqual(OriginalCaptureScenario(name: scenario.name), scenario)
             switch scenario.subject {
             case .enemy: enemies += 1
+            case .enemyMotion: enemyMotions += 1
             case .generator: generators += 1
             case .powerUp: powerUps += 1
             case .grid: grids += 1
@@ -1774,6 +1897,7 @@ final class GameRulesTests: XCTestCase {
             }
         }
         XCTAssertEqual(enemies, OriginalEnemyKind.allCases.count)
+        XCTAssertEqual(enemyMotions, 6)
         XCTAssertEqual(generators, OriginalEnemyKind.allCases.count)
         XCTAssertEqual(powerUps, PowerUpKind.allCases.count)
         XCTAssertEqual(grids, 21)

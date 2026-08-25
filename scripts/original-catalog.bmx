@@ -3,6 +3,7 @@
 
 Function CaptureOriginalCatalog:Int(mode$, directory$)
 	Local entityKind:Int = -1
+	Local motionKind:Int = -1
 	Local generatorKind:Int = -1
 	Local powerKind:Int = -1
 	Local gridKind:Int = -1
@@ -28,6 +29,13 @@ Function CaptureOriginalCatalog:Int(mode$, directory$)
 		Case "enemy-snake"; entityKind = 7
 		Case "enemy-interceptor"; entityKind = 8
 		Case "enemy-butterfly"; entityKind = 9
+
+		Case "motion-pinwheel"; motionKind = 0
+		Case "motion-diamond"; motionKind = 1
+		Case "motion-green-square"; motionKind = 2
+		Case "motion-cube"; motionKind = 3
+		Case "motion-seeker"; motionKind = 4
+		Case "motion-butterfly"; motionKind = 9
 
 		Case "generator-pinwheel"; generatorKind = 1
 		Case "generator-diamond"; generatorKind = 2
@@ -117,6 +125,7 @@ Function CaptureOriginalCatalog:Int(mode$, directory$)
 
 		If overview = True Then CaptureOriginalOverview()
 		If entityKind >= 0 Then CaptureOriginalEnemy(entityKind)
+		If motionKind >= 0 Then CaptureOriginalEnemyMotion(motionKind)
 		If generatorKind >= 0 Then ge.Create(SCREENW/2, SCREENH/2, generatorKind, 60, 24, 0)
 		If powerKind >= 0 Then pu.Create(SCREENW/2, SCREENH/2, powerKind, 0)
 
@@ -141,6 +150,62 @@ Function CaptureOriginalCatalog:Int(mode$, directory$)
 	SaveScreenshot(directory + "/" + mode + ".png")
 	Flip 1
 	Return True
+End Function
+
+Function CaptureOriginalEnemyMotion(kind:Int)
+	px = SCREENW/2
+	py = 100
+	Local centerX:Int = SCREENW/2
+	Local centerY:Int = SCREENH/2
+	Select kind
+		Case 0
+			nme1.Create(centerX-9, centerY, 0, 1)
+			nme1.Create(centerX+9, centerY, 0, 1)
+		Case 1
+			nme2.Create(centerX-9, centerY, 0, 1)
+			nme2.Create(centerX+9, centerY, 0, 1)
+		Case 2
+			nme.Create(centerX-9, centerY, 0, 1)
+			nme.Create(centerX+9, centerY, 0, 1)
+		Case 3
+			nme3.Create(centerX-9, centerY, 0, 0, 1)
+			nme3.Create(centerX+9, centerY, 0, 0, 1)
+		Case 4
+			nme4.Create(centerX-9, centerY, 0, 0, 1)
+			nme4.Create(centerX+9, centerY, 0, 0, 1)
+		Case 9
+			nme8.Create(centerX-9, centerY, 0, 1)
+			nme8.Create(centerX+9, centerY, 0, 1)
+	End Select
+
+	For Local frame:Int = 0 Until 30
+		Select kind
+			Case 0
+				For Local pinwheel:nme1 = EachIn nme1_list
+					pinwheel.Update()
+				Next
+			Case 1
+				For Local diamond:nme2 = EachIn nme2_list
+					diamond.Update()
+				Next
+			Case 2
+				For Local square:nme = EachIn nme_list
+					square.Update()
+				Next
+			Case 3
+				For Local cube:nme3 = EachIn nme3_list
+					cube.Update()
+				Next
+			Case 4
+				For Local seeker:nme4 = EachIn nme4_list
+					seeker.Update()
+				Next
+			Case 9
+				For Local butterfly:nme8 = EachIn nme8_list
+					butterfly.Update()
+				Next
+		End Select
+	Next
 End Function
 
 Function CaptureOriginalPresentationCatalog:Int(mode$, directory$)

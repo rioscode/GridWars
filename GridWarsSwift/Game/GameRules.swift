@@ -868,6 +868,160 @@ enum OriginalDiamondRandomRule {
     }
 }
 
+enum OriginalSourceTransform {
+    static func sceneRadians(sourceDegrees: CGFloat) -> CGFloat {
+        -sourceDegrees * .pi / 180
+    }
+}
+
+struct OriginalEnemySeparationRule: Equatable {
+    let thresholdSquared: CGFloat
+    let force: CGFloat
+}
+
+enum OriginalBasicEnemyRule {
+    static func boundaryMargin(for kind: OriginalEnemyKind) -> CGFloat {
+        kind == .greenSquare ? 12 : 8
+    }
+
+    static func homingAcceleration(for kind: OriginalEnemyKind) -> CGFloat {
+        switch kind {
+        case .pinwheel: 0
+        case .diamond: 0.5
+        case .greenSquare: 1
+        case .cube: 2.5
+        case .seeker: 4
+        case .butterfly: 2
+        case .blackHole, .triangle, .snake, .interceptor: 0
+        }
+    }
+
+    static func separation(
+        for kind: OriginalEnemyKind,
+        cubeTier: Int = 0
+    ) -> OriginalEnemySeparationRule? {
+        switch kind {
+        case .pinwheel:
+            OriginalEnemySeparationRule(thresholdSquared: 20 * 20 + 20 * 20, force: 1)
+        case .diamond:
+            OriginalEnemySeparationRule(thresholdSquared: 30 * 30 + 20 * 20, force: 1)
+        case .greenSquare:
+            OriginalEnemySeparationRule(thresholdSquared: 30 * 30 + 24 * 24, force: 1)
+        case .cube:
+            OriginalEnemySeparationRule(
+                thresholdSquared: CGFloat(30 * 30 + 20 * 20 - cubeTier * 20),
+                force: 1
+            )
+        case .seeker:
+            OriginalEnemySeparationRule(thresholdSquared: 24 * 24 + 20 * 20, force: 1)
+        case .butterfly:
+            OriginalEnemySeparationRule(thresholdSquared: 16 * 16 + 16 * 16, force: 0.125)
+        case .blackHole, .triangle, .snake, .interceptor:
+            nil
+        }
+    }
+
+    static func maximumSpeed(
+        for kind: OriginalEnemyKind,
+        baseSpeed: CGFloat,
+        cubeTier: Int = 0,
+        seekerMean: Int = 0
+    ) -> CGFloat {
+        switch kind {
+        case .cube:
+            baseSpeed - CGFloat(cubeTier) / 4
+        case .seeker:
+            baseSpeed + CGFloat(seekerMean)
+        default:
+            baseSpeed
+        }
+    }
+
+    static func playerCollisionThresholdSquared(
+        for kind: OriginalEnemyKind,
+        cubeTier: Int = 0
+    ) -> CGFloat? {
+        switch kind {
+        case .pinwheel, .diamond, .greenSquare:
+            24 * 24
+        case .cube:
+            CGFloat((12 - cubeTier) * (12 - cubeTier) + 12 * 12)
+        case .seeker, .butterfly:
+            12 * 12 + 12 * 12
+        case .blackHole, .triangle, .snake, .interceptor:
+            nil
+        }
+    }
+
+    static func cubeSceneOrbit(rotation: Int, tier: Int) -> CGVector {
+        let radians = CGFloat(rotation * (6 + tier)) * .pi / 180
+        return CGVector(
+            dx: sin(radians) * CGFloat(tier),
+            dy: -cos(radians) * CGFloat(tier)
+        )
+    }
+}
+
+enum OriginalBoundaryRule {
+    static func bounce(
+        position: inout CGPoint,
+        velocity: inout CGVector,
+        arenaSize: CGSize,
+        margin: CGFloat
+    ) {
+        if position.x < margin {
+            velocity.dx = abs(velocity.dx)
+            position.x += velocity.dx
+        } else if position.x > arenaSize.width - margin {
+            velocity.dx = -abs(velocity.dx)
+            position.x += velocity.dx
+        }
+        if position.y < margin {
+            velocity.dy = abs(velocity.dy)
+            position.y += velocity.dy
+        } else if position.y > arenaSize.height - margin {
+            velocity.dy = -abs(velocity.dy)
+            position.y += velocity.dy
+        }
+    }
+}
+
+enum OriginalGreenSquareRule {
+    static func velocityAvoidingProjectile(
+        squarePosition: CGPoint,
+        squareVelocity: CGVector,
+        projectilePosition: CGPoint,
+        projectileVelocity: CGVector,
+        maximumSpeed: CGFloat
+    ) -> CGVector {
+        let danger = CGVector(
+            dx: projectilePosition.x - squarePosition.x + projectileVelocity.dx * 4,
+            dy: projectilePosition.y - squarePosition.y + projectileVelocity.dy * 4
+        )
+        let bulletBack = projectileVelocity * -1
+        let dangerDistance = danger.length + 0.001
+        let bulletDistance = bulletBack.length + 0.001
+        guard dangerDistance < 100 else { return squareVelocity }
+        var result = squareVelocity
+            - danger / dangerDistance * 30
+            + bulletBack / bulletDistance * 30
+        if result.length > maximumSpeed {
+            result = result.normalized * maximumSpeed
+        }
+        return result
+    }
+}
+
+enum OriginalCubeSplitRule {
+    static func sceneOffset(
+        using random: inout BlitzMaxRandomNumberGenerator
+    ) -> CGVector {
+        let sourceX = random.rand(-30, -30)
+        let sourceY = random.rand(-30, 30)
+        return CGVector(dx: CGFloat(sourceX), dy: -CGFloat(sourceY))
+    }
+}
+
 struct TriangleBondState: Equatable {
     static let initialStrength: CGFloat = 25
 

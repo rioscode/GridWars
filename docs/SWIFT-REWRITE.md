@@ -66,6 +66,11 @@ does not preserve its clamp and retry behavior.
 
 BlitzMax angles are expressed in degrees. SpriteKit rotations use radians.
 Remember that the scene-Y inversion changes the apparent rotation direction.
+For source draw angles the direct conversion is
+`sceneRadians = -sourceDegrees * pi / 180`; applying only the degree-to-radian
+factor mirrors rotating enemies. The same Y inversion changes a Cube's source
+orbit `(sin(angle)*tier, cos(angle)*tier)` to scene
+`(sin(angle)*tier, -cos(angle)*tier)`.
 Use `atan2`, not `atan(dy/dx)`, except where the original explicitly used the
 latter and its divide-by-zero behavior is part of the result.
 
@@ -220,6 +225,16 @@ still shift the shared stream. Conversely, retain source calls whose numeric
 effect is zero. Diamond's `Rand(-0.2,0.2)` arguments implicitly truncate to
 `Int(0), Int(0)`; both calls return zero but advance BRL.Random whenever the
 preceding `Rand(0,1)` branch succeeds.
+
+Destruction order can also change the shared random stream. Ordinary enemies
+award score before sound, Cube children, particles, shockwave, and removal;
+score thresholds may create a power-up immediately. Generator final particles
+precede sound and score, while a finished Black Hole removes itself and emits
+its last particles before awarding score and playing its final sound. Preserve
+these type-specific sequences instead of routing all entities through one
+generic destruction order. Cubie also calls the degenerate integer range
+`Rand(-30,-30)` before its random Y offset for each child; the fixed X result
+still consumes generator state.
 
 Sample spawn coordinates in the source's top-left coordinate system, in X-then-Y
 call order, and only then convert `sceneY = playfieldHeight - sourceY`.

@@ -534,7 +534,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         captureRandom = BlitzMaxRandomNumberGenerator(seed: 1)
 
         let preparesOriginalState: Bool = switch captureRequest.scenario.subject {
-        case .gameplay, .enemy, .generator, .powerUp, .grid, .particleStyle,
+        case .gameplay, .enemy, .enemyMotion, .generator, .powerUp, .grid, .particleStyle,
              .graphicsSet, .getReady, .death, .gameOver, .highScoreEntry,
              .hudDefault, .hudUpgraded, .powerUpMessage:
             true
@@ -568,6 +568,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         case let .enemy(kind):
             prepareGameplayCapture()
             configureEnemyCapture(kind)
+        case let .enemyMotion(kind):
+            prepareGameplayCapture()
+            configureBasicEnemyMotionCapture(kind)
         case let .generator(kind):
             prepareGameplayCapture()
             spawnGenerator(
@@ -804,6 +807,24 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                         + sin(CGFloat(sourceIndex * 20) * .pi / 180) * 22
                 ))
             }
+        }
+    }
+
+    private func configureBasicEnemyMotionCapture(_ originalKind: OriginalEnemyKind) {
+        let kind = EnemyKind(originalKind)
+        player.position = sourcePoint(CGPoint(x: playfieldSize.width / 2, y: 100))
+        let center = CGPoint(x: playfieldSize.width / 2, y: playfieldSize.height / 2)
+        for xOffset in [-9, 9] {
+            _ = spawnEnemy(
+                kind: kind,
+                at: CGPoint(x: center.x + CGFloat(xOffset), y: center.y),
+                freezeFrames: 0,
+                closeToPlayer: true,
+                playBornSound: false
+            )
+        }
+        for _ in 0..<30 {
+            updateEnemies(kinds: [kind])
         }
     }
 
@@ -1454,6 +1475,15 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         } else {
             OriginalDiamondRandomRule.consumeIntegerJitter(using: &spawnRandom)
         }
+    }
+
+    private func originalCubeSplitOffset() -> CGVector {
+        if var random = captureRandom {
+            let offset = OriginalCubeSplitRule.sceneOffset(using: &random)
+            captureRandom = random
+            return offset
+        }
+        return OriginalCubeSplitRule.sceneOffset(using: &spawnRandom)
     }
 
     private func simulateFrame() {
@@ -2720,7 +2750,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
     private func enemyAuraRotation(for kind: EnemyKind) -> CGFloat {
         switch kind {
-        case .greenSquare, .pinwheel, .cube: .pi / 4
+        case .greenSquare, .pinwheel, .cube:
+            OriginalSourceTransform.sceneRadians(sourceDegrees: 45)
         default: 0
         }
     }
@@ -2795,10 +2826,15 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             }
             for enemy in enemies {
             guard enemy.parent != nil else { continue }
-            var maximumSpeed = CGFloat((enemy.userData?["speed"] as? NSNumber)?.doubleValue ?? 1)
-            if requestedKind == .seeker {
-                maximumSpeed += CGFloat((enemy.userData?["seekerMean"] as? NSNumber)?.intValue ?? 0)
-            }
+            let baseSpeed = CGFloat((enemy.userData?["speed"] as? NSNumber)?.doubleValue ?? 1)
+            let cubeTier = (enemy.userData?["cubeTier"] as? NSNumber)?.intValue ?? 0
+            let seekerMean = (enemy.userData?["seekerMean"] as? NSNumber)?.intValue ?? 0
+            let maximumSpeed = OriginalBasicEnemyRule.maximumSpeed(
+                for: requestedKind.original,
+                baseSpeed: baseSpeed,
+                cubeTier: cubeTier,
+                seekerMean: seekerMean
+            )
             if requestedKind == .snake {
                 updateSnakeSegments(for: enemy, maximumSpeed: maximumSpeed)
                 if deathFramesRemaining > 0 { continue }
@@ -2833,7 +2869,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 enemy.position.x += velocity.dx
                 enemy.position.y += velocity.dy
                 let margin: CGFloat = switch kind {
-                case .greenSquare: 12
+                case .greenSquare, .pinwheel, .diamond, .cube, .seeker, .butterfly:
+                    OriginalBasicEnemyRule.boundaryMargin(for: kind.original)
                 case .blackHole: 16
                 default: 8
                 }
@@ -2852,15 +2889,19 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             case .diamond:
                 consumeOriginalDiamondJitter()
                 _ = applyBlackHoleInfluence(to: enemy, kind: kind, velocity: &velocity)
-                velocity = velocity + towardPlayer * 0.5
+                velocity = velocity + towardPlayer
+                    * OriginalBasicEnemyRule.homingAcceleration(for: kind.original)
             case .greenSquare:
                 velocity = velocity + towardPlayer
+                    * OriginalBasicEnemyRule.homingAcceleration(for: kind.original)
                 _ = applyBlackHoleInfluence(to: enemy, kind: kind, velocity: &velocity)
             case .cube:
-                velocity = velocity + towardPlayer * 2.5
+                velocity = velocity + towardPlayer
+                    * OriginalBasicEnemyRule.homingAcceleration(for: kind.original)
                 _ = applyBlackHoleInfluence(to: enemy, kind: kind, velocity: &velocity)
             case .seeker:
-                velocity = velocity + towardPlayer * 4
+                velocity = velocity + towardPlayer
+                    * OriginalBasicEnemyRule.homingAcceleration(for: kind.original)
                 _ = applyBlackHoleInfluence(to: enemy, kind: kind, velocity: &velocity)
             case .blackHole:
                 updateBlackHole(enemy, velocity: &velocity, maximumSpeed: maximumSpeed)
@@ -2924,7 +2965,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 enemy.userData?["interceptorTurnRemaining"] = turnRemaining
                 enemy.userData?["interceptorLastPlayed"] = lastPlayed
             case .butterfly:
-                velocity = velocity + towardPlayer * 2
+                velocity = velocity + towardPlayer
+                    * OriginalBasicEnemyRule.homingAcceleration(for: kind.original)
                 _ = applyBlackHoleInfluence(to: enemy, kind: kind, velocity: &velocity)
             }
 
@@ -2946,11 +2988,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             }
 
             applySeparation(to: enemy, kind: kind, velocity: &velocity)
-            let cappedSpeed = kind == .cube
-                ? maximumSpeed - CGFloat((enemy.userData?["cubeTier"] as? NSNumber)?.intValue ?? 0) / 4
-                : maximumSpeed
-            if velocity.length > cappedSpeed {
-                velocity = velocity.normalized * cappedSpeed
+            if velocity.length > maximumSpeed {
+                velocity = velocity.normalized * maximumSpeed
             }
 
             if !movesBeforeSteering, kind != .interceptor {
@@ -2966,9 +3005,12 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             }
 
             if kind == .cube {
-                let tier = (enemy.userData?["cubeTier"] as? NSNumber)?.intValue ?? 0
-                enemy.position.x += sin(CGFloat(rotation * (6 + tier)) * .pi / 180) * CGFloat(tier)
-                enemy.position.y += cos(CGFloat(rotation * (6 + tier)) * .pi / 180) * CGFloat(tier)
+                let orbit = OriginalBasicEnemyRule.cubeSceneOrbit(
+                    rotation: rotation,
+                    tier: cubeTier
+                )
+                enemy.position.x += orbit.dx
+                enemy.position.y += orbit.dy
             }
 
             if checkPlayerCollision(with: enemy, kind: kind) {
@@ -2987,7 +3029,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private func updateEnemyVisual(_ enemy: SKNode, kind: EnemyKind, rotation: Int) {
         switch kind {
         case .pinwheel:
-            enemy.zRotation = CGFloat(rotation * 4) * .pi / 180
+            enemy.zRotation = OriginalSourceTransform.sceneRadians(
+                sourceDegrees: CGFloat(rotation * 4)
+            )
         case .diamond:
             let phase = rotation % 256
             let scaleX: CGFloat
@@ -3002,7 +3046,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             enemy.xScale = 1 + scaleX / 80
             enemy.yScale = 1 + scaleY / 80
         case .greenSquare, .cube:
-            enemy.zRotation = CGFloat(rotation) * .pi / 180
+            enemy.zRotation = OriginalSourceTransform.sceneRadians(
+                sourceDegrees: CGFloat(rotation)
+            )
         case .seeker:
             enemy.zRotation = 0
         case .blackHole:
@@ -3016,7 +3062,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             enemy.setScale(scale)
             enemy.zRotation = 0
         case .triangle:
-            enemy.zRotation = CGFloat(rotation * 2) * .pi / 180
+            enemy.zRotation = OriginalSourceTransform.sceneRadians(
+                sourceDegrees: CGFloat(rotation * 2)
+            )
             let attached = trianglePartner(of: enemy) != nil
             var second = enemy.childNode(withName: "triangleTwin") as? SKSpriteNode
             if attached, second == nil {
@@ -3030,7 +3078,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 second = twin
             }
             second?.isHidden = !attached
-            second?.zRotation = CGFloat(rotation * 2 + 180) * .pi / 180
+            second?.zRotation = OriginalSourceTransform.sceneRadians(
+                sourceDegrees: CGFloat(rotation * 2 + 180)
+            )
         case .snake:
             let velocity = CGVector(
                 dx: CGFloat((enemy.userData?["dx"] as? NSNumber)?.doubleValue ?? 0),
@@ -3039,9 +3089,13 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             enemy.zRotation = atan2(velocity.dy, velocity.dx) + .pi / 2
         case .interceptor:
             let heading = CGFloat((enemy.userData?["interceptorHeading"] as? NSNumber)?.doubleValue ?? 0)
-            enemy.zRotation = -(heading * .pi / 180 + .pi / 2)
+            enemy.zRotation = OriginalSourceTransform.sceneRadians(
+                sourceDegrees: heading + 90
+            )
         case .butterfly:
-            enemy.zRotation = CGFloat(rotation * 8) * .pi / 180
+            enemy.zRotation = OriginalSourceTransform.sceneRadians(
+                sourceDegrees: CGFloat(rotation * 8)
+            )
         }
         updateEnemyAura(enemy, kind: kind, rotation: rotation)
     }
@@ -3476,19 +3530,20 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     private func applySeparation(to enemy: SKNode, kind: EnemyKind, velocity: inout CGVector) {
-        let radius: CGFloat
-        let force: CGFloat
-        switch kind {
-        case .pinwheel: (radius, force) = (sqrt(20 * 20 + 20 * 20), 1)
-        case .diamond: (radius, force) = (sqrt(30 * 30 + 20 * 20), 1)
-        case .greenSquare: (radius, force) = (sqrt(30 * 30 + 24 * 24), 1)
-        case .cube:
-            let tier = (enemy.userData?["cubeTier"] as? NSNumber)?.intValue ?? 0
-            (radius, force) = (sqrt(CGFloat(30 * 30 + 20 * 20 - tier * 20)), 1)
-        case .seeker: (radius, force) = (sqrt(24 * 24 + 20 * 20), 1)
-        case .butterfly: (radius, force) = (sqrt(16 * 16 + 16 * 16), 0.125)
-        case .interceptor: (radius, force) = (sqrt(20 * 20 + 20 * 20), 1)
-        case .blackHole, .triangle, .snake: return
+        let cubeTier = (enemy.userData?["cubeTier"] as? NSNumber)?.intValue ?? 0
+        let rule: OriginalEnemySeparationRule
+        if let basicRule = OriginalBasicEnemyRule.separation(
+            for: kind.original,
+            cubeTier: cubeTier
+        ) {
+            rule = basicRule
+        } else if kind == .interceptor {
+            rule = OriginalEnemySeparationRule(
+                thresholdSquared: 20 * 20 + 20 * 20,
+                force: 1
+            )
+        } else {
+            return
         }
 
         for other in enemyLayer.children where other !== enemy && other.name == "enemy" {
@@ -3497,29 +3552,21 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 dx: other.position.x - enemy.position.x,
                 dy: other.position.y - enemy.position.y
             )
-            if difference.length < radius {
-                velocity.dx -= difference.dx == 0 ? 0 : copysign(force, difference.dx)
-                velocity.dy -= difference.dy == 0 ? 0 : copysign(force, difference.dy)
+            let distanceSquared = difference.dx * difference.dx + difference.dy * difference.dy
+            if distanceSquared < rule.thresholdSquared {
+                velocity.dx -= difference.dx == 0 ? 0 : copysign(rule.force, difference.dx)
+                velocity.dy -= difference.dy == 0 ? 0 : copysign(rule.force, difference.dy)
             }
         }
     }
 
     private func bounce(_ enemy: SKNode, velocity: inout CGVector, margin: CGFloat) {
-        let arena = playfieldSize
-        if enemy.position.x < margin {
-            velocity.dx = abs(velocity.dx)
-            enemy.position.x += velocity.dx
-        } else if enemy.position.x > arena.width - margin {
-            velocity.dx = -abs(velocity.dx)
-            enemy.position.x += velocity.dx
-        }
-        if enemy.position.y < margin {
-            velocity.dy = abs(velocity.dy)
-            enemy.position.y += velocity.dy
-        } else if enemy.position.y > arena.height - margin {
-            velocity.dy = -abs(velocity.dy)
-            enemy.position.y += velocity.dy
-        }
+        OriginalBoundaryRule.bounce(
+            position: &enemy.position,
+            velocity: &velocity,
+            arenaSize: playfieldSize,
+            margin: margin
+        )
     }
 
     @discardableResult
@@ -3954,13 +4001,15 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private func checkPlayerCollision(with enemy: SKNode, kind: EnemyKind) -> Bool {
         let radiusSquared: CGFloat
         switch kind {
-        case .greenSquare, .pinwheel, .diamond, .snake, .interceptor, .triangle:
+        case .greenSquare, .pinwheel, .diamond, .cube, .seeker, .butterfly:
+            let cubeTier = (enemy.userData?["cubeTier"] as? NSNumber)?.intValue ?? 0
+            guard let threshold = OriginalBasicEnemyRule.playerCollisionThresholdSquared(
+                for: kind.original,
+                cubeTier: cubeTier
+            ) else { return false }
+            radiusSquared = threshold
+        case .snake, .interceptor, .triangle:
             radiusSquared = 24 * 24
-        case .cube:
-            let tier = (enemy.userData?["cubeTier"] as? NSNumber)?.intValue ?? 0
-            radiusSquared = CGFloat((12 - tier) * (12 - tier) + 12 * 12)
-        case .seeker, .butterfly:
-            radiusSquared = 12 * 12 + 12 * 12
         case .blackHole:
             let blackHoleSize = CGFloat((enemy.userData?["blackHoleSize"] as? NSNumber)?.doubleValue ?? 20)
             radiusSquared = pow(12 + blackHoleSize / 2, 2) + 12 * 12
@@ -3971,28 +4020,21 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     private func runGreenSquare(_ square: SKNode, awayFrom projectile: SKNode) {
-        var squareVelocity = CGVector(
+        let squareVelocity = CGVector(
             dx: CGFloat((square.userData?["dx"] as? NSNumber)?.doubleValue ?? 0),
             dy: CGFloat((square.userData?["dy"] as? NSNumber)?.doubleValue ?? 0)
         )
         let shotVelocity = projectileVelocity(projectile)
-        let danger = CGVector(
-            dx: projectile.position.x - square.position.x + shotVelocity.dx * 4,
-            dy: projectile.position.y - square.position.y + shotVelocity.dy * 4
-        )
-        let bulletBack = shotVelocity * -1
-        let dangerDistance = danger.length + 0.001
-        let bulletDistance = bulletBack.length + 0.001
-        guard dangerDistance < 100 else { return }
-        squareVelocity = squareVelocity
-            - danger / dangerDistance * 30
-            + bulletBack / bulletDistance * 30
         let maximumSpeed = CGFloat((square.userData?["speed"] as? NSNumber)?.doubleValue ?? 1) * 1.1
-        if squareVelocity.length > maximumSpeed {
-            squareVelocity = squareVelocity.normalized * maximumSpeed
-        }
-        square.userData?["dx"] = squareVelocity.dx
-        square.userData?["dy"] = squareVelocity.dy
+        let avoidingVelocity = OriginalGreenSquareRule.velocityAvoidingProjectile(
+            squarePosition: square.position,
+            squareVelocity: squareVelocity,
+            projectilePosition: projectile.position,
+            projectileVelocity: shotVelocity,
+            maximumSpeed: maximumSpeed
+        )
+        square.userData?["dx"] = avoidingVelocity.dx
+        square.userData?["dy"] = avoidingVelocity.dy
     }
 
     private func applyBlackHoles(toProjectile projectile: SKNode, velocity: inout CGVector) {
@@ -4218,9 +4260,6 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         if kind == .triangle, originalName == "enemy" {
             detachTriangle(enemy)
         }
-        if kind == .snake, originalName == "enemy" {
-            scheduleSnakeTailExplosion(for: enemy, awardPoints: awardPoints)
-        }
         if kind == .blackHole,
            let id = enemy.userData?["enemyID"] as? String {
             audio.stopBlackHoleLoop(id: id)
@@ -4229,52 +4268,106 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         enemy.physicsBody?.categoryBitMask = 0
         let score = (enemy.userData?["score"] as? NSNumber)?.intValue ?? 100
         let position = enemy.position
-        if originalName == "enemy", kind != .blackHole {
-            gridSimulation.shockwave(at: position)
-        }
-        emitEnemyDestructionParticles(
-            for: enemy,
-            kind: kind,
-            originalName: originalName,
-            preHitParticlesEmitted: preHitParticlesEmitted
-        )
-        enemy.removeFromParent()
 
-        let progressionEvents = awardPoints
-            ? session.registerEnemyDestroyed(baseScore: score)
-            : []
-        if awardPoints { destroyedEnemyCount += 1 }
-        if awardPoints, kind == .cube, cubeTier == 0, originalName == "enemy" {
-            for _ in 0..<3 {
-                if let smallCube = spawnEnemy(
-                    kind: .cube,
-                    at: CGPoint(x: position.x - 30, y: position.y + randomCoordinate(-30...30)),
-                    freezeFrames: 2,
-                    closeToPlayer: true,
-                    playBornSound: false
-                ) {
-                    smallCube.userData?["cubeTier"] = 4
-                    smallCube.userData?["score"] = 50
-                    if let smallCube = smallCube as? SKSpriteNode {
-                        smallCube.texture = OriginalGraphics.texture(
-                            named: "purplesquare2",
-                            setIndex: activeGraphicsSetIndex
-                        )
-                        smallCube.size = smallCube.texture?.size() ?? smallCube.size
+        if originalName == "generator" {
+            // ge.Kill emits its final particles before sound and score.
+            emitEnemyDestructionParticles(
+                for: enemy,
+                kind: kind,
+                originalName: originalName,
+                preHitParticlesEmitted: preHitParticlesEmitted
+            )
+            if playSound {
+                playEnemyDestroyedSound(
+                    kind: kind,
+                    originalName: originalName,
+                    cubeTier: cubeTier,
+                    at: position
+                )
+            }
+            if awardPoints {
+                for event in session.registerEnemyDestroyed(baseScore: score) {
+                    handleProgressionEvent(event)
+                }
+                destroyedEnemyCount += 1
+            }
+            enemy.removeFromParent()
+        } else if kind == .blackHole {
+            // nme5 removes itself, emits 32 final particles, then awards score.
+            enemy.removeFromParent()
+            emitEnemyDestructionParticles(
+                for: enemy,
+                kind: kind,
+                originalName: originalName,
+                preHitParticlesEmitted: preHitParticlesEmitted
+            )
+            if awardPoints {
+                for event in session.registerEnemyDestroyed(baseScore: score) {
+                    handleProgressionEvent(event)
+                }
+                destroyedEnemyCount += 1
+            }
+            if playSound {
+                playEnemyDestroyedSound(
+                    kind: kind,
+                    originalName: originalName,
+                    cubeTier: cubeTier,
+                    at: position
+                )
+            }
+        } else {
+            // Ordinary enemy Kill methods score first. Any threshold power-up
+            // therefore consumes BRL.Random before kill particles and Cube splits.
+            if awardPoints {
+                for event in session.registerEnemyDestroyed(baseScore: score) {
+                    handleProgressionEvent(event)
+                }
+                destroyedEnemyCount += 1
+            }
+            if playSound {
+                playEnemyDestroyedSound(
+                    kind: kind,
+                    originalName: originalName,
+                    cubeTier: cubeTier,
+                    at: position
+                )
+            }
+            if awardPoints, kind == .cube, cubeTier == 0 {
+                for _ in 0..<3 {
+                    let offset = originalCubeSplitOffset()
+                    if let smallCube = spawnEnemy(
+                        kind: .cube,
+                        at: CGPoint(
+                            x: position.x + offset.dx,
+                            y: position.y + offset.dy
+                        ),
+                        freezeFrames: 2,
+                        closeToPlayer: true,
+                        playBornSound: false
+                    ) {
+                        smallCube.userData?["cubeTier"] = 4
+                        smallCube.userData?["score"] = 50
+                        if let smallCube = smallCube as? SKSpriteNode {
+                            smallCube.texture = OriginalGraphics.texture(
+                                named: "purplesquare2",
+                                setIndex: activeGraphicsSetIndex
+                            )
+                            smallCube.size = smallCube.texture?.size() ?? smallCube.size
+                        }
                     }
                 }
             }
-        }
-        for event in progressionEvents {
-            handleProgressionEvent(event)
-        }
-        if playSound {
-            playEnemyDestroyedSound(
+            emitEnemyDestructionParticles(
+                for: enemy,
                 kind: kind,
                 originalName: originalName,
-                cubeTier: cubeTier,
-                at: position
+                preHitParticlesEmitted: preHitParticlesEmitted
             )
+            gridSimulation.shockwave(at: position)
+            if kind == .snake {
+                scheduleSnakeTailExplosion(for: enemy, awardPoints: awardPoints)
+            }
+            enemy.removeFromParent()
         }
         updateHUD()
     }

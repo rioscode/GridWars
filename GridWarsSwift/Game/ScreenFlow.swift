@@ -53,6 +53,7 @@ enum OriginalCaptureSubject: Equatable {
     case attract(OriginalAttractPage, frame: Int)
     case gameplay
     case enemy(OriginalEnemyKind)
+    case enemyMotion(OriginalEnemyKind)
     case generator(OriginalEnemyKind)
     case powerUp(PowerUpKind)
     case grid(Int)
@@ -116,6 +117,8 @@ struct OriginalCaptureScenario: Equatable {
             ("interceptor", .interceptor), ("butterfly", .butterfly),
         ]
         scenarios += enemies.map { .init("enemy-\($0.0)", .enemy($0.1)) }
+        scenarios += enemies.prefix(5).map { .init("motion-\($0.0)", .enemyMotion($0.1)) }
+        scenarios.append(.init("motion-butterfly", .enemyMotion(.butterfly)))
         scenarios += enemies.map { .init("generator-\($0.0)", .generator($0.1)) }
 
         let powerUps: [(String, PowerUpKind)] = [
