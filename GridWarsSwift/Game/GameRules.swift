@@ -7,6 +7,34 @@ enum OriginalTimingRule {
     static let maximumAccumulatedTime = fixedStep * 5
 }
 
+enum OriginalCheatPauseRule {
+    static func pauseState(
+        keyCode: UInt16,
+        pressed: Bool,
+        cheatMode: Bool,
+        isPlaying: Bool
+    ) -> Bool? {
+        guard keyCode == 35, cheatMode, isPlaying else { return nil }
+        return pressed
+    }
+
+    static func shouldAdvanceSingleFrame(
+        keyCode: UInt16,
+        pressed: Bool,
+        isRepeat: Bool,
+        cheatMode: Bool,
+        isPlaying: Bool,
+        isPaused: Bool
+    ) -> Bool {
+        keyCode == 31
+            && pressed
+            && !isRepeat
+            && cheatMode
+            && isPlaying
+            && isPaused
+    }
+}
+
 struct OriginalPowerUpStatusMessage: Equatable {
     let text: String
     let remainingFrames: Int

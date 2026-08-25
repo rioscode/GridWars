@@ -514,9 +514,28 @@ struct LegacyHighScoreTable: Equatable, Codable {
     }()
 }
 
+enum OriginalPostGameScoreRoute: Equatable {
+    case noScore
+    case nameEntry
+    case unranked(useHighScoreMusic: Bool)
+}
+
+enum OriginalPostGameScoreRule {
+    static func route(score: Int, isValid: Bool, qualifies: Bool) -> OriginalPostGameScoreRoute {
+        guard score > 0 else { return .noScore }
+        guard qualifies else { return .unranked(useHighScoreMusic: false) }
+        return isValid ? .nameEntry : .unranked(useHighScoreMusic: true)
+    }
+}
+
 struct OriginalHighScoreNameEntry: Equatable {
-    private(set) var characters = Array(repeating: 32, count: 8)
+    private(set) var characters: [Int]
     private(set) var selectedIndex = 0
+
+    init(characters: [Int] = Array(repeating: 32, count: 8)) {
+        let padded = characters + Array(repeating: 32, count: 8)
+        self.characters = padded.prefix(8).map { (32...126).contains($0) ? $0 : 32 }
+    }
 
     var name: String {
         String(characters.compactMap(UnicodeScalar.init).map(Character.init))

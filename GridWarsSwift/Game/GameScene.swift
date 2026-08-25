@@ -157,6 +157,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private var previousControllerButtons = Set<Int>()
     private var controllerHorizontalIsLatched = false
     private var controllerVerticalIsLatched = false
+    private var highScoreFireAxisIsLatched = false
     private var playerMotion = PlayerMotionState()
     private var gridSimulation = GridSimulation(arenaSize: CGSize(width: 1_024, height: 768))
     private var particleSimulation = ParticleSimulation(arenaSize: CGSize(width: 1_024, height: 768))
@@ -181,6 +182,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private var colorPalette = OriginalColorPalette()
     private var highScores = LegacyHighScoreTable()
     private var highScoreNameEntry: OriginalHighScoreNameEntry?
+    private var retainedHighScoreNameCharacters = Array(repeating: 32, count: 8)
     private var pendingHighScore: PendingHighScore?
     private var scorePageDifficulty: GameDifficulty?
     private var highlightedScorePosition: Int?
@@ -745,7 +747,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 difficulty: .medium,
                 settings: "0,0,0,0,0,0,0,0,0,0"
             )
-            highScoreNameEntry = OriginalHighScoreNameEntry()
+            beginHighScoreNameEntry()
         case .hudDefault:
             prepareGameplayCapture()
         case .hudUpgraded:
@@ -1670,11 +1672,18 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             }
         }
         let wasScorePage = screenFlow.phase == .attract(.scores)
+        let returnsToTitleAfterScores = wasScorePage && scorePageDifficulty != nil
         let wasEnemyPage = screenFlow.phase == .attract(.enemies)
-        if screenFlow.advance() {
+        let advancedPage = returnsToTitleAfterScores
+            ? screenFlow.advancePostGameScorePage()
+            : screenFlow.advance()
+        if advancedPage {
             if wasScorePage {
                 clearScorePresentation()
                 audio.startMusic(.intro)
+                if returnsToTitleAfterScores {
+                    createAttractDisplayEffects()
+                }
             }
             if wasEnemyPage {
                 createAttractDisplayEffects()
@@ -1712,30 +1721,47 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         gridSimulation.update()
         session.advancePowerUpStatusMessageFrame()
         if screenFlow.advance() {
-            preparePostGameScores()
-            enterAttractPresentation()
+            presentPostGameResult()
         }
     }
 
     private func skipGameOverToScores() {
         guard screenFlow.phase == .gameOver else { return }
         screenFlow.skipGameOver()
+        presentPostGameResult()
+    }
+
+    private func presentPostGameResult() {
+        screenFlow.showPostGameScores()
         preparePostGameScores()
+        attractDisplayEffects.removeAll(keepingCapacity: true)
+        if session.score <= 0 {
+            clearScorePresentation()
+            screenFlow.returnToTitle()
+            createAttractDisplayEffects()
+        }
         enterAttractPresentation()
     }
 
     private func preparePostGameScores() {
+        particleSimulation.reset()
+        gridSimulation.reset()
         let score = session.score
-        guard score > 0 else {
-            audio.startMusic(.intro)
-            return
-        }
+        let qualifies = highScores.qualifies(score: score, difficulty: session.difficulty)
+        let route = OriginalPostGameScoreRule.route(
+            score: score,
+            isValid: session.isScoreValid,
+            qualifies: qualifies
+        )
+        guard route != .noScore else { audio.startMusic(.intro); return }
+
         let playTime = LegacyHighScoreTable.playTime(frames: simulationFrame)
         scorePageDifficulty = session.difficulty
         highlightedScorePosition = nil
         unrankedScoreEntry = nil
 
-        if session.isScoreValid, highScores.qualifies(score: score, difficulty: session.difficulty) {
+        switch route {
+        case .nameEntry:
             audio.startMusic(.highScore)
             audio.play(.highScore)
             pendingHighScore = PendingHighScore(
@@ -1744,20 +1770,32 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 difficulty: session.difficulty,
                 settings: menuModel.settings.highScoreSettingsString()
             )
-            highScoreNameEntry = OriginalHighScoreNameEntry()
-        } else {
-            audio.startMusic(.intro)
+            beginHighScoreNameEntry()
+        case let .unranked(useHighScoreMusic):
+            audio.startMusic(useHighScoreMusic ? .highScore : .intro)
             unrankedScoreEntry = LegacyHighScoreEntry(
                 score: score,
                 playTime: playTime,
                 name: "        ",
                 settings: menuModel.settings.highScoreSettingsString()
             )
+        case .noScore:
+            break
         }
+    }
+
+    private func beginHighScoreNameEntry() {
+        highScoreNameEntry = OriginalHighScoreNameEntry(
+            characters: retainedHighScoreNameCharacters
+        )
+        controllerHorizontalIsLatched = false
+        controllerVerticalIsLatched = false
+        highScoreFireAxisIsLatched = false
     }
 
     private func finishHighScoreNameEntry() {
         guard let entry = highScoreNameEntry, let pending = pendingHighScore else { return }
+        retainedHighScoreNameCharacters = entry.characters
         highlightedScorePosition = highScores.insert(
             score: pending.score,
             playTime: pending.playTime,
@@ -1777,6 +1815,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         scorePageDifficulty = nil
         highlightedScorePosition = nil
         unrankedScoreEntry = nil
+        controllerHorizontalIsLatched = false
+        controllerVerticalIsLatched = false
+        highScoreFireAxisIsLatched = false
     }
 
     private func renderPresentation() {
@@ -2193,6 +2234,10 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         let newlyPressed = controllerButtons.subtracting(previousControllerButtons)
         previousControllerButtons = controllerButtons
 
+        if highScoreNameEntry != nil {
+            handleHighScoreController(newlyPressedButtons: newlyPressed)
+            return
+        }
         if menuModel.isOpen {
             handleControllerMenuNavigation(newlyPressedButtons: newlyPressed)
             return
@@ -2237,6 +2282,51 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
         if let bombButton, newlyPressed.contains(bombButton) {
             triggerBomb()
+        }
+    }
+
+    private func handleHighScoreController(newlyPressedButtons: Set<Int>) {
+        guard var entry = highScoreNameEntry else { return }
+        let input = OriginalHighScoreControllerRule.resolve(
+            settings: menuModel.settings,
+            controllerAxes: controllerAxes,
+            pressedButtons: newlyPressedButtons
+        )
+        var changed = false
+
+        if abs(input.fireY) < 0.3 {
+            highScoreFireAxisIsLatched = false
+        } else if !highScoreFireAxisIsLatched {
+            entry.toggleCase()
+            highScoreFireAxisIsLatched = true
+            audio.play(.enemyHit)
+            changed = true
+        }
+
+        if abs(input.moveY) < 0.3 {
+            controllerVerticalIsLatched = false
+        } else if !controllerVerticalIsLatched {
+            entry.cycleCharacter(by: input.moveY < 0 ? -1 : 1)
+            controllerVerticalIsLatched = true
+            audio.play(.enemyHit)
+            changed = true
+        }
+
+        if abs(input.moveX) < 0.3 {
+            controllerHorizontalIsLatched = false
+        } else if !controllerHorizontalIsLatched {
+            entry.moveSelection(by: input.moveX < 0 ? -1 : 1)
+            controllerHorizontalIsLatched = true
+            audio.play(.enemyHit)
+            changed = true
+        }
+
+        highScoreNameEntry = entry
+        if input.finishIsPressed {
+            finishHighScoreNameEntry()
+            renderPresentation()
+        } else if changed {
+            renderPresentation()
         }
     }
 
@@ -6066,9 +6156,11 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 return
             case 49: entry.setASCII(32)
             default:
-                if let scalar = characters?.unicodeScalars.first,
-                   (33...126).contains(Int(scalar.value)) {
-                    entry.setASCII(Int(scalar.value))
+                if var ascii = originalKeyCode, (48...90).contains(ascii) {
+                    let shiftIsDown = pressedOriginalKeys.contains(160)
+                        || pressedOriginalKeys.contains(161)
+                    if (65...90).contains(ascii), !shiftIsDown { ascii += 32 }
+                    entry.setASCII(ascii)
                 }
             }
             if entry != previousEntry { audio.play(.enemyHit) }
@@ -6077,15 +6169,28 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             return
         }
 
-        if keyCode == 35, cheatMode, screenFlow.phase == .playing { // P
-            gameplayPaused = pressed
+        if let pauseState = OriginalCheatPauseRule.pauseState(
+            keyCode: keyCode,
+            pressed: pressed,
+            cheatMode: cheatMode,
+            isPlaying: screenFlow.phase == .playing
+        ) {
+            gameplayPaused = pauseState
             renderPresentation()
             return
         }
 
         guard pressed, !isRepeat else { return }
         if gameplayPaused {
-            if keyCode == 31, cheatMode { // O
+            if OriginalCheatPauseRule.shouldAdvanceSingleFrame(
+                keyCode: keyCode,
+                pressed: pressed,
+                isRepeat: isRepeat,
+                cheatMode: cheatMode,
+                isPlaying: screenFlow.phase == .playing,
+                isPaused: gameplayPaused
+            ) {
+                gridRenderer.advanceAnimation()
                 simulateFrame()
                 renderPresentation()
             }
@@ -6157,7 +6262,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         guard pressed else { return }
 
         if highScoreNameEntry != nil {
-            if button == 2 {
+            if button == menuModel.settings.mouseBombButton {
                 finishHighScoreNameEntry()
                 renderPresentation()
             }
@@ -6297,33 +6402,52 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             }
             persistState()
         case .endGame:
+            let route = OriginalEndGameRoute.resolve(
+                phase: screenFlow.phase,
+                score: session.score
+            )
+            if route == .exitApplication {
+                performExitApplication()
+                return
+            }
             menuModel.close()
             persistState()
-            audio.stopAllBlackHoleLoops()
-            audio.startMusic(.intro)
-            screenFlow.returnToTitle()
-            particleSimulation.reset()
-            attractDisplayEffects.removeAll(keepingCapacity: true)
-            createAttractDisplayEffects()
-            clearScorePresentation()
-            enterAttractPresentation()
-        case .exitApplication:
-            persistState()
-            #if os(macOS)
             audio.stopAllBlackHoleLoops()
             audio.stopMusic()
-            NSApplication.shared.terminate(nil)
-            #else
-            menuModel.close()
-            audio.stopAllBlackHoleLoops()
-            audio.startMusic(.intro)
-            screenFlow.returnToTitle()
-            particleSimulation.reset()
-            attractDisplayEffects.removeAll(keepingCapacity: true)
-            createAttractDisplayEffects()
-            enterAttractPresentation()
-            #endif
+            if route == .scores {
+                presentPostGameResult()
+            } else {
+                audio.startMusic(.intro)
+                screenFlow.returnToTitle()
+                particleSimulation.reset()
+                gridSimulation.reset()
+                attractDisplayEffects.removeAll(keepingCapacity: true)
+                createAttractDisplayEffects()
+                clearScorePresentation()
+                enterAttractPresentation()
+            }
+        case .exitApplication:
+            performExitApplication()
         }
+    }
+
+    private func performExitApplication() {
+        persistState()
+        audio.stopAllBlackHoleLoops()
+        audio.stopMusic()
+        #if os(macOS)
+        NSApplication.shared.terminate(nil)
+        #else
+        menuModel.close()
+        audio.startMusic(.intro)
+        screenFlow.returnToTitle()
+        particleSimulation.reset()
+        gridSimulation.reset()
+        attractDisplayEffects.removeAll(keepingCapacity: true)
+        createAttractDisplayEffects()
+        clearScorePresentation()
+        enterAttractPresentation()
+        #endif
     }
 
     #if os(iOS)

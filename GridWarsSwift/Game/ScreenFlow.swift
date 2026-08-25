@@ -30,6 +30,17 @@ enum OriginalRunPhase: Equatable {
     case gameOver
 }
 
+enum OriginalEndGameRoute: Equatable {
+    case exitApplication
+    case title
+    case scores
+
+    static func resolve(phase: OriginalRunPhase, score: Int) -> OriginalEndGameRoute {
+        if phase == .gameOver { return .exitApplication }
+        return score > 0 ? .scores : .title
+    }
+}
+
 enum OriginalMenuCapture: String, CaseIterable, Equatable {
     case options
     case optionsGame = "options-game"
@@ -277,6 +288,21 @@ struct OriginalScreenFlow: Equatable {
         guard phase == .gameOver else { return }
         phase = .attract(.scores)
         frame = 0
+    }
+
+    mutating func showPostGameScores() {
+        phase = .attract(.scores)
+        frame = 0
+    }
+
+    @discardableResult
+    mutating func advancePostGameScorePage() -> Bool {
+        guard phase == .attract(.scores) else { return false }
+        frame += 1
+        guard frame >= OriginalAttractPage.scores.durationFrames else { return false }
+        phase = .attract(.title)
+        frame = 0
+        return true
     }
 
     mutating func returnToTitle() {

@@ -8,6 +8,43 @@ final class GameRulesTests: XCTestCase {
         XCTAssertEqual(OriginalTimingRule.maximumAccumulatedTime, 0.1, accuracy: 0.000_001)
     }
 
+    func testCheatPauseRequiresHeldPAndOSingleStepsOnlyWhilePaused() {
+        XCTAssertNil(OriginalCheatPauseRule.pauseState(
+            keyCode: 35,
+            pressed: true,
+            cheatMode: false,
+            isPlaying: true
+        ))
+        XCTAssertEqual(OriginalCheatPauseRule.pauseState(
+            keyCode: 35,
+            pressed: true,
+            cheatMode: true,
+            isPlaying: true
+        ), true)
+        XCTAssertEqual(OriginalCheatPauseRule.pauseState(
+            keyCode: 35,
+            pressed: false,
+            cheatMode: true,
+            isPlaying: true
+        ), false)
+        XCTAssertTrue(OriginalCheatPauseRule.shouldAdvanceSingleFrame(
+            keyCode: 31,
+            pressed: true,
+            isRepeat: false,
+            cheatMode: true,
+            isPlaying: true,
+            isPaused: true
+        ))
+        XCTAssertFalse(OriginalCheatPauseRule.shouldAdvanceSingleFrame(
+            keyCode: 31,
+            pressed: true,
+            isRepeat: true,
+            cheatMode: true,
+            isPlaying: true,
+            isPaused: true
+        ))
+    }
+
     func testCameraMatchesOriginalThresholdsAndOverscroll() {
         let playfield = CGSize(width: 1_280, height: 960)
         let viewport = CGSize(width: 1_024, height: 768)
@@ -2042,6 +2079,37 @@ final class GameRulesTests: XCTestCase {
         XCTAssertTrue(menu.settings.autoFire)
     }
 
+    func testExitAndEndGameRoutesPreserveOriginalCallingContext() {
+        var menu = OriginalMenuModel()
+        menu.open(duringGame: false)
+        menu.select(0)
+        XCTAssertEqual(menu.activate(), .none)
+        menu.select(0)
+        XCTAssertEqual(menu.activate(), .exitApplication)
+
+        XCTAssertEqual(
+            OriginalEndGameRoute.resolve(phase: .playing, score: 0),
+            .title
+        )
+        XCTAssertEqual(
+            OriginalEndGameRoute.resolve(phase: .playing, score: 1),
+            .scores
+        )
+        XCTAssertEqual(
+            OriginalEndGameRoute.resolve(phase: .gameOver, score: 1),
+            .exitApplication
+        )
+
+        var flow = OriginalScreenFlow()
+        flow.startGame()
+        flow.showPostGameScores()
+        XCTAssertEqual(flow.phase, .attract(.scores))
+        XCTAssertEqual(flow.frame, 0)
+        for _ in 0..<749 { XCTAssertFalse(flow.advancePostGameScorePage()) }
+        XCTAssertTrue(flow.advancePostGameScorePage())
+        XCTAssertEqual(flow.phase, .attract(.title))
+    }
+
     func testOriginalHardAwardThresholdsMatchControlDefaults() {
         XCTAssertEqual(GameDifficulty.hard.extraLifeThreshold, 200_000)
         XCTAssertEqual(GameDifficulty.hard.extraBombThreshold, 250_000)
@@ -2223,6 +2291,25 @@ final class GameRulesTests: XCTestCase {
         ))
     }
 
+    func testPostGameScoreRoutingKeepsInvalidQualifyingScoreOnHighScoreMusic() {
+        XCTAssertEqual(
+            OriginalPostGameScoreRule.route(score: 0, isValid: true, qualifies: true),
+            .noScore
+        )
+        XCTAssertEqual(
+            OriginalPostGameScoreRule.route(score: 10, isValid: true, qualifies: true),
+            .nameEntry
+        )
+        XCTAssertEqual(
+            OriginalPostGameScoreRule.route(score: 10, isValid: false, qualifies: true),
+            .unranked(useHighScoreMusic: true)
+        )
+        XCTAssertEqual(
+            OriginalPostGameScoreRule.route(score: 10, isValid: true, qualifies: false),
+            .unranked(useHighScoreMusic: false)
+        )
+    }
+
     func testOriginalHighScoreNameEntryMatchesEightCharacterEditor() {
         var entry = OriginalHighScoreNameEntry()
         XCTAssertEqual(entry.name, "        ")
@@ -2242,6 +2329,52 @@ final class GameRulesTests: XCTestCase {
         XCTAssertEqual(entry.selectedIndex, 0)
         entry.setASCII(31)
         XCTAssertEqual(entry.name, "a      Z")
+    }
+
+    func testOriginalHighScoreNameEntryRetainsLastNameButResetsSelection() {
+        var first = OriginalHighScoreNameEntry()
+        first.setASCII(77)
+        first.setASCII(97)
+        first.setASCII(114)
+        first.setASCII(107)
+
+        let next = OriginalHighScoreNameEntry(characters: first.characters)
+        XCTAssertEqual(next.name, "Mark    ")
+        XCTAssertEqual(next.selectedIndex, 0)
+        XCTAssertEqual(
+            OriginalHighScoreNameEntry(characters: [0, 200]).name,
+            "        "
+        )
+    }
+
+    func testHighScoreControllerUsesConfiguredAxesAndOnlyOriginalControllerBombModes() {
+        var settings = OriginalRuntimeSettings()
+        var axes = Array(repeating: CGFloat.zero, count: 15)
+        axes[0] = -0.8
+        axes[1] = 0.7
+        axes[2] = -0.9
+        let bomb = settings.dualAnalogBombButton
+
+        XCTAssertEqual(
+            OriginalHighScoreControllerRule.resolve(
+                settings: settings,
+                controllerAxes: axes,
+                pressedButtons: [bomb]
+            ),
+            OriginalHighScoreControllerInput(
+                moveX: -0.8,
+                moveY: 0.7,
+                fireY: -0.9,
+                finishIsPressed: true
+            )
+        )
+
+        settings.controllerType = .keyboard
+        XCTAssertFalse(OriginalHighScoreControllerRule.resolve(
+            settings: settings,
+            controllerAxes: axes,
+            pressedButtons: [bomb]
+        ).finishIsPressed)
     }
 
     func testOriginalSoundManifestMatchesSourceIncludingItsMissingWarningAsset() {

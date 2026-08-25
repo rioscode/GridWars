@@ -29,6 +29,47 @@ struct OriginalResolvedInput: Equatable {
     var movementLimit = OriginalMovementLimit.unit
 }
 
+struct OriginalHighScoreControllerInput: Equatable {
+    var moveX: CGFloat
+    var moveY: CGFloat
+    var fireY: CGFloat
+    var finishIsPressed: Bool
+}
+
+enum OriginalHighScoreControllerRule {
+    static func resolve(
+        settings: OriginalRuntimeSettings,
+        controllerAxes: [CGFloat],
+        pressedButtons: Set<Int>
+    ) -> OriginalHighScoreControllerInput {
+        let port = settings.joyPorts[min(3, max(0, settings.dualAnalogPort))]
+        let finishButton: Int? = switch settings.controllerType {
+        case .dualAnalog: port.bombButton
+        case .joypad: settings.joypadBombButton
+        case .mouse, .keyboard, .hybrid: nil
+        }
+        return OriginalHighScoreControllerInput(
+            moveX: calibratedAxis(0, port: port, values: controllerAxes),
+            moveY: calibratedAxis(1, port: port, values: controllerAxes),
+            fireY: calibratedAxis(3, port: port, values: controllerAxes),
+            finishIsPressed: finishButton.map(pressedButtons.contains) ?? false
+        )
+    }
+
+    private static func calibratedAxis(
+        _ controlIndex: Int,
+        port: OriginalJoyPortSettings,
+        values: [CGFloat]
+    ) -> CGFloat {
+        let axisID = port.axes[controlIndex]
+        guard axisID > 0, values.indices.contains(axisID - 1) else { return 0 }
+        let scale = port.scale[controlIndex] == 0 ? 1 : port.scale[controlIndex]
+        return values[axisID - 1] / scale
+            * CGFloat(port.inversion[controlIndex])
+            - port.center[controlIndex]
+    }
+}
+
 struct OriginalInputResolver: Equatable {
     private(set) var retainedAim = CGVector.zero
 

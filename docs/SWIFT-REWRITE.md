@@ -543,6 +543,17 @@ particle emission, color cycling, display effects, and delayed starts. Menus
 also retain their 50-Hz cursor/color phase and their capture-time mouse
 position; notably, the Joypad page uses the raw `(0,0)` capture mouse position.
 
+Post-game Scores is not the same transition as the cyclic attract Scores page.
+After 750 frames it returns to Title, whereas the cyclic page proceeds to
+Friends. A zero score skips Scores entirely. Ending a live game with a positive
+score still runs the normal qualification/name-entry path after gameplay state,
+particles, and Grid deformation have been cleared.
+
+The cheat pause is a held-P loop. While P remains held, each O hit releases one
+complete 50-Hz iteration and immediately pauses again; advance simulation and
+renderer-owned Grid animation phase together. Do not add a pause overlay—the
+last rendered gameplay frame remains visible.
+
 ## Fonts and menus
 
 There are two independent font systems:
@@ -577,6 +588,18 @@ Translate platform input into one shared input snapshot. Preserve configurable
 source key/button semantics; do not hard-code Space/Escape as the only BOMB or
 OPTION paths. iOS touch controls are a platform equivalent layered over the
 same shared actions.
+
+High-score input has its own legacy rules. Direct typing accepts the source
+key-code interval 48...90, lowercases A...Z unless Shift is held, and advances
+the selected slot. Movement Y cycles ASCII, movement X selects a slot, fire Y
+toggles case, and the configured mouse or Dual-Analog/Joypad BOMB completes the
+entry. The eight character slots are global in the source: retain the last name
+for the next record, but reset the local selection to slot zero.
+
+Qualification and validity are separate. An invalid score that exceeds the
+tenth-place score skips insertion and displays as unranked, but the original
+has already started high-score music. Preserve that audio branch rather than
+collapsing all unranked results into the ordinary intro-music path.
 
 Legacy configuration, color, and high-score files have observable ordering,
 defaults, and checksum behavior. Treat their codecs as compatibility formats,
