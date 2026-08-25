@@ -54,14 +54,15 @@ isolated F8 path did not read or alter the user's high-score table.
 
 ## Recorded iOS Simulator acceptance
 
-A 2026-08-25 Debug build ran on the iPhone 17 Pro simulator with iOS 26.5.
-BOMB started Get Ready, both virtual-stick touch paths were exercised during
-live gameplay, BOMB produced the Grid shockwave, OPT opened the original menu,
-and a touch on Continue returned to play. After Home and foreground relaunch,
-the app presented a valid title state and its Application Support directory
-contained the complete legacy files: 280 lines in `Config.txt`, 76 in
-`Colours.txt`, and 150 in `hiscores.dat`. Exit Program -> Sure? -> Yes returned
-to the animated title while the iOS app remained open.
+A 2026-08-25 Debug build ran on the iPhone 17 Pro and iPad Air 11-inch (M4)
+simulators with iOS/iPadOS 26.5. Both form factors displayed the full
+aspect-fit arena and HUD, BOMB started Get Ready, and both virtual-stick paths were
+exercised during live gameplay. On iPhone, BOMB produced the Grid shockwave,
+OPT opened the original menu, and a touch on Continue returned to play. After
+Home and foreground relaunch, the app presented a valid title state and its
+Application Support directory contained the complete legacy files: 280 lines
+in `Config.txt`, 76 in `Colours.txt`, and 150 in `hiscores.dat`. Exit Program
+-> Sure? -> Yes returned to the animated title while the iOS app remained open.
 
 This is simulator evidence, not a substitute for physical-device validation.
 Xcode listed two real iPhones during the run, but both were offline.

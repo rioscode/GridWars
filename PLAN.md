@@ -107,7 +107,8 @@ time, and each completed fidelity milestone has its own commit:
       textures, blending, timing, randomness, persistence, and verification
 - [x] macOS Debug build
 - [x] Generic iOS Simulator Debug build
-- [x] iPhone 17 Pro Simulator touch, persistence, lifecycle, and exit smoke test
+- [x] iPhone 17 Pro and iPad Air 11-inch Simulator touch/layout smoke tests,
+      plus iPhone persistence, lifecycle, and exit validation
 - [ ] Physical iPhone/iPad gameplay and lifecycle smoke test
 - [x] 127 gameplay, input, persistence, audio, and rendering-rule unit tests
 - [x] macOS launch and rendering smoke test
@@ -214,18 +215,20 @@ are pinned, and the comparison tool verified all 136 1024×768 pairs.
 Style-by-style visual
 correction reduced the pixel difference for all 20 nonempty grid selectors and
 made the empty selector pixel-identical. The Moiré selector still exposes a
-known OpenGL per-vertex-gradient versus SpriteKit rasterization difference. An
-interactive macOS smoke runs now verify start, menus, Continue, bomb,
+known OpenGL per-vertex-gradient versus SpriteKit rasterization difference.
+Interactive macOS smoke runs now verify start, menus, Continue, bomb,
 death/respawn, final Game Over, high-score insertion and checksum persistence,
 the 750-frame post-game Title return, accepted-and-restored settings, the
 source pause latch/O release, attract return, runtime function keys, and actual
 process termination through Exit Program. The held-P single-step branch is
 covered by its source-specific deterministic rule test because the UI driver
-cannot hold two non-modifier keys simultaneously. An iPhone 17 Pro Simulator
-run additionally verifies touch start, both virtual sticks, BOMB, OPT/Continue,
-background/foreground persistence, and the mobile Title-return equivalent for
-Exit Program. The two detected physical iPhones were offline, so physical
-iPhone/iPad hardware remains the final platform gate; this evidence gap is not
-represented as completed 1:1 proof. The complete visual review and the
-renderer-specific acceptance boundary are recorded in
-`docs/CAPTURE-REVIEW.md`.
+cannot hold two non-modifier keys simultaneously. iPhone 17 Pro and iPad Air
+11-inch Simulator runs additionally verify aspect-fit mobile layout, touch
+start and both virtual sticks. The iPhone run also verifies BOMB,
+OPT/Continue, background/foreground persistence, and the mobile Title-return
+equivalent for Exit Program. A fresh post-runtime 136-state macOS catalog is
+byte-identical to the manually accepted catalog. The two detected physical
+iPhones were offline, so physical iPhone/iPad hardware remains the final
+platform gate; this evidence gap is not represented as completed 1:1 proof.
+The complete visual review and the renderer-specific acceptance boundary are
+recorded in `docs/CAPTURE-REVIEW.md`.

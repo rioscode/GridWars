@@ -509,9 +509,11 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   pause. The attract Options -> Exit Program -> Sure? path terminated the
   process. The same acceptance session changed Autofire from 0 to 1, observed
   the emitted `Config.txt`, and restored it to 0 before completion.
-- iOS Simulator acceptance evidence (2026-08-25): a fresh Debug build ran on
-  an iPhone 17 Pro simulator with iOS 26.5. The BOMB touch target started Get
-  Ready, both virtual-stick touch paths were exercised during live gameplay,
+- iOS/iPadOS Simulator acceptance evidence (2026-08-25): a fresh Debug build
+  ran on iPhone 17 Pro and iPad Air 11-inch (M4) simulators with iOS 26.5. Both
+  form factors rendered the complete aspect-fit arena and HUD. On iPhone, the
+  BOMB touch target started Get Ready, both virtual-stick touch paths were
+  exercised during live gameplay,
   BOMB produced the Grid shockwave, and OPT opened the gameplay menu before a
   touch Continue returned to play. Sending the app Home and opening it again
   produced a valid foreground presentation and wrote the complete 280-line

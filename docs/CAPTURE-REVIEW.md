@@ -8,13 +8,16 @@ regression, but they cannot by themselves establish visual fidelity.
 
 The review on 2026-08-25 used all 136 fixed 1024×768 states in
 `docs/captures/original/` and a fresh catalog produced by
-`scripts/capture-screens.sh` from commit `d4a0f5b`.
+`scripts/capture-screens.sh`. The complete catalog was regenerated from commit
+`87a7c35` after the runtime acceptance milestones and remained byte-identical
+to the catalog that was manually reviewed.
 
 - The normalized SHA-256 catalog digest of the original PNG hashes is
   `d96acd1cfad2cf775010b1e6c2e96251daa57aebc5519066e9f89a0c3bcedf23`.
 - The corresponding Swift digest is
   `8481f1cef4be91facec220d2dc3620789e2b3ffecbf84e1eeed2aff81af951cf`.
-- Two independently generated complete Swift catalogs have that same digest.
+- Three independently generated complete Swift catalogs, including the final
+  post-runtime-audit catalog, have that same digest.
 - `scripts/compare-captures.sh` found all 136 pairs at 1024×768. The largest
   normalized mean absolute difference is `0.0308827` (`grid-18`); every
   non-Grid state is below `0.015`.
