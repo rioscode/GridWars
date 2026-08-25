@@ -484,6 +484,12 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   tracker conversions, all five input modes, remapping, calibration, touch
   equivalence, graphics-set metadata, original menu text/controller direction,
   and fixed-frame capture selection.
+- Visual acceptance evidence (2026-08-25): all 136 fixed 1024×768
+  Original/Swift pairs were inspected across 16 contact sheets. The five
+  largest or most representative renderer deltas were also reviewed at full
+  resolution. No semantic state, geometry, layout, text, object, frame, or
+  layer-order mismatch remains. `docs/CAPTURE-REVIEW.md` records the catalog
+  digests, method, result, and the bounded OpenGL/SpriteKit raster differences.
 
 ## Core loop and progression
 
@@ -604,7 +610,7 @@ the corresponding Swift implementation, and a test or visual/runtime check.
       gameplay, movement/fire input, Options → Settings → Controls, Continue,
       bomb count/grid distortion, death cleanup, respawn, final Game Over,
       attract return, and F3–F7/F1 runtime controls.
-- [ ] Side-by-side captures against the BlitzMax reference have been reviewed
+- [x] Side-by-side captures against the BlitzMax reference have been reviewed
       at matching 1024×768 state and frame counts.
 - [ ] Full playthrough smoke tests cover start, death/respawn, game over,
       high-score insertion, options persistence, and attract-mode return.

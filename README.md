@@ -80,7 +80,8 @@ Official language references used during the port are archived in `docs/bb/`.
 `PLAN.md` records the milestones, while `FIDELITY.md` maps the BlitzMax source
 to its Swift implementation and verification evidence. Reusable coordinate,
 texture, blending, timing, and verification lessons are collected in
-`docs/SWIFT-REWRITE.md`.
+`docs/SWIFT-REWRITE.md`; the complete manual Original/Swift image audit is in
+`docs/CAPTURE-REVIEW.md`.
 
 
 ## Build instructions

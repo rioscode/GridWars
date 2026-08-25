@@ -110,6 +110,8 @@ time, and each completed fidelity milestone has its own commit:
 - [x] 126 gameplay, input, persistence, audio, and rendering-rule unit tests
 - [x] macOS launch and rendering smoke test
 - [x] Deterministic 136-state Swift capture catalog at 1024×768
+- [x] Manual side-by-side review of all 136 Original/Swift capture pairs,
+      including full-resolution review of the largest renderer differences
 - [x] Source-ordered Grid simulation and style-specific rendering pass for all
       21 selectors, including fixed-50-Hz animation phases and original
       particle-image composition
@@ -215,4 +217,5 @@ interactive macOS smoke run now verifies start, menus, Continue, bomb,
 death/respawn, final Game Over, attract return, and runtime function keys.
 High-score insertion/persistence, pause/step/exit, and physical iPhone/iPad
 hardware remain explicit final gates; these evidence gaps are not represented
-as completed 1:1 proof.
+as completed 1:1 proof. The complete visual review and the renderer-specific
+acceptance boundary are recorded in `docs/CAPTURE-REVIEW.md`.
