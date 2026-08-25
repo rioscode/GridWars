@@ -1259,17 +1259,85 @@ struct OriginalFloatingScoreState: Equatable {
     }
 }
 
+enum InterceptorRule {
+    static let boundaryMargin: CGFloat = 16
+    static let playerCollisionThresholdSquared: CGFloat = 24 * 24
+    static let bodyProjectileThresholdSquared: CGFloat = 12 * 12
+    static let shieldRangeSquared: CGFloat = 64 * 64
+
+    static func sourceTurnToFace(
+        sceneVelocity: CGVector,
+        sceneTarget: CGVector
+    ) -> Int {
+        let targetAngle = atan2(-sceneTarget.dy, sceneTarget.dx) * 180 / .pi
+        let velocityAngle = atan2(-sceneVelocity.dy, sceneVelocity.dx) * 180 / .pi
+        var result = Int(targetAngle - velocityAngle)
+        if result >= 180 {
+            result = -(360 - result)
+        } else if result <= -180 {
+            result += 360
+        }
+        return abs(result) < 6 ? 0 : result
+    }
+
+    static func initialTurnRemaining(_ sourceTurn: Int) -> Int {
+        abs(sourceTurn) < 16 ? 16 : sourceTurn
+    }
+
+    static func shouldRetarget(roll: Int, maximumSpeed: CGFloat) -> Bool {
+        CGFloat(roll) > 95 - maximumSpeed * 8
+    }
+
+    static func advanceTurn(
+        sourceHeading: inout CGFloat,
+        turnRemaining: inout Int
+    ) {
+        guard turnRemaining != 0 else { return }
+        let sign = turnRemaining < 0 ? -1 : 1
+        sourceHeading += CGFloat(4 * sign)
+        turnRemaining -= sign
+    }
+
+    static func sceneFacing(sourceHeading: CGFloat) -> CGVector {
+        let radians = sourceHeading * .pi / 180
+        return CGVector(dx: cos(radians), dy: -sin(radians))
+    }
+
+    static func steeredVelocity(
+        _ velocity: CGVector,
+        sourceHeading: CGFloat,
+        turnRemaining: Int,
+        maximumSpeed: CGFloat
+    ) -> CGVector {
+        let facing = sceneFacing(sourceHeading: sourceHeading)
+        if abs(turnRemaining) < 20 {
+            return velocity + facing * 2
+        }
+        return (velocity + facing) * (0.265 + maximumSpeed / 20)
+    }
+
+    static func shieldIsActive(turnRemaining: Int) -> Bool {
+        abs(turnRemaining) <= 4
+    }
+}
+
 struct InterceptorShieldGeometry: Equatable {
     let center: CGPoint
     let right: CGPoint
     let left: CGPoint
 
+    init(center: CGPoint, right: CGPoint, left: CGPoint) {
+        self.center = center
+        self.right = right
+        self.left = left
+    }
+
     init(center: CGPoint, velocity: CGVector) {
         let speed = velocity.length
         guard speed > 0 else {
             self.center = center
-            right = CGPoint(x: center.x + 100, y: center.y - 28)
-            left = CGPoint(x: center.x + 28, y: center.y - 100)
+            right = CGPoint(x: center.x + 100, y: center.y + 28)
+            left = CGPoint(x: center.x + 28, y: center.y + 100)
             return
         }
         let direction = velocity / speed
@@ -1277,12 +1345,12 @@ struct InterceptorShieldGeometry: Equatable {
 
         self.center = center
         right = CGPoint(
-            x: center.x + direction.dx * 64 + normal.dx * 36,
-            y: center.y + direction.dy * 64 + normal.dy * 36
-        )
-        left = CGPoint(
             x: center.x + direction.dx * 64 - normal.dx * 36,
             y: center.y + direction.dy * 64 - normal.dy * 36
+        )
+        left = CGPoint(
+            x: center.x + direction.dx * 64 + normal.dx * 36,
+            y: center.y + direction.dy * 64 + normal.dy * 36
         )
     }
 
@@ -1291,17 +1359,42 @@ struct InterceptorShieldGeometry: Equatable {
             x: center.x - projectileVelocity.dx,
             y: center.y - projectileVelocity.dy
         )
-        let first = Self.cross(point, rear, right)
-        let second = Self.cross(point, right, left)
-        let third = Self.cross(point, left, rear)
-        let hasNegative = first < 0 || second < 0 || third < 0
-        let hasPositive = first > 0 || second > 0 || third > 0
-        return !(hasNegative && hasPositive)
+        return Self.originalPointInTriangle(
+            point: Self.sourceOriented(point),
+            first: Self.sourceOriented(rear),
+            second: Self.sourceOriented(right),
+            third: Self.sourceOriented(left)
+        )
     }
 
-    private static func cross(_ point: CGPoint, _ first: CGPoint, _ second: CGPoint) -> CGFloat {
-        (point.x - second.x) * (first.y - second.y)
-            - (first.x - second.x) * (point.y - second.y)
+    private static func sourceOriented(_ point: CGPoint) -> CGPoint {
+        CGPoint(x: point.x, y: -point.y)
+    }
+
+    private static func originalPointInTriangle(
+        point: CGPoint,
+        first: CGPoint,
+        second: CGPoint,
+        third: CGPoint
+    ) -> Bool {
+        var result = true
+        if ((first.y <= point.y && point.y < second.y)
+                || (second.y <= point.y && point.y < first.y)),
+           second.y - first.y != 0,
+           point.x < (second.x - first.x) * (point.y - first.y)
+                / (second.y - first.y) + first.x {
+            result.toggle()
+        }
+        // Preserve the source typo: the second alternative compares y3 with
+        // itself, and the denominator guard still checks y2-y1.
+        if ((first.y <= point.y && point.y < third.y)
+                || (third.y <= point.y && point.y < third.y)),
+           second.y - first.y != 0,
+           point.x < (third.x - first.x) * (point.y - first.y)
+                / (third.y - first.y) + first.x {
+            result.toggle()
+        }
+        return result
     }
 }
 

@@ -542,7 +542,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         captureRandom = BlitzMaxRandomNumberGenerator(seed: 1)
 
         let preparesOriginalState: Bool = switch captureRequest.scenario.subject {
-        case .gameplay, .enemy, .enemyMotion, .blackHole, .snake, .generator, .powerUp,
+        case .gameplay, .enemy, .enemyMotion, .blackHole, .snake, .interceptor,
+             .generator, .powerUp,
              .grid, .particleStyle,
              .graphicsSet, .getReady, .death, .gameOver, .highScoreEntry,
              .hudDefault, .hudUpgraded, .powerUpMessage:
@@ -586,6 +587,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         case let .snake(capture):
             prepareGameplayCapture()
             configureSnakeCapture(capture)
+        case let .interceptor(capture):
+            prepareGameplayCapture()
+            configureInterceptorCapture(capture)
         case let .generator(kind):
             prepareGameplayCapture()
             spawnGenerator(
@@ -940,6 +944,51 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         guard let headID = head.userData?["enemyID"] as? String else { return [] }
         return enemyLayer.children.filter {
             $0.name == "snakeTail" && $0.userData?["snakeHeadID"] as? String == headID
+        }
+    }
+
+    private func configureInterceptorCapture(_ capture: OriginalInterceptorCapture) {
+        player.position = sourcePoint(CGPoint(x: playfieldSize.width / 2, y: 100))
+        let center = CGPoint(x: playfieldSize.width / 2, y: playfieldSize.height / 2)
+        guard let interceptor = spawnEnemy(
+            kind: .interceptor,
+            at: center,
+            freezeFrames: 0,
+            closeToPlayer: true,
+            playBornSound: false
+        ) else { return }
+
+        switch capture {
+        case .motion:
+            for _ in 0..<30 {
+                updateEnemies(kinds: [.interceptor])
+                cacheInterceptorShieldCollisionGeometry()
+            }
+        case .shield, .block:
+            interceptor.userData?["dx"] = 4.0
+            interceptor.userData?["dy"] = 0.0
+            interceptor.userData?["rotation"] = 180
+            interceptor.userData?["interceptorHeading"] = 0.0
+            interceptor.userData?["interceptorTurnRemaining"] = 0
+            updateEnemyVisual(interceptor, kind: .interceptor, rotation: 180)
+            updateInterceptorShieldVisual(interceptor)
+            cacheInterceptorShieldCollisionGeometry()
+            if capture == .block {
+                let projectile = SKSpriteNode(texture: OriginalGraphics.texture(
+                    named: "yellowshot",
+                    setIndex: activeGraphicsSetIndex
+                ))
+                projectile.name = "projectile"
+                projectile.blendMode = .add
+                projectile.position = CGPoint(x: center.x + 30, y: center.y)
+                projectile.userData = NSMutableDictionary(dictionary: [
+                    "dx": 10.0,
+                    "dy": 0.0,
+                    "speed": 10.0,
+                ])
+                projectileLayer.addChild(projectile)
+                updateProjectiles()
+            }
         }
     }
 
@@ -1660,6 +1709,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         updateEnemies(kinds: [.blackHole])
         if stopGameplayFrameForDeath() { return }
         updateProjectiles()
+        cacheInterceptorShieldCollisionGeometry()
         simulationFrame += 1
     }
 
@@ -2485,9 +2535,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             dx: cos(initialAngle) * initialState.magnitude,
             dy: -sin(initialAngle) * initialState.magnitude
         )
-        let interceptorTurn = turnToFace(
-            velocity: initialVelocity,
-            target: CGVector(
+        let interceptorTurn = InterceptorRule.sourceTurnToFace(
+            sceneVelocity: initialVelocity,
+            sceneTarget: CGVector(
                 dx: playfieldSize.width / 2 - enemy.position.x,
                 dy: playfieldSize.height / 2 - enemy.position.y
             )
@@ -2508,10 +2558,14 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             "snakeHeading": Double(initialRotation),
             "snakeTurnDirection": initialState.snakeTurnDirection,
             "interceptorHeading": Double(initialRotation),
-            "interceptorTurnRemaining": abs(interceptorTurn) < 16
-                ? 16
-                : interceptorTurn,
+            "interceptorTurnRemaining": InterceptorRule.initialTurnRemaining(
+                interceptorTurn
+            ),
             "interceptorLastPlayed": 0,
+            "interceptorShieldRightX": 0.0,
+            "interceptorShieldRightY": 0.0,
+            "interceptorShieldLeftX": 0.0,
+            "interceptorShieldLeftY": 0.0,
             "seekerMean": 0,
             "triangleResist": false,
         ])
@@ -3051,31 +3105,35 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             case .interceptor:
                 var heading = CGFloat((enemy.userData?["interceptorHeading"] as? NSNumber)?.doubleValue ?? 0)
                 var turnRemaining = (enemy.userData?["interceptorTurnRemaining"] as? NSNumber)?.intValue ?? 0
-                if CGFloat(originalRandomInt(1...100))
-                    > 95 - maximumSpeed * 8 {
-                    turnRemaining = turnToFace(
-                        velocity: velocity,
-                        target: CGVector(
+                if InterceptorRule.shouldRetarget(
+                    roll: originalRandomInt(1...100),
+                    maximumSpeed: maximumSpeed
+                ) {
+                    turnRemaining = InterceptorRule.sourceTurnToFace(
+                        sceneVelocity: velocity,
+                        sceneTarget: CGVector(
                             dx: player.position.x - enemy.position.x,
                             dy: player.position.y - enemy.position.y
                         )
                     )
                 }
-                if turnRemaining != 0 {
-                    let sign = turnRemaining < 0 ? -1 : 1
-                    heading += CGFloat(4 * sign)
-                    turnRemaining -= sign
-                }
+                InterceptorRule.advanceTurn(
+                    sourceHeading: &heading,
+                    turnRemaining: &turnRemaining
+                )
                 var lastPlayed = (enemy.userData?["interceptorLastPlayed"] as? NSNumber)?.intValue ?? 0
                 if turnRemaining == 0, lastPlayed == 0 {
                     lastPlayed = 60
                     playSpatial(.interceptorShield, at: enemy.position)
                 }
                 if lastPlayed > 0 { lastPlayed -= 1 }
-                let headingRadians = heading * .pi / 180
-                let facing = CGVector(dx: cos(headingRadians), dy: sin(headingRadians))
+                velocity = InterceptorRule.steeredVelocity(
+                    velocity,
+                    sourceHeading: heading,
+                    turnRemaining: turnRemaining,
+                    maximumSpeed: maximumSpeed
+                )
                 if abs(turnRemaining) < 20 {
-                    velocity = velocity + facing * 2
                     gridSimulation.push(
                         at: CGPoint(
                             x: enemy.position.x + velocity.dx * 8,
@@ -3084,8 +3142,6 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                         radiusInPoints: 4,
                         amount: 0.1
                     )
-                } else {
-                    velocity = (velocity + facing) * (0.265 + maximumSpeed / 20)
                 }
                 enemy.userData?["interceptorHeading"] = heading
                 enemy.userData?["interceptorTurnRemaining"] = turnRemaining
@@ -3101,11 +3157,13 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             if kind == .interceptor {
                 enemy.position.x += velocity.dx
                 enemy.position.y += velocity.dy
-                if enemy.position.x < 16 || enemy.position.x > playfieldSize.width - 16 {
+                if enemy.position.x < InterceptorRule.boundaryMargin
+                    || enemy.position.x > playfieldSize.width - InterceptorRule.boundaryMargin {
                     enemy.position.x -= velocity.dx
                     enemy.position.y -= velocity.dy
                 }
-                if enemy.position.y < 16 || enemy.position.y > playfieldSize.height - 16 {
+                if enemy.position.y < InterceptorRule.boundaryMargin
+                    || enemy.position.y > playfieldSize.height - InterceptorRule.boundaryMargin {
                     enemy.position.x -= velocity.dx
                     enemy.position.y -= velocity.dy
                 }
@@ -3281,18 +3339,6 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         let parentScaleY = max(0.001, abs(enemy.yScale))
         aura.xScale = desiredScaleX / parentScaleX
         aura.yScale = desiredScaleY / parentScaleY
-    }
-
-    private func turnToFace(velocity: CGVector, target: CGVector) -> Int {
-        let targetAngle = atan2(target.dy, target.dx) * 180 / .pi
-        let velocityAngle = atan2(velocity.dy, velocity.dx) * 180 / .pi
-        var result = Int(targetAngle - velocityAngle)
-        if result >= 180 {
-            result = -(360 - result)
-        } else if result <= -180 {
-            result += 360
-        }
-        return abs(result) < 6 ? 0 : result
     }
 
     private func spawnSnakeSegments(for head: SKNode, freezeFrames: Int) {
@@ -3606,7 +3652,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private func updateInterceptorShieldVisual(_ interceptor: SKNode) {
         interceptor.childNode(withName: "interceptorShield")?.removeFromParent()
         let turnRemaining = (interceptor.userData?["interceptorTurnRemaining"] as? NSNumber)?.intValue ?? 0
-        guard abs(turnRemaining) <= 4 else { return }
+        guard InterceptorRule.shieldIsActive(turnRemaining: turnRemaining) else { return }
 
         let path = CGMutablePath()
         let rotation = CGFloat((interceptor.userData?["rotation"] as? NSNumber)?.intValue ?? 0)
@@ -3628,21 +3674,58 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         interceptor.addChild(shield)
     }
 
+    private func cacheInterceptorShieldCollisionGeometry() {
+        for interceptor in enemies(of: .interceptor) {
+            let velocity = CGVector(
+                dx: CGFloat((interceptor.userData?["dx"] as? NSNumber)?.doubleValue ?? 0),
+                dy: CGFloat((interceptor.userData?["dy"] as? NSNumber)?.doubleValue ?? 0)
+            )
+            let geometry = InterceptorShieldGeometry(
+                center: interceptor.position,
+                velocity: velocity
+            )
+            interceptor.userData?["interceptorShieldRightX"] = geometry.right.x
+            interceptor.userData?["interceptorShieldRightY"] = geometry.right.y
+            interceptor.userData?["interceptorShieldLeftX"] = geometry.left.x
+            interceptor.userData?["interceptorShieldLeftY"] = geometry.left.y
+        }
+    }
+
+    private func cachedInterceptorShieldGeometry(_ interceptor: SKNode) -> InterceptorShieldGeometry {
+        InterceptorShieldGeometry(
+            center: interceptor.position,
+            right: CGPoint(
+                x: CGFloat(
+                    (interceptor.userData?["interceptorShieldRightX"] as? NSNumber)?.doubleValue ?? 0
+                ),
+                y: CGFloat(
+                    (interceptor.userData?["interceptorShieldRightY"] as? NSNumber)?.doubleValue ?? 0
+                )
+            ),
+            left: CGPoint(
+                x: CGFloat(
+                    (interceptor.userData?["interceptorShieldLeftX"] as? NSNumber)?.doubleValue ?? 0
+                ),
+                y: CGFloat(
+                    (interceptor.userData?["interceptorShieldLeftY"] as? NSNumber)?.doubleValue ?? 0
+                )
+            )
+        )
+    }
+
     private func blockProjectilesWithInterceptorShields() {
         let interceptors = enemyLayer.children.filter {
             $0.name == "enemy"
                 && $0.userData?["kind"] as? String == EnemyKind.interceptor.rawValue
-                && abs(($0.userData?["interceptorTurnRemaining"] as? NSNumber)?.intValue ?? 0) <= 4
+                && InterceptorRule.shieldIsActive(
+                    turnRemaining: ($0.userData?["interceptorTurnRemaining"] as? NSNumber)?.intValue ?? 0
+                )
         }
         for projectile in projectileLayer.children where projectile.parent != nil {
             let isSuperShot = (projectile.userData?["superShot"] as? NSNumber)?.boolValue ?? false
             guard !isSuperShot else { continue }
             for interceptor in interceptors {
-                let velocity = CGVector(
-                    dx: CGFloat((interceptor.userData?["dx"] as? NSNumber)?.doubleValue ?? 0),
-                    dy: CGFloat((interceptor.userData?["dy"] as? NSNumber)?.doubleValue ?? 0)
-                )
-                let geometry = InterceptorShieldGeometry(center: interceptor.position, velocity: velocity)
+                let geometry = cachedInterceptorShieldGeometry(interceptor)
                 if geometry.contains(
                     projectile.position,
                     projectileVelocity: projectileVelocity(projectile)
@@ -4089,25 +4172,21 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
         for interceptor in enemies(of: .interceptor) {
             let distance = squaredDistance(position, interceptor.position)
-            guard distance < 64 * 64 else { continue }
+            guard distance < InterceptorRule.shieldRangeSquared else { continue }
             let turnRemaining = (interceptor.userData?["interceptorTurnRemaining"] as? NSNumber)?.intValue ?? 0
-            if abs(turnRemaining) > 4 {
-                if distance < 12 * 12 {
+            if !InterceptorRule.shieldIsActive(turnRemaining: turnRemaining) {
+                if distance < InterceptorRule.bodyProjectileThresholdSquared {
                     damageEnemy(interceptor, projectile: projectile)
                     return true
                 }
             } else {
-                let velocity = CGVector(
-                    dx: CGFloat((interceptor.userData?["dx"] as? NSNumber)?.doubleValue ?? 0),
-                    dy: CGFloat((interceptor.userData?["dy"] as? NSNumber)?.doubleValue ?? 0)
-                )
-                if InterceptorShieldGeometry(center: interceptor.position, velocity: velocity).contains(
+                if cachedInterceptorShieldGeometry(interceptor).contains(
                     position,
                     projectileVelocity: projectileVelocity(projectile)
                 ) {
                     return true
                 }
-                if distance < 12 * 12 {
+                if distance < InterceptorRule.bodyProjectileThresholdSquared {
                     damageEnemy(interceptor, projectile: projectile)
                     return true
                 }
@@ -4144,7 +4223,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             radiusSquared = threshold
         case .snake:
             radiusSquared = SnakeSegmentRule.playerCollisionThresholdSquared
-        case .interceptor, .triangle:
+        case .interceptor:
+            radiusSquared = InterceptorRule.playerCollisionThresholdSquared
+        case .triangle:
             radiusSquared = 24 * 24
         case .blackHole:
             let blackHoleSize = CGFloat((enemy.userData?["blackHoleSize"] as? NSNumber)?.doubleValue ?? 20)
@@ -4234,12 +4315,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         let kind = EnemyKind(rawValue: enemy.userData?["kind"] as? String ?? "") ?? .pinwheel
         if kind == .interceptor, enemy.name == "enemy" {
             let turnRemaining = (enemy.userData?["interceptorTurnRemaining"] as? NSNumber)?.intValue ?? 0
-            let velocity = CGVector(
-                dx: CGFloat((enemy.userData?["dx"] as? NSNumber)?.doubleValue ?? 0),
-                dy: CGFloat((enemy.userData?["dy"] as? NSNumber)?.doubleValue ?? 0)
-            )
-            if abs(turnRemaining) <= 4,
-               InterceptorShieldGeometry(center: enemy.position, velocity: velocity).contains(
+            if InterceptorRule.shieldIsActive(turnRemaining: turnRemaining),
+               cachedInterceptorShieldGeometry(enemy).contains(
                    projectile.position,
                    projectileVelocity: projectileVelocity(projectile)
                ) {

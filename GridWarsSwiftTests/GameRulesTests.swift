@@ -940,8 +940,15 @@ final class GameRulesTests: XCTestCase {
             CGPoint(x: 70, y: 100),
             projectileVelocity: projectileVelocity
         ))
+        // PointInTri omits the forward edge, so the original treats points
+        // beyond it as shielded too.
+        XCTAssertTrue(shield.contains(
+            CGPoint(x: 200, y: 100),
+            projectileVelocity: projectileVelocity
+        ))
         XCTAssertEqual(shield.right.x, 164, accuracy: 0.0001)
-        XCTAssertEqual(abs(shield.right.y - 100), 36, accuracy: 0.0001)
+        XCTAssertEqual(shield.right.y, 64, accuracy: 0.0001)
+        XCTAssertEqual(shield.left, CGPoint(x: 164, y: 136))
     }
 
     func testStationaryInterceptorShieldMatchesOriginalFallbackGeometry() {
@@ -950,8 +957,42 @@ final class GameRulesTests: XCTestCase {
             velocity: .zero
         )
 
-        XCTAssertEqual(shield.right, CGPoint(x: 140, y: 32))
-        XCTAssertEqual(shield.left, CGPoint(x: 68, y: -40))
+        XCTAssertEqual(shield.right, CGPoint(x: 140, y: 88))
+        XCTAssertEqual(shield.left, CGPoint(x: 68, y: 160))
+    }
+
+    func testInterceptorSteeringUsesSourceAnglesAndThresholds() {
+        XCTAssertEqual(InterceptorRule.sourceTurnToFace(
+            sceneVelocity: CGVector(dx: 1, dy: 0),
+            sceneTarget: CGVector(dx: 0, dy: 1)
+        ), -90)
+        XCTAssertEqual(InterceptorRule.sourceTurnToFace(
+            sceneVelocity: CGVector(dx: 1, dy: 0),
+            sceneTarget: CGVector(dx: 0, dy: -1)
+        ), 90)
+        XCTAssertEqual(InterceptorRule.initialTurnRemaining(-5), 16)
+        XCTAssertTrue(InterceptorRule.shouldRetarget(roll: 60, maximumSpeed: 4.45))
+        XCTAssertFalse(InterceptorRule.shouldRetarget(roll: 59, maximumSpeed: 4.45))
+        XCTAssertTrue(InterceptorRule.shieldIsActive(turnRemaining: -4))
+        XCTAssertFalse(InterceptorRule.shieldIsActive(turnRemaining: 5))
+
+        var heading: CGFloat = 90
+        var turnRemaining = -2
+        InterceptorRule.advanceTurn(
+            sourceHeading: &heading,
+            turnRemaining: &turnRemaining
+        )
+        XCTAssertEqual(heading, 86)
+        XCTAssertEqual(turnRemaining, -1)
+
+        let thrust = InterceptorRule.steeredVelocity(
+            .zero,
+            sourceHeading: 90,
+            turnRemaining: 0,
+            maximumSpeed: 4.45
+        )
+        XCTAssertEqual(thrust.dx, 0, accuracy: 0.0001)
+        XCTAssertEqual(thrust.dy, -2, accuracy: 0.0001)
     }
 
     func testTriangleBondCollisionUsesOriginalTwelvePixelRadius() {
@@ -2002,7 +2043,7 @@ final class GameRulesTests: XCTestCase {
 
     func testCaptureCatalogCoversEveryFidelityCategory() {
         let scenarios = OriginalCaptureScenario.all
-        XCTAssertEqual(scenarios.count, 100)
+        XCTAssertEqual(scenarios.count, 103)
         XCTAssertEqual(Set(scenarios.map(\.name)).count, scenarios.count)
         XCTAssertEqual(
             OriginalCaptureScenario(name: "power-up-message")?.subject,
@@ -2021,6 +2062,7 @@ final class GameRulesTests: XCTestCase {
         var enemyMotions = 0
         var blackHoleCaptures = 0
         var snakeCaptures = 0
+        var interceptorCaptures = 0
         var generators = 0
         var powerUps = 0
         var grids = 0
@@ -2034,6 +2076,7 @@ final class GameRulesTests: XCTestCase {
             case .enemyMotion: enemyMotions += 1
             case .blackHole: blackHoleCaptures += 1
             case .snake: snakeCaptures += 1
+            case .interceptor: interceptorCaptures += 1
             case .generator: generators += 1
             case .powerUp: powerUps += 1
             case .grid: grids += 1
@@ -2047,6 +2090,7 @@ final class GameRulesTests: XCTestCase {
         XCTAssertEqual(enemyMotions, 6)
         XCTAssertEqual(blackHoleCaptures, OriginalBlackHoleCapture.allCases.count)
         XCTAssertEqual(snakeCaptures, OriginalSnakeCapture.allCases.count)
+        XCTAssertEqual(interceptorCaptures, OriginalInterceptorCapture.allCases.count)
         XCTAssertEqual(generators, OriginalEnemyKind.allCases.count)
         XCTAssertEqual(powerUps, PowerUpKind.allCases.count)
         XCTAssertEqual(grids, 21)
