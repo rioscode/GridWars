@@ -88,6 +88,7 @@ enum OriginalBlackHoleCapture: String, CaseIterable {
     case motion
     case shrink
     case explosion
+    case particles
 }
 
 enum OriginalSnakeCapture: String, CaseIterable {

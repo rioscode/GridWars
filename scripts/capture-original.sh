@@ -70,7 +70,7 @@ else
     enemy-black-hole enemy-triangle enemy-snake enemy-interceptor enemy-butterfly \
     motion-pinwheel motion-diamond motion-green-square motion-cube motion-seeker \
     motion-butterfly \
-    black-hole-motion black-hole-shrink black-hole-explosion \
+    black-hole-motion black-hole-shrink black-hole-explosion black-hole-particles \
     snake-motion snake-tail-hit snake-cascade \
   interceptor-motion interceptor-shield interceptor-block \
   triangle-motion triangle-bond triangle-hit triangle-black-hole \

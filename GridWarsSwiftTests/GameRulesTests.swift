@@ -1419,13 +1419,39 @@ final class GameRulesTests: XCTestCase {
 
     func testGeneratorCaptureConsumesSafeXYDirectionBeforeRotation() {
         var random = BlitzMaxRandomNumberGenerator(seed: 1)
-        for _ in 0...OriginalRuntimeSettings.maximumStars {
-            _ = random.rand(-100, 1_124)
-            _ = random.rand(-100, 868)
-        }
+        let stars = OriginalStarRule.create(
+            maximumIndex: OriginalRuntimeSettings.maximumStars,
+            playfieldSize: CGSize(width: 1_024, height: 768),
+            screenSize: CGSize(width: 1_024, height: 768),
+            using: &random
+        )
 
+        XCTAssertEqual(stars.count, 10_001)
+        XCTAssertEqual(stars[0].depth, 2)
+        XCTAssertEqual(stars[7].depth, 3.75)
+        XCTAssertEqual(stars[8].depth, 2)
         XCTAssertEqual(random.rand(0, 360 * 8), 2_504)
         XCTAssertEqual(random.rand(0, 359), 34)
+    }
+
+    func testStarScenePositionPreservesSourceParallaxForTallPlayfields() {
+        let state = OriginalStarState(
+            sourcePosition: CGPoint(x: 120, y: 100),
+            depth: 2
+        )
+
+        XCTAssertEqual(state.brightnessChannel, 240)
+        XCTAssertEqual(
+            state.sceneBasePosition(
+                playfieldSize: CGSize(width: 1_024, height: 1_536),
+                screenSize: CGSize(width: 1_024, height: 768)
+            ),
+            CGPoint(x: 120, y: 1_052)
+        )
+        XCTAssertEqual(
+            OriginalStarState(sourcePosition: .zero, depth: 2.25).brightnessChannel,
+            213
+        )
     }
 
     func testEnemySpawnStateConsumesEachOriginalKindsExactRandomCalls() {
@@ -1640,6 +1666,56 @@ final class GameRulesTests: XCTestCase {
         XCTAssertLessThan(particles.particles[0].velocity.dy, 0)
     }
 
+    func testGenericParticleEmissionAlsoTransformsSourceAnglesIntoSceneSpace() {
+        var random = SeededRandomNumberGenerator(seed: 7)
+        var particles = ParticleSimulation(
+            arenaSize: CGSize(width: 1_024, height: 768),
+            capacity: 1
+        )
+
+        particles.emit(
+            at: CGPoint(x: 512, y: 384),
+            kind: .directed,
+            color: OriginalParticleColor.shot,
+            rotationDegrees: 90,
+            using: &random
+        )
+
+        XCTAssertEqual(particles.particles[0].velocity.dx, 0, accuracy: 0.0001)
+        XCTAssertEqual(particles.particles[0].velocity.dy, -16, accuracy: 0.0001)
+    }
+
+    func testEdgeFireworkConsumesSourceYBeforeSideSelection() {
+        let screen = CGSize(width: 1_024, height: 768)
+        let seed = (1...100).first { candidate in
+            var probe = BlitzMaxRandomNumberGenerator(seed: candidate)
+            _ = probe.rand(0, 3)
+            _ = probe.rand(0, 3)
+            _ = probe.rand(0, 3)
+            return probe.rand(0, 1) == 0
+        }!
+        var actualRandom = BlitzMaxRandomNumberGenerator(seed: seed)
+        let actual = OriginalFireworkRule.make(
+            style: 1,
+            screenSize: screen,
+            using: &actualRandom
+        )
+
+        var expectedRandom = BlitzMaxRandomNumberGenerator(seed: seed)
+        let expectedColor = ParticleColor(
+            red: expectedRandom.rand(0, 3) * 64,
+            green: expectedRandom.rand(0, 3) * 64,
+            blue: expectedRandom.rand(0, 3) * 64
+        )
+        XCTAssertEqual(expectedRandom.rand(0, 1), 0)
+        let expectedY = expectedRandom.rand(50, Int(screen.height) - 50)
+        let expectedX = expectedRandom.rand(0, 1) == 0 ? 16 : Int(screen.width) - 16
+
+        XCTAssertEqual(actual.color, expectedColor)
+        XCTAssertEqual(actual.sourcePosition, CGPoint(x: expectedX, y: expectedY))
+        XCTAssertEqual(actualRandom.rand(0, 1_000), expectedRandom.rand(0, 1_000))
+    }
+
     func testParticleRingUsesOriginalRadialVelocityLifetimeAndWrap() {
         var random = SeededRandomNumberGenerator(seed: 123)
         var particles = ParticleSimulation(
@@ -1687,6 +1763,26 @@ final class GameRulesTests: XCTestCase {
         for _ in 0..<14 { particles.update() }
         XCTAssertLessThan(particles.particles[0].color.red, 200)
         XCTAssertEqual(particles.particles[0].activeFrames, 9)
+    }
+
+    func testParticleWideUpdateUsesScreenInsteadOfPlayfieldBounds() {
+        var random = BlitzMaxRandomNumberGenerator(seed: 1)
+        var particles = ParticleSimulation(
+            arenaSize: CGSize(width: 200, height: 200),
+            capacity: 1
+        )
+        particles.emit(
+            at: CGPoint(x: 70, y: 50),
+            kind: .radialBomb,
+            color: OriginalParticleColor.bomb,
+            rotationDegrees: 0,
+            using: &random
+        )
+
+        particles.updateWide(screenSize: CGSize(width: 100, height: 100))
+
+        XCTAssertEqual(particles.particles[0].position.x, 70, accuracy: 0.0001)
+        XCTAssertEqual(particles.particles[0].velocity.dx, -30.4, accuracy: 0.0001)
     }
 
     func testParticleVerticalBounceTransformsBlitzMaxTopDownBounds() {
@@ -1762,6 +1858,29 @@ final class GameRulesTests: XCTestCase {
         particles.applyBlackHole(at: CGPoint(x: 200, y: 100), size: 20, frame: 1)
         XCTAssertEqual(particles.particles[1].activeFrames, 27)
         XCTAssertLessThan(particles.particles[1].velocity.dy, 0)
+    }
+
+    func testBlackHoleAmbientParticleRecipeInvertsSourceYAndKeepsSpokeAngle() {
+        let center = CGPoint(x: 500, y: 400)
+
+        XCTAssertEqual(OriginalBlackHoleParticleRule.cadence, 60)
+        XCTAssertEqual(OriginalBlackHoleParticleRule.count, 8)
+        XCTAssertEqual(
+            OriginalBlackHoleParticleRule.scenePosition(
+                center: center,
+                size: 20,
+                sourceRotation: 0,
+                index: 0
+            ),
+            CGPoint(x: 500, y: 374)
+        )
+        XCTAssertEqual(
+            OriginalBlackHoleParticleRule.sourceDirection(
+                sourceRotation: 60,
+                index: 7
+            ),
+            375
+        )
     }
 
     func testAttractModeUsesOriginalPageDurationsAndOrder() {
@@ -2362,7 +2481,7 @@ final class GameRulesTests: XCTestCase {
 
     func testCaptureCatalogCoversEveryFidelityCategory() {
         let scenarios = OriginalCaptureScenario.all
-        XCTAssertEqual(scenarios.count, 133)
+        XCTAssertEqual(scenarios.count, 134)
         XCTAssertEqual(Set(scenarios.map(\.name)).count, scenarios.count)
         XCTAssertEqual(
             OriginalCaptureScenario(name: "power-up-message")?.subject,

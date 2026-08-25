@@ -170,7 +170,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private var godMode = false
     private var particleGravityEnabled = true
     private var debugEnabled = false
+    private var starStates: [OriginalStarState] = []
     private var starNodes: [SKShapeNode] = []
+    private var initialStarRandom = BlitzMaxRandomNumberGenerator()
     private var appliedGridColorPosition = 0
     private var appliedGraphicsSetIndex = -1
     private var cameraOffset = CGPoint.zero
@@ -316,7 +318,17 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     private func setupArena() {
+        gridSimulation = GridSimulation(
+            arenaSize: playfieldSize,
+            spacing: configuredGridSpacing
+        )
         renderGrid()
+        starStates = OriginalStarRule.create(
+            maximumIndex: OriginalRuntimeSettings.maximumStars,
+            playfieldSize: playfieldSize,
+            screenSize: size,
+            using: &initialStarRandom
+        )
         ensureStarCapacity(through: 300)
         rebuildArenaBorder()
     }
@@ -787,18 +799,15 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
     private func prepareOriginalCaptureStars() {
         guard var random = captureRandom else { return }
+        starStates = OriginalStarRule.create(
+            maximumIndex: OriginalRuntimeSettings.maximumStars,
+            playfieldSize: playfieldSize,
+            screenSize: size,
+            using: &random
+        )
         ensureStarCapacity(through: menuModel.settings.starCount)
-        let maximumX = Int(max(playfieldSize.width, size.width)) + 100
-        let maximumY = Int(max(playfieldSize.height, size.height)) + 100
-        for index in 0...OriginalRuntimeSettings.maximumStars {
-            let sourceX = random.rand(-100, maximumX)
-            let sourceY = random.rand(-100, maximumY)
-            guard index < starNodes.count else { continue }
-            let position = CGPoint(x: sourceX, y: Int(size.height) - sourceY)
-            let star = starNodes[index]
-            star.position = position
-            star.userData?["baseX"] = position.x
-            star.userData?["baseY"] = position.y
+        for index in starNodes.indices {
+            configureStarNode(starNodes[index], index: index)
         }
         captureRandom = random
     }
@@ -849,7 +858,12 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             enemy.userData?["blackHoleSize"] = 36.0
             enemy.userData?["blackHoleActive"] = true
             var velocity = CGVector.zero
-            updateBlackHole(enemy, velocity: &velocity, maximumSpeed: 1)
+            updateBlackHole(
+                enemy,
+                velocity: &velocity,
+                maximumSpeed: 1,
+                rotation: (enemy.userData?["rotation"] as? NSNumber)?.intValue ?? 0
+            )
         } else if kind == .snake {
             layoutSnakeForCapture(enemy)
         }
@@ -925,6 +939,18 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             blackHole.userData?["blackHoleSize"] = 64.5
             blackHole.userData?["blackHoleActive"] = true
             growBlackHole(blackHole, amount: 1)
+        case .particles:
+            guard let blackHole = spawnEnemy(
+                kind: .blackHole,
+                at: center,
+                freezeFrames: 0,
+                closeToPlayer: true,
+                playBornSound: false
+            ) else { return }
+            blackHole.userData?["blackHoleSize"] = 20.0
+            blackHole.userData?["blackHoleActive"] = true
+            blackHole.userData?["rotation"] = 59
+            updateEnemies(kinds: [.blackHole])
         }
     }
 
@@ -1532,7 +1558,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                        originalRandomInt(0...100) > 94 {
                         emitFirework(style: 2)
                     }
-                    particleSimulation.update()
+                    particleSimulation.updateWide(screenSize: size)
                 }
             } else if !menuModel.isOpen, !gameplayPaused {
                 switch screenFlow.phase {
@@ -1556,7 +1582,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 cycleColors()
                 emitAttractFireworkIfNeeded(page: page, chance: 90, cutoff: 850)
                 if screenFlow.persistentTitleFrame > 350 {
-                    particleSimulation.update()
+                    particleSimulation.updateWide(screenSize: size)
                     for effect in attractDisplayEffects {
                         particleSimulation.applyBlackHole(
                             at: sourcePoint(effect.position),
@@ -1571,10 +1597,10 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 cycleColors()
                 recordAttractTrail(page: page)
                 emitAttractFireworkIfNeeded(page: page, chance: 90, cutoff: 700)
-                particleSimulation.update()
+                particleSimulation.updateWide(screenSize: size)
             case .friends:
                 emitAttractFireworkIfNeeded(page: page, chance: 94, cutoff: 850)
-                particleSimulation.update()
+                particleSimulation.updateWide(screenSize: size)
                 for effect in attractDisplayEffects {
                     particleSimulation.applyBlackHole(
                         at: sourcePoint(effect.position),
@@ -1588,7 +1614,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 recordAttractTrail(page: page)
             case .enemies:
                 emitAttractFireworkIfNeeded(page: page, chance: 94, cutoff: 850)
-                particleSimulation.update()
+                particleSimulation.updateWide(screenSize: size)
             }
         }
         let wasScorePage = screenFlow.phase == .attract(.scores)
@@ -1817,33 +1843,27 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     private func emitFirework(style: Int) {
-        let color = ParticleColor(
-            red: originalRandomInt(0...3) * 64,
-            green: originalRandomInt(0...3) * 64,
-            blue: originalRandomInt(0...3) * 64
-        )
-        let sourcePosition: CGPoint
-        if style == 1 {
-            if originalRandomInt(0...1) != 0 {
-                sourcePosition = CGPoint(
-                    x: CGFloat(originalRandomInt(100...max(100, Int(size.width) - 100))),
-                    y: originalRandomInt(0...1) != 0 ? size.height - 16 : 16
-                )
-            } else {
-                sourcePosition = CGPoint(
-                    x: originalRandomInt(0...1) != 0 ? size.width - 16 : 16,
-                    y: CGFloat(originalRandomInt(50...max(50, Int(size.height) - 50)))
-                )
-            }
-        } else if style == 2 {
-            sourcePosition = CGPoint(x: size.width / 2, y: size.height / 2)
+        let firework: OriginalFireworkState
+        if var random = captureRandom {
+            firework = OriginalFireworkRule.make(
+                style: style,
+                screenSize: size,
+                using: &random
+            )
+            captureRandom = random
         } else {
-            sourcePosition = CGPoint(
-                x: CGFloat(originalRandomInt(100...max(100, Int(size.width) - 100))),
-                y: CGFloat(originalRandomInt(50...max(50, Int(size.height) - 50)))
+            firework = OriginalFireworkRule.make(
+                style: style,
+                screenSize: size,
+                using: &spawnRandom
             )
         }
-        emitParticles(count: 64, at: sourcePoint(sourcePosition), kind: .random, color: color)
+        emitParticles(
+            count: 64,
+            at: sourcePoint(firework.sourcePosition),
+            kind: .random,
+            color: firework.color
+        )
     }
 
     private func prepareAttractCaptureRandomState(page: OriginalAttractPage) {
@@ -2387,6 +2407,12 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             rebuildArenaBorder()
             for star in starNodes { star.removeFromParent() }
             starNodes.removeAll(keepingCapacity: true)
+            starStates = OriginalStarRule.create(
+                maximumIndex: OriginalRuntimeSettings.maximumStars,
+                playfieldSize: arena,
+                screenSize: size,
+                using: &spawnRandom
+            )
             ensureStarCapacity(through: menuModel.settings.starCount)
             centerPlayerAndCamera()
         }
@@ -2457,40 +2483,43 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
     private func ensureStarCapacity(through requestedIndex: Int) {
         let finalIndex = min(OriginalRuntimeSettings.maximumStars, max(0, requestedIndex))
+        guard starStates.count > finalIndex else { return }
         guard starNodes.count <= finalIndex else { return }
-        let arena = playfieldSize
         for index in starNodes.count...finalIndex {
-            let depth = 2 + CGFloat(index % 8) / 4
-            let brightness = min(1, (480 / depth) / 255)
             let star = SKShapeNode(rect: OriginalDrawRectRule.sceneRect(
                 at: .zero,
                 width: 2,
                 height: 2
             ))
-            star.fillColor = SKColor(white: brightness, alpha: 1)
             star.strokeColor = .clear
             star.alpha = OriginalBlendRule.spriteKitAdditiveNodeAlpha(sourceAlpha: 0.8)
             star.blendMode = .add
             star.isAntialiased = false
             star.name = "star"
-            let basePosition = CGPoint(
-                x: CGFloat(originalRandomInt(
-                    -100...Int(max(arena.width, size.width) + 100)
-                )),
-                y: CGFloat(originalRandomInt(
-                    -100...Int(max(arena.height, size.height) + 100)
-                ))
-            )
-            star.position = basePosition
-            star.userData = NSMutableDictionary(dictionary: [
-                "baseX": basePosition.x,
-                "baseY": basePosition.y,
-                "depth": depth,
-            ])
+            configureStarNode(star, index: index)
             starNodes.append(star)
             gridLayer.addChild(star)
         }
         updateWorldTransformAndStars()
+    }
+
+    private func configureStarNode(_ star: SKShapeNode, index: Int) {
+        guard index < starStates.count else { return }
+        let state = starStates[index]
+        let basePosition = state.sceneBasePosition(
+            playfieldSize: playfieldSize,
+            screenSize: size
+        )
+        star.fillColor = SKColor(
+            white: CGFloat(state.brightnessChannel) / 255,
+            alpha: 1
+        )
+        star.position = basePosition
+        star.userData = NSMutableDictionary(dictionary: [
+            "baseX": basePosition.x,
+            "baseY": basePosition.y,
+            "depth": state.depth,
+        ])
     }
 
     private func updateWorldTransformAndStars() {
@@ -3458,7 +3487,12 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                     * OriginalBasicEnemyRule.homingAcceleration(for: kind.original)
                 _ = applyBlackHoleInfluence(to: enemy, kind: kind, velocity: &velocity)
             case .blackHole:
-                updateBlackHole(enemy, velocity: &velocity, maximumSpeed: maximumSpeed)
+                updateBlackHole(
+                    enemy,
+                    velocity: &velocity,
+                    maximumSpeed: maximumSpeed,
+                    rotation: rotation
+                )
             case .triangle:
                 updateTriangleVelocity(enemy, towardPlayer: towardPlayer, velocity: &velocity)
             case .snake:
@@ -4293,7 +4327,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private func updateBlackHole(
         _ blackHole: SKNode,
         velocity: inout CGVector,
-        maximumSpeed: CGFloat
+        maximumSpeed: CGFloat,
+        rotation: Int
     ) {
         let blackHoleSize = CGFloat((blackHole.userData?["blackHoleSize"] as? NSNumber)?.doubleValue ?? 20)
         blackHole.setScale(max(0.25, 0.25 + blackHoleSize / 64))
@@ -4303,7 +4338,6 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 radiusInPoints: 5 + Int(blackHoleSize / 2),
                 amount: 4
             )
-            let rotation = (blackHole.userData?["rotation"] as? NSNumber)?.intValue ?? 0
             if rotation.isMultiple(of: 25),
                let id = blackHole.userData?["enemyID"] as? String {
                 audio.updateBlackHoleLoop(
@@ -4331,6 +4365,34 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 otherSize: otherSize,
                 maximumSpeed: maximumSpeed
             )
+        }
+
+        if (blackHole.userData?["blackHoleActive"] as? NSNumber)?.boolValue ?? false,
+           rotation.isMultiple(of: OriginalBlackHoleParticleRule.cadence) {
+            let color = ParticleColor(
+                red: cyclingRed,
+                green: cyclingGreen,
+                blue: cyclingBlue
+            )
+            for index in 0..<OriginalBlackHoleParticleRule.count {
+                emitParticles(
+                    count: 1,
+                    at: OriginalBlackHoleParticleRule.scenePosition(
+                        center: blackHole.position,
+                        size: blackHoleSize,
+                        sourceRotation: rotation,
+                        index: index
+                    ),
+                    kind: .slowDirected,
+                    color: color,
+                    rotation: { _ in
+                        OriginalBlackHoleParticleRule.sourceDirection(
+                            sourceRotation: rotation,
+                            index: index
+                        )
+                    }
+                )
+            }
         }
     }
 

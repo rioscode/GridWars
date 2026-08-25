@@ -6,6 +6,88 @@ struct ParticleColor: Equatable, Codable {
     var blue: Int
 }
 
+struct OriginalStarState: Equatable {
+    let sourcePosition: CGPoint
+    let depth: CGFloat
+
+    var brightnessChannel: Int {
+        min(255, Int(480 / depth))
+    }
+
+    func sceneBasePosition(playfieldSize: CGSize, screenSize: CGSize) -> CGPoint {
+        CGPoint(
+            x: sourcePosition.x,
+            y: screenSize.height - sourcePosition.y
+                + (playfieldSize.height - screenSize.height) / depth
+        )
+    }
+}
+
+enum OriginalStarRule {
+    static func create(
+        maximumIndex: Int,
+        playfieldSize: CGSize,
+        screenSize: CGSize,
+        using random: inout BlitzMaxRandomNumberGenerator
+    ) -> [OriginalStarState] {
+        guard maximumIndex >= 0 else { return [] }
+        let maximumX = Int(max(playfieldSize.width, screenSize.width)) + 100
+        let maximumY = Int(max(playfieldSize.height, screenSize.height)) + 100
+        return (0...maximumIndex).map { index in
+            OriginalStarState(
+                sourcePosition: CGPoint(
+                    x: random.rand(-100, maximumX),
+                    y: random.rand(-100, maximumY)
+                ),
+                depth: 2 + CGFloat(index % 8) / 4
+            )
+        }
+    }
+}
+
+struct OriginalFireworkState: Equatable {
+    let sourcePosition: CGPoint
+    let color: ParticleColor
+}
+
+enum OriginalFireworkRule {
+    static func make(
+        style: Int,
+        screenSize: CGSize,
+        using random: inout BlitzMaxRandomNumberGenerator
+    ) -> OriginalFireworkState {
+        let color = ParticleColor(
+            red: random.rand(0, 3) * 64,
+            green: random.rand(0, 3) * 64,
+            blue: random.rand(0, 3) * 64
+        )
+        let width = Int(screenSize.width)
+        let height = Int(screenSize.height)
+        let sourcePosition: CGPoint
+        if style == 1 {
+            if random.rand(0, 1) != 0 {
+                let x = random.rand(100, width - 100)
+                var y = 16
+                if random.rand(0, 1) != 0 { y = height - 16 }
+                sourcePosition = CGPoint(x: x, y: y)
+            } else {
+                let y = random.rand(50, height - 50)
+                var x = 16
+                if random.rand(0, 1) != 0 { x = width - 16 }
+                sourcePosition = CGPoint(x: x, y: y)
+            }
+        } else if style == 2 {
+            sourcePosition = CGPoint(x: width / 2, y: height / 2)
+        } else {
+            sourcePosition = CGPoint(
+                x: random.rand(100, width - 100),
+                y: random.rand(50, height - 50)
+            )
+        }
+        return OriginalFireworkState(sourcePosition: sourcePosition, color: color)
+    }
+}
+
 enum OriginalParticleColor {
     static let greenSquare = ParticleColor(red: 32, green: 255, blue: 32)
     static let pinwheel = ParticleColor(red: 200, green: 64, blue: 255)
@@ -107,29 +189,29 @@ struct ParticleSimulation: Equatable {
         let magnitude: CGFloat
         switch kind {
         case .random:
-            direction = CGFloat(Int.random(in: 0...359, using: &random))
+            direction = -CGFloat(Int.random(in: 0...359, using: &random))
             magnitude = CGFloat.random(in: 3..<10, using: &random)
         case .radialBomb:
-            direction = rotationDegrees
+            direction = -rotationDegrees
             magnitude = 16
             activeFrames = 24
         case .directed:
-            direction = CGFloat(Int(rotationDegrees))
+            direction = -CGFloat(Int(rotationDegrees))
             magnitude = 8
         case .threeDirections:
-            direction = CGFloat(120 * Int.random(in: 0...2, using: &random) + Int(rotationDegrees))
+            direction = -CGFloat(120 * Int.random(in: 0...2, using: &random) + Int(rotationDegrees))
             magnitude = CGFloat.random(in: 3..<10, using: &random)
         case .fourDirections:
-            direction = CGFloat(90 * Int.random(in: 0...3, using: &random) + Int(rotationDegrees))
+            direction = -CGFloat(90 * Int.random(in: 0...3, using: &random) + Int(rotationDegrees))
             magnitude = CGFloat.random(in: 3..<10, using: &random)
         case .eightDirections:
-            direction = CGFloat(45 * Int.random(in: 0...7, using: &random) + Int(rotationDegrees))
+            direction = -CGFloat(45 * Int.random(in: 0...7, using: &random) + Int(rotationDegrees))
             magnitude = CGFloat.random(in: 3..<10, using: &random)
         case .slowDirected:
-            direction = rotationDegrees
+            direction = -rotationDegrees
             magnitude = CGFloat.random(in: 0.5..<1, using: &random)
         case .bombInternal:
-            direction = CGFloat(Int.random(in: 0...359, using: &random))
+            direction = -CGFloat(Int.random(in: 0...359, using: &random))
             magnitude = CGFloat.random(in: 1..<13, using: &random)
         }
 
@@ -221,6 +303,14 @@ struct ParticleSimulation: Equatable {
     }
 
     mutating func update() {
+        update(bounds: arenaSize)
+    }
+
+    mutating func updateWide(screenSize: CGSize) {
+        update(bounds: screenSize)
+    }
+
+    private mutating func update(bounds: CGSize) {
         for index in particles.indices where particles[index].activeFrames > 0 {
             var particle = particles[index]
             particle.position.x += particle.velocity.dx
@@ -230,11 +320,11 @@ struct ParticleSimulation: Equatable {
                 particle.velocity.dx = abs(particle.velocity.dx)
                 particle.position.x += particle.velocity.dx * 2
             }
-            if particle.position.x > arenaSize.width - 1 - particle.velocity.dx {
+            if particle.position.x > bounds.width - 1 - particle.velocity.dx {
                 particle.velocity.dx = -abs(particle.velocity.dx)
                 particle.position.x += particle.velocity.dx * 2
             }
-            if particle.position.y >= arenaSize.height + particle.velocity.dy {
+            if particle.position.y >= bounds.height + particle.velocity.dy {
                 particle.velocity.dy = -abs(particle.velocity.dy)
                 particle.position.y += particle.velocity.dy * 2
             }

@@ -4,8 +4,8 @@
 final class ParticleRenderer {
     let node = SKNode()
 
-    private let lines: [SKShapeNode]
-    private let sprites: [SKSpriteNode]
+    private var lines: [SKShapeNode]
+    private var sprites: [SKSpriteNode]
     private var graphicsSetIndex = 0
 
     init(capacity: Int = 2_048) {
@@ -43,20 +43,11 @@ final class ParticleRenderer {
     }
 
     func render(_ simulation: ParticleSimulation, style: Int = 0) {
-        for index in sprites.indices {
-            let line = lines[index]
-            let sprite = sprites[index]
-            guard index < simulation.particles.count else {
-                line.isHidden = true
-                sprite.isHidden = true
-                continue
-            }
-            let particle = simulation.particles[index]
-            guard particle.activeFrames > 0 else {
-                line.isHidden = true
-                sprite.isHidden = true
-                continue
-            }
+        ensureCapacity(simulation.activeCount)
+        var visualIndex = 0
+        for particle in simulation.particles where particle.activeFrames > 0 {
+            let line = lines[visualIndex]
+            let sprite = sprites[visualIndex]
 
             let color = boostedColor(particle.color, multiplier: style == 2 ? 1.5 : 1.25)
 
@@ -93,12 +84,40 @@ final class ParticleRenderer {
                 line.isHidden = true
                 sprite.isHidden = true
             }
+            visualIndex += 1
+        }
+        if visualIndex < sprites.count {
+            for index in visualIndex..<sprites.count {
+                lines[index].isHidden = true
+                sprites[index].isHidden = true
+            }
         }
     }
 
     func hideAll() {
         for line in lines { line.isHidden = true }
         for sprite in sprites { sprite.isHidden = true }
+    }
+
+    private func ensureCapacity(_ requestedCapacity: Int) {
+        guard requestedCapacity > sprites.count else { return }
+        let texture = OriginalGraphics.texture(named: "particle", setIndex: graphicsSetIndex)
+        for _ in sprites.count..<requestedCapacity {
+            let line = SKShapeNode()
+            line.blendMode = .add
+            line.lineCap = .butt
+            line.glowWidth = 0
+            line.isHidden = true
+            node.insertChild(line, at: lines.count)
+            lines.append(line)
+
+            let sprite = SKSpriteNode(texture: texture)
+            sprite.blendMode = .add
+            sprite.colorBlendFactor = 1
+            sprite.isHidden = true
+            node.addChild(sprite)
+            sprites.append(sprite)
+        }
     }
 
     private func configureLine(

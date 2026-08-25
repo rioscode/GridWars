@@ -47,6 +47,7 @@ Function CaptureOriginalCatalog:Int(mode$, directory$)
 		Case "black-hole-motion"; blackHoleKind = 0
 		Case "black-hole-shrink"; blackHoleKind = 1
 		Case "black-hole-explosion"; blackHoleKind = 2
+		Case "black-hole-particles"; blackHoleKind = 3
 		Case "snake-motion"; snakeKind = 0
 		Case "snake-tail-hit"; snakeKind = 1
 		Case "snake-cascade"; snakeKind = 2
@@ -612,6 +613,14 @@ Function CaptureOriginalBlackHole(kind:Int)
 			For blackHole = EachIn nme5_list
 				blackHole.active = True
 				blackHole.Grow(1)
+				Exit
+			Next
+		Case 3
+			nme5.Create(centerX, centerY, 20, 0, 1)
+			For blackHole = EachIn nme5_list
+				blackHole.active = True
+				blackHole.r = 59
+				blackHole.Update()
 				Exit
 			Next
 	End Select

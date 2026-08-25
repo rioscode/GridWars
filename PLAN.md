@@ -107,9 +107,9 @@ time, and each completed fidelity milestone has its own commit:
       textures, blending, timing, randomness, persistence, and verification
 - [x] macOS Debug build
 - [x] Generic iOS Simulator Debug build
-- [x] 114 gameplay, input, persistence, audio, and rendering-rule unit tests
+- [x] 119 gameplay, input, persistence, audio, and rendering-rule unit tests
 - [x] macOS launch and rendering smoke test
-- [x] Deterministic 133-state Swift capture catalog at 1024×768
+- [x] Deterministic 134-state Swift capture catalog at 1024×768
 - [x] Source-ordered Grid simulation and style-specific rendering pass for all
       21 selectors, including fixed-50-Hz animation phases and original
       particle-image composition
@@ -193,12 +193,19 @@ time, and each completed fidelity milestone has its own commit:
       menu target cursors, including capture-time mouse placement
 - [x] Top-left, 2×2 `DrawRect` star pixels with `LIGHTBLEND` and additive-alpha
       compensation
+- [x] Source-initialized 10,001-star table, integer brightness, tall-arena
+      depth parallax, and RNG consumption before gameplay entity creation
+- [x] Screen-wide attract particle bounds, source-angle handedness, firework
+      branch call order, configurable 50,000-slot rendering, and Dwight's
+      eight-particle 60-frame ambient ring
+- [x] Point-grid major highlights begin at source row/column four rather than
+      incorrectly treating index zero as a highlighted multiple
 
 `FIDELITY.md` is the acceptance ledger. The isolated BlitzMax harness and the
-Swift port now each capture the same 133 attract, transition, gameplay, HUD,
+Swift port now each capture the same 134 attract, transition, gameplay, HUD,
 entity, enemy-motion/lifecycle, generator, power-up, grid, particle,
 player/weapon, graphics-set, and menu states. The original reference checksums
-are pinned, and the comparison tool verified all 133 1024×768 pairs.
+are pinned, and the comparison tool verified all 134 1024×768 pairs.
 Style-by-style visual
 correction reduced the pixel difference for all 20 nonempty grid selectors and
 made the empty selector pixel-identical. The Moiré selector still exposes a

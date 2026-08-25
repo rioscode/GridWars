@@ -111,6 +111,29 @@ enum OriginalRGBSplitRule {
     }
 }
 
+enum OriginalBlackHoleParticleRule {
+    static let cadence = 60
+    static let count = 8
+
+    static func scenePosition(
+        center: CGPoint,
+        size: CGFloat,
+        sourceRotation: Int,
+        index: Int
+    ) -> CGPoint {
+        let rotation = CGFloat(sourceRotation) * .pi / 180
+        let spoke = CGFloat(sourceRotation + index * 45) * .pi / 180
+        return CGPoint(
+            x: center.x + sin(rotation) * size * 1.15 + sin(spoke) * 3,
+            y: center.y - cos(rotation) * size * 1.15 - cos(spoke) * 3
+        )
+    }
+
+    static func sourceDirection(sourceRotation: Int, index: Int) -> CGFloat {
+        CGFloat(sourceRotation + index * 45)
+    }
+}
+
 enum OriginalGetReadyRule {
     static let ringPullFrame = 60
     static let gridUpdatesPerFrame = 2

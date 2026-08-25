@@ -64,8 +64,31 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   and aged, merge, expiry, and Black-Hole captures measure respectively
   `0.00472276...0.00478242`, `0.00505081...0.00574582`, `0.00507924`,
   `0.00480415`, `0.00476707`, and `0.00492752`. Two independent complete
-  133-state original runs are byte-identical, the 13 new Swift states are
-  byte-identical across two runs, and all 133 original/Swift pairs pass.
+  original runs are byte-identical, the added Black Hole reference is
+  independently byte-identical, the 134-state Swift catalog is byte-identical
+  across two runs, and all 134 original/Swift pairs pass.
+- Grid, stars, and particles: `gridparttrail.bmx:16-31, 298-2109`,
+  `gridwars.bmx:1159-1170, 5642-5682` map to `GridSimulation`,
+  `GridRenderer`, `OriginalStarRule`, `ParticleSimulation`,
+  `ParticleRenderer`, `OriginalFireworkRule`, and
+  `OriginalBlackHoleParticleRule`. Grid updates retain the observable
+  top-to-bottom in-place traversal and all 21 selector-specific draw paths;
+  the point selectors now begin major highlights at row/column four, not
+  zero. The complete inclusive `0...10000` star table is created before later
+  random gameplay state, with cyclic depths, truncated integer brightness,
+  top-left 2×2 additive pixels, and tall-playfield parallax preserved after
+  scene-Y conversion. Particle creation retains all source kinds, angle
+  handedness, doubled initial velocity, gravity, decay, fading, ring-buffer
+  capacity, and both arena-bound `Update` and screen-bound `UpdateWide`.
+  Visual capacity now grows to every active configured slot instead of
+  stopping at 2048. Fireworks preserve style-specific random-call order, and
+  active Black Holes emit the missing eight slow directed particles every 60
+  rotations. Five new rule tests cover star generation/parallax, generic
+  angle conversion, wide bounds, edge-firework order, and the Black Hole
+  recipe. The four particle captures differ by only
+  `0.000187054...0.00272124`; point grids 0/1 measure `0.00281094` and
+  `0.00205562`, and the new Black Hole particle state measures `0.0047782`.
+  All 134 original/Swift pairs remain valid at 1024×768.
 - Player lifecycle: `gridwars.bmx:4344-4503` maps to the frame-based death and
   Get Ready states in `GameScene`: 256 death particles, non-killer removal,
   100 death frames, 60 title frames, 40 contraction frames, delayed life loss,
@@ -367,13 +390,13 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   graphics-set captures to 0.01588–0.01620. The score, high score, multiplier,
   lives and bomb indicators use the original vector font, coordinates, alpha
   and icon frames. The isolated original
-  renderer now produces 133 valid full-frame 1024×768 attract, transition,
+  renderer now produces 134 valid full-frame 1024×768 attract, transition,
   gameplay, HUD, entity, enemy-motion/lifecycle, generator, power-up, grid,
   particle, player/weapon, graphics-set, and menu references via
   `scripts/capture-original.sh`;
   capture mode bypasses all
   legacy configuration and high-score I/O. A persistence-free Swift catalog
-  covers the same 133 states via `scripts/capture-screens.sh`, and
+  covers the same 134 states via `scripts/capture-screens.sh`, and
   `scripts/compare-captures.sh` measures every matching pair. Two independent
   complete original runs produced byte-identical PNGs. Enemy
   pages reproduce the original individual rotation, pulse and squash rates,
@@ -422,13 +445,15 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   archived legacy `Language/Data types.bbdoc` documents the implicit numeric
   conversions used by the original. Swift random ranges and intentional
   integer truncations follow those references.
-- Build evidence (2026-08-25): the macOS unit-test action (114 tests) and generic
+- Build evidence (2026-08-25): the macOS unit-test action (119 tests) and generic
   iOS Simulator Debug build both pass. The rule suite
   covers initial difficulty, motion, weapons, scoring, upgrade effects,
   power-up selection/spawn/lifecycle thresholds, spawn timing,
   triangle bonds, snake following, black-hole integer conversions,
   interceptor geometry, generator non-kill scoring, grid deformation and the
-  original particle ring, legacy persistence, checksum handling, and
+  original particle ring, star creation/parallax, wide particle bounds,
+  firework order, Black Hole ambient particles, legacy persistence, checksum
+  handling, and
   high-score name entry, audio manifest/spatial mixing, readable lossless
   tracker conversions, all five input modes, remapping, calibration, touch
   equivalence, graphics-set metadata, original menu text/controller direction,
@@ -488,13 +513,13 @@ the corresponding Swift implementation, and a test or visual/runtime check.
 
 ## Grid, particles, and rendering
 
-- [ ] Grid styles 0 through 20 and their exact composition
+- [x] Grid styles 0 through 20 and their exact composition
       (`gridparttrail.bmx:494-1662`).
 - [x] Configurable spacing, RGB, opacity, full-grid mode, scroll offsets, arena
       sizes, and border.
 - [x] Grid push, pull, shockwave, black-hole deformation, and reset.
-- [ ] Star count/depth parallax and all four particle styles.
-- [ ] Particle gravity, lifetime, decay, capacity, fireworks, trails, and
+- [x] Star count/depth parallax and all four particle styles.
+- [x] Particle gravity, lifetime, decay, capacity, fireworks, trails, and
       per-entity particle recipes.
 - [ ] Solid, Low, Medium, High, and User graphic sets with correct frames,
       blend modes, rotation, scale, and bloom appearance.

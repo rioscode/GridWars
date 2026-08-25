@@ -55,6 +55,19 @@ circle `Plot` pixels, and stars. The source draws stars with
 `SetScale(2,2); DrawRect(...,1,1)`, so the visible result is a 2×2 top-left
 pixel block, not a centered 2×2 node.
 
+Star creation and drawing use different coordinate stages. Create the complete
+inclusive `0...MAXSTARS` table up front, even when only 301 stars are visible.
+The original creates this table from the default random stream before reseeding
+gameplay, so preserve that separate initialization lifecycle as well as the
+number of calls.
+For a source star `(x,y)` with depth `d`, a scene-space base suitable for a
+world node translated by the camera is
+`(x, screenH-y+(playfieldH-screenH)/d)`. Then subtract the scene camera offset
+by `1/d`. This reproduces the original `stary-gyoff/d` for playfields taller
+than the screen. Brightness is an integer assignment of `480/d`, truncated
+before clamping to 255; keeping it as an untruncated floating channel changes
+the shallow star levels.
+
 Run source-space helpers in source space. `SafeXY` clamps and offsets a
 top-left-Y position, and its non-close branch chooses
 `Rand(0, 360 * 8) / 8.0` before applying `Sin` to X and `Cos` to Y. Convert the
@@ -362,6 +375,29 @@ Every grid selector has distinct topology, bounds, alpha, and state leakage.
 Avoid a single generalized renderer until all selectors have been audited.
 Direct GL line paths, Max2D lines, filled quads, texture particles, and
 per-vertex gradients need separate treatment.
+
+Mathematical multiples can still have source loop boundaries. Point-grid
+styles 0 and 1 draw the larger row/column marks from index four onward; index
+zero is not highlighted even though `0 Mod 4 = 0`.
+
+Particle motion also has two deliberate boundary variants. Gameplay calls
+`Update` against `PLAYFIELDW/H`, while attract/menu paths call `UpdateWide`
+against `SCREENW/H`. Keep both entry points. After converting the simulation
+to scene-Y coordinates, negate every source emission angle—including generic
+test/helper overloads—before deriving velocity. Preserve the source's final
+doubling of both velocity components and its cyclic slot replacement.
+
+Do not confuse the original default of 2048 particles with its configurable
+maximum of 50,000. A renderer may allocate visual nodes lazily, but it must
+scan all active simulation slots in source index order and grow to the actual
+active count. For particle style 3, keep all line nodes before the later bloom
+image pass when that pool grows.
+
+Firework branch order is random state. In style 1's vertical-edge branch the
+source samples Y before choosing the left/right side. Active Black Holes add a
+separate recipe every 60 rotations: eight type-7 particles at
+`center + (Sin(r)*size*1.15, Cos(r)*size*1.15)` plus a three-pixel 45-degree
+spoke, directed by `r+spoke`. Invert both cosine Y terms at the scene boundary.
 
 ## Randomness and numeric conversions
 
