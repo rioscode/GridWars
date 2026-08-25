@@ -84,8 +84,9 @@ they can be tested without rendering.
 
 ## Current status
 
-The source-level implementation audit is complete on the `codex/swift-port`
-branch. Each major fidelity milestone has its own commit:
+The source-level implementation inventory is complete on the
+`codex/swift-port` branch. Behavioural acceptance continues one subsystem at a
+time, and each completed fidelity milestone has its own commit:
 
 - [x] Shared SwiftUI/SpriteKit app sources
 - [x] macOS keyboard and mouse input
@@ -106,9 +107,9 @@ branch. Each major fidelity milestone has its own commit:
       textures, blending, timing, randomness, persistence, and verification
 - [x] macOS Debug build
 - [x] Generic iOS Simulator Debug build
-- [x] 98 gameplay, input, persistence, audio, and rendering-rule unit tests
+- [x] 100 gameplay, input, persistence, audio, and rendering-rule unit tests
 - [x] macOS launch and rendering smoke test
-- [x] Deterministic 97-state Swift capture catalog at 1024×768
+- [x] Deterministic 100-state Swift capture catalog at 1024×768
 - [x] Source-ordered Grid simulation and style-specific rendering pass for all
       21 selectors, including fixed-50-Hz animation phases and original
       particle-image composition
@@ -163,6 +164,9 @@ branch. Each major fidelity milestone has its own commit:
 - [x] Dwight Black Hole activation, shrink/growth, mutual orbit, absorption,
       pull, collision/score thresholds, loop rates, overload spawn ring, and
       floating kill-score presentation
+- [x] Selena Snake source-handed head steering, per-axis corner turns, global
+      speed progression, 25-node following order, Tail hit persistence,
+      generator `SafeXY`, and 30/300-frame staged chain destruction
 - [x] Top-left 1×1 `Plot` pixel anchoring for midpoint-circle Get Ready rings
 - [x] OpenGL pixel-center anchoring for one-pixel particle line style 0
 - [x] OpenGL pixel-center anchoring and additive-alpha compensation for the
@@ -175,11 +179,10 @@ branch. Each major fidelity milestone has its own commit:
       compensation
 
 `FIDELITY.md` is the acceptance ledger. The isolated BlitzMax harness and the
-Swift port now each capture the same 97 attract, transition, gameplay, HUD,
-entity, basic-enemy motion, generator, power-up, grid, particle, graphics-set,
-and menu states. Two
-independent complete original runs produced byte-identical PNGs, and the
-comparison tool verified all 97 1024×768 pairs. Style-by-style visual
+Swift port now each capture the same 100 attract, transition, gameplay, HUD,
+entity, enemy-motion/lifecycle, generator, power-up, grid, particle,
+graphics-set, and menu states. The original reference checksums are pinned,
+and the comparison tool verified all 100 1024×768 pairs. Style-by-style visual
 correction reduced the pixel difference for all 20 nonempty grid selectors and
 made the empty selector pixel-identical. The Moiré selector still exposes a
 known OpenGL per-vertex-gradient versus SpriteKit rasterization difference. An

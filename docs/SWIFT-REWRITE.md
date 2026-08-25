@@ -91,6 +91,14 @@ Preserve first-draw edge cases. For example, the original Snake tail computes
 `ATan2(0,0)+90`, so a new zero-velocity segment is drawn at 90 degrees before
 its first update.
 
+Keep Snake's `rot` as a source-space heading even though positions and
+velocities live in SpriteKit space. Its steering vector therefore becomes
+`(cos(rot)*speed, -sin(rot)*speed)`. Boundary response still adds 90 source
+degrees once for each violated axis; a corner hit adds 180, not one generic
+"did bounce" turn. The Tail chain updates from the terminal link toward the
+head because recursive creation adds links to the BlitzMax list while
+unwinding.
+
 Max2D does not always transform geometry around the center one might infer
 from the call site. `DrawTarget` rotates each `DrawLine(x-sz,y-sz,x+sz,y+sz)`
 difference vector around the shared first endpoint. Replacing it with centered
@@ -225,6 +233,17 @@ Snake recursively creates 24 tail links plus the terminal link. Every link
 draws an otherwise unused rotation, and each positive length divisible by
 three draws a direction-flip value. A flat Swift tail array must still consume
 those calls in the recursive source order.
+
+Do not freeze mutable BlitzMax globals into an entity at construction time.
+Enemy speed globals increase each minute and immediately affect enemies that
+already exist, so the Swift update reads the current shared session speed each
+frame. This also applies to projectile-avoidance caps derived from that speed.
+
+Audit positional calls against each exact signature. `ge.Birth` ends the Snake
+call with `...,24,5,1`; for `nme6.Create` that `1` is the inert `rr` argument,
+not the later `close` flag. Generator-born Snake heads therefore use the normal
+160-point `SafeXY` rule while the other generator children use the close
+40-point rule.
 
 Remove Swift-only random fields even when their values are never read: they
 still shift the shared stream. Conversely, retain source calls whose numeric

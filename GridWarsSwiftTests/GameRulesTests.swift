@@ -92,6 +92,25 @@ final class GameRulesTests: XCTestCase {
         XCTAssertEqual(GameDifficulty.hard.initialFrame, 7_000)
     }
 
+    func testPerMinuteSpeedIncreaseMutatesTheSharedEnemySpeeds() {
+        var session = GameSession(difficulty: .medium)
+        let initialSnakeSpeed = session.enemySpeeds[.snake]
+        let initialButterflySpeed = session.enemySpeeds[.butterfly]
+
+        session.increaseEnemySpeeds()
+
+        XCTAssertEqual(
+            session.enemySpeeds[.snake],
+            initialSnakeSpeed + GameDifficulty.medium.speedIncreasePerMinute,
+            accuracy: 0.0001
+        )
+        XCTAssertEqual(
+            session.enemySpeeds[.butterfly],
+            initialButterflySpeed + GameDifficulty.medium.speedIncreasePerMinute,
+            accuracy: 0.0001
+        )
+    }
+
     func testMultiplierUsesOriginalCumulativeThresholds() {
         var session = GameSession()
 
@@ -693,6 +712,10 @@ final class GameRulesTests: XCTestCase {
     }
 
     func testGeneratorTimingWarningAndFillAlphaMatchOriginalQuirks() {
+        XCTAssertFalse(OriginalGeneratorRule.childUsesCloseSafePosition(kind: .snake))
+        for kind in OriginalEnemyKind.allCases where kind != .snake {
+            XCTAssertTrue(OriginalGeneratorRule.childUsesCloseSafePosition(kind: kind))
+        }
         XCTAssertEqual(OriginalGeneratorRule.birthPeriod(rate: 100, health: 24), 118)
         XCTAssertFalse(OriginalGeneratorRule.isWarningFrame(
             rotation: 109,
@@ -745,6 +768,15 @@ final class GameRulesTests: XCTestCase {
     }
 
     func testSnakeTailUsesOriginalFifteenPixelFollowingRule() {
+        XCTAssertEqual(SnakeSegmentRule.tailSegmentCount, 24)
+        XCTAssertEqual(SnakeSegmentRule.originalFrame(segmentIndex: 0), 23)
+        XCTAssertEqual(SnakeSegmentRule.originalFrame(segmentIndex: 23), 0)
+        XCTAssertEqual(
+            SnakeSegmentRule.projectileCollisionThresholdSquared(originalFrame: 24),
+            105
+        )
+        XCTAssertEqual(SnakeSegmentRule.cascadeStartFrame(awardsPoints: true), 30)
+        XCTAssertEqual(SnakeSegmentRule.cascadeStartFrame(awardsPoints: false), 300)
         XCTAssertEqual(
             SnakeSegmentRule.zeroVelocityDrawRotation,
             CGFloat.pi / 2,
@@ -764,6 +796,32 @@ final class GameRulesTests: XCTestCase {
             maximumSpeed: 3.5
         )
         XCTAssertEqual(nearVelocity.dx, 1.0 / 32.0, accuracy: 0.0001)
+    }
+
+    func testSnakeHeadSteeringAndBoundaryResponsePreserveSourceHandedness() {
+        let acceleration = SnakeHeadRule.sceneSteeringAcceleration(
+            sourceHeading: 90,
+            maximumSpeed: 3.5
+        )
+        XCTAssertEqual(acceleration.dx, 0, accuracy: 0.0001)
+        XCTAssertEqual(acceleration.dy, -3.5, accuracy: 0.0001)
+        XCTAssertEqual(SnakeHeadRule.sourceHeadingAfterTurn(90, turnDirection: 0), 94)
+        XCTAssertEqual(SnakeHeadRule.sourceHeadingAfterTurn(90, turnDirection: 1), 86)
+        XCTAssertEqual(SnakeHeadRule.turnDirectionAfterRoll(0, roll: 90), 0)
+        XCTAssertEqual(SnakeHeadRule.turnDirectionAfterRoll(0, roll: 91), 1)
+
+        var position = CGPoint(x: 7, y: 761)
+        var velocity = CGVector(dx: -2, dy: 3)
+        var sourceHeading: CGFloat = 10
+        SnakeHeadRule.bounce(
+            position: &position,
+            velocity: &velocity,
+            sourceHeading: &sourceHeading,
+            arenaSize: CGSize(width: 1_024, height: 768)
+        )
+        XCTAssertEqual(position, CGPoint(x: 9, y: 758))
+        XCTAssertEqual(velocity, CGVector(dx: 2, dy: -3))
+        XCTAssertEqual(sourceHeading, 190)
     }
 
     func testBlackHoleRulesPreserveOriginalIntegerConversions() {
@@ -1944,7 +2002,7 @@ final class GameRulesTests: XCTestCase {
 
     func testCaptureCatalogCoversEveryFidelityCategory() {
         let scenarios = OriginalCaptureScenario.all
-        XCTAssertEqual(scenarios.count, 97)
+        XCTAssertEqual(scenarios.count, 100)
         XCTAssertEqual(Set(scenarios.map(\.name)).count, scenarios.count)
         XCTAssertEqual(
             OriginalCaptureScenario(name: "power-up-message")?.subject,
@@ -1962,6 +2020,7 @@ final class GameRulesTests: XCTestCase {
         var enemies = 0
         var enemyMotions = 0
         var blackHoleCaptures = 0
+        var snakeCaptures = 0
         var generators = 0
         var powerUps = 0
         var grids = 0
@@ -1974,6 +2033,7 @@ final class GameRulesTests: XCTestCase {
             case .enemy: enemies += 1
             case .enemyMotion: enemyMotions += 1
             case .blackHole: blackHoleCaptures += 1
+            case .snake: snakeCaptures += 1
             case .generator: generators += 1
             case .powerUp: powerUps += 1
             case .grid: grids += 1
@@ -1986,6 +2046,7 @@ final class GameRulesTests: XCTestCase {
         XCTAssertEqual(enemies, OriginalEnemyKind.allCases.count)
         XCTAssertEqual(enemyMotions, 6)
         XCTAssertEqual(blackHoleCaptures, OriginalBlackHoleCapture.allCases.count)
+        XCTAssertEqual(snakeCaptures, OriginalSnakeCapture.allCases.count)
         XCTAssertEqual(generators, OriginalEnemyKind.allCases.count)
         XCTAssertEqual(powerUps, PowerUpKind.allCases.count)
         XCTAssertEqual(grids, 21)

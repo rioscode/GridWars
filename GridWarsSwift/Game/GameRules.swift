@@ -745,6 +745,12 @@ enum OriginalEnemyKind: Int, CaseIterable, Codable, Equatable {
 }
 
 enum OriginalGeneratorRule {
+    static func childUsesCloseSafePosition(kind: OriginalEnemyKind) -> Bool {
+        // ge.Birth's trailing `1` is nme6.Create's rr argument; Snake's close
+        // parameter remains at its default zero unlike the other nine kinds.
+        kind != .snake
+    }
+
     static func birthPeriod(rate: Int, health: Int) -> Int {
         max(1, rate + 42 - health)
     }
@@ -1042,7 +1048,24 @@ struct TriangleBondState: Equatable {
 }
 
 enum SnakeSegmentRule {
+    static let tailSegmentCount = 24
+    static let followDistance: CGFloat = 15
+    static let closeFollowDivisor: CGFloat = 32
+    static let boundaryMargin: CGFloat = 8
+    static let playerCollisionThresholdSquared: CGFloat = 24 * 24
     static let zeroVelocityDrawRotation = CGFloat.pi / 2
+
+    static func originalFrame(segmentIndex: Int) -> Int {
+        tailSegmentCount - 1 - segmentIndex
+    }
+
+    static func projectileCollisionThresholdSquared(originalFrame: Int) -> CGFloat {
+        CGFloat(9 * 9 + originalFrame)
+    }
+
+    static func cascadeStartFrame(awardsPoints: Bool) -> Int {
+        awardsPoints ? 30 : 300
+    }
 
     static func velocity(
         from position: CGPoint,
@@ -1054,10 +1077,61 @@ enum SnakeSegmentRule {
             dy: precedingPosition.y - position.y
         )
         let distance = max(0.001, difference.length)
-        if distance > 15 {
+        if distance > followDistance {
             return difference / distance * maximumSpeed
         }
-        return difference / distance / 32
+        return difference / distance / closeFollowDivisor
+    }
+}
+
+enum SnakeHeadRule {
+    static func sceneSteeringAcceleration(
+        sourceHeading: CGFloat,
+        maximumSpeed: CGFloat
+    ) -> CGVector {
+        let radians = sourceHeading * .pi / 180
+        return CGVector(
+            dx: cos(radians) * maximumSpeed,
+            dy: -sin(radians) * maximumSpeed
+        )
+    }
+
+    static func sourceHeadingAfterTurn(
+        _ sourceHeading: CGFloat,
+        turnDirection: Int
+    ) -> CGFloat {
+        sourceHeading + (turnDirection == 0 ? 4 : -4)
+    }
+
+    static func turnDirectionAfterRoll(_ turnDirection: Int, roll: Int) -> Int {
+        roll > 90 ? 1 - turnDirection : turnDirection
+    }
+
+    static func bounce(
+        position: inout CGPoint,
+        velocity: inout CGVector,
+        sourceHeading: inout CGFloat,
+        arenaSize: CGSize
+    ) {
+        let margin = SnakeSegmentRule.boundaryMargin
+        if position.x < margin {
+            velocity.dx = abs(velocity.dx)
+            position.x += velocity.dx
+            sourceHeading += 90
+        } else if position.x > arenaSize.width - margin {
+            velocity.dx = -abs(velocity.dx)
+            position.x += velocity.dx
+            sourceHeading += 90
+        }
+        if position.y < margin {
+            velocity.dy = abs(velocity.dy)
+            position.y += velocity.dy
+            sourceHeading += 90
+        } else if position.y > arenaSize.height - margin {
+            velocity.dy = -abs(velocity.dy)
+            position.y += velocity.dy
+            sourceHeading += 90
+        }
     }
 }
 

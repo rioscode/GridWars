@@ -5,6 +5,7 @@ Function CaptureOriginalCatalog:Int(mode$, directory$)
 	Local entityKind:Int = -1
 	Local motionKind:Int = -1
 	Local blackHoleKind:Int = -1
+	Local snakeKind:Int = -1
 	Local generatorKind:Int = -1
 	Local powerKind:Int = -1
 	Local gridKind:Int = -1
@@ -40,6 +41,9 @@ Function CaptureOriginalCatalog:Int(mode$, directory$)
 		Case "black-hole-motion"; blackHoleKind = 0
 		Case "black-hole-shrink"; blackHoleKind = 1
 		Case "black-hole-explosion"; blackHoleKind = 2
+		Case "snake-motion"; snakeKind = 0
+		Case "snake-tail-hit"; snakeKind = 1
+		Case "snake-cascade"; snakeKind = 2
 
 		Case "generator-pinwheel"; generatorKind = 1
 		Case "generator-diamond"; generatorKind = 2
@@ -131,6 +135,7 @@ Function CaptureOriginalCatalog:Int(mode$, directory$)
 		If entityKind >= 0 Then CaptureOriginalEnemy(entityKind)
 		If motionKind >= 0 Then CaptureOriginalEnemyMotion(motionKind)
 		If blackHoleKind >= 0 Then CaptureOriginalBlackHole(blackHoleKind)
+		If snakeKind >= 0 Then CaptureOriginalSnake(snakeKind)
 		If generatorKind >= 0 Then ge.Create(SCREENW/2, SCREENH/2, generatorKind, 60, 24, 0)
 		If powerKind >= 0 Then pu.Create(SCREENW/2, SCREENH/2, powerKind, 0)
 
@@ -155,6 +160,52 @@ Function CaptureOriginalCatalog:Int(mode$, directory$)
 	SaveScreenshot(directory + "/" + mode + ".png")
 	Flip 1
 	Return True
+End Function
+
+Function CaptureOriginalSnake(kind:Int)
+	px = SCREENW/2
+	py = 100
+	Local centerX:Int = SCREENW/2
+	Local centerY:Int = SCREENH/2
+	Local head:nme6 = nme6.Create(centerX, centerY, 24, 0, 0, 0, 0, 1)
+	Local segment:nme6
+
+	Select kind
+		Case 0
+			For Local frame:Int = 0 Until 30
+				For segment = EachIn nme6_list
+					segment.Update()
+				Next
+			Next
+		Case 1
+			LayoutOriginalSnake(head)
+			segment = head
+			For Local tailIndex:Int = 0 Until 8
+				segment = segment.tail
+			Next
+			segment.Kill()
+		Case 2
+			LayoutOriginalSnake(head)
+			head.Kill()
+			For Local frame:Int = 0 Until 8
+				For segment = EachIn nme6_list
+					segment.Update()
+				Next
+			Next
+	End Select
+End Function
+
+Function LayoutOriginalSnake(head:nme6)
+	Local centerX:Int = SCREENW/2
+	Local centerY:Int = SCREENH/2
+	Local segment:nme6 = head
+	Local segmentIndex:Int = 0
+	While segment <> Null
+		segment.x = centerX - segmentIndex*13
+		segment.y = centerY + Sin(segmentIndex*20)*22
+		segment = segment.tail
+		segmentIndex :+ 1
+	Wend
 End Function
 
 Function CaptureOriginalBlackHole(kind:Int)

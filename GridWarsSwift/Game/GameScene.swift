@@ -542,7 +542,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         captureRandom = BlitzMaxRandomNumberGenerator(seed: 1)
 
         let preparesOriginalState: Bool = switch captureRequest.scenario.subject {
-        case .gameplay, .enemy, .enemyMotion, .blackHole, .generator, .powerUp,
+        case .gameplay, .enemy, .enemyMotion, .blackHole, .snake, .generator, .powerUp,
              .grid, .particleStyle,
              .graphicsSet, .getReady, .death, .gameOver, .highScoreEntry,
              .hudDefault, .hudUpgraded, .powerUpMessage:
@@ -583,6 +583,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         case let .blackHole(capture):
             prepareGameplayCapture()
             configureBlackHoleCapture(capture)
+        case let .snake(capture):
+            prepareGameplayCapture()
+            configureSnakeCapture(capture)
         case let .generator(kind):
             prepareGameplayCapture()
             spawnGenerator(
@@ -805,20 +808,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             enemy.userData?["blackHoleActive"] = true
             var velocity = CGVector.zero
             updateBlackHole(enemy, velocity: &velocity, maximumSpeed: 1)
-        } else if kind == .snake,
-                  let headID = enemy.userData?["enemyID"] as? String {
-            let segments = enemyLayer.children.filter {
-                $0.name == "snakeTail" && $0.userData?["snakeHeadID"] as? String == headID
-            }
-            for segment in segments {
-                let index = (segment.userData?["segmentIndex"] as? NSNumber)?.intValue ?? 0
-                let sourceIndex = index + 1
-                segment.position = sourcePoint(CGPoint(
-                    x: center.x - CGFloat(sourceIndex) * 13,
-                    y: center.y
-                        + sin(CGFloat(sourceIndex * 20) * .pi / 180) * 22
-                ))
-            }
+        } else if kind == .snake {
+            layoutSnakeForCapture(enemy)
         }
     }
 
@@ -892,6 +883,63 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             blackHole.userData?["blackHoleSize"] = 64.5
             blackHole.userData?["blackHoleActive"] = true
             growBlackHole(blackHole, amount: 1)
+        }
+    }
+
+    private func configureSnakeCapture(_ capture: OriginalSnakeCapture) {
+        player.position = sourcePoint(CGPoint(x: playfieldSize.width / 2, y: 100))
+        let center = CGPoint(x: playfieldSize.width / 2, y: playfieldSize.height / 2)
+        guard let head = spawnEnemy(
+            kind: .snake,
+            at: center,
+            freezeFrames: 0,
+            closeToPlayer: true,
+            playBornSound: false
+        ) else { return }
+
+        switch capture {
+        case .motion:
+            for _ in 0..<30 {
+                updateEnemies(kinds: [.snake])
+            }
+        case .tailHit:
+            layoutSnakeForCapture(head)
+            guard let segment = snakeSegments(for: head).first(where: {
+                (($0.userData?["originalFrame"] as? NSNumber)?.intValue ?? -1) == 16
+            }) else { return }
+            let projectile = SKNode()
+            projectile.userData = NSMutableDictionary(dictionary: ["dx": 0.0, "dy": 0.0])
+            damageEnemy(segment, projectile: projectile)
+        case .cascade:
+            layoutSnakeForCapture(head)
+            let projectile = SKNode()
+            projectile.userData = NSMutableDictionary(dictionary: ["dx": 0.0, "dy": 0.0])
+            damageEnemy(head, projectile: projectile)
+            for _ in 0..<8 {
+                updateEnemies(kinds: [.snake])
+            }
+        }
+    }
+
+    private func layoutSnakeForCapture(_ head: SKNode) {
+        guard let headID = head.userData?["enemyID"] as? String else { return }
+        let center = CGPoint(x: playfieldSize.width / 2, y: playfieldSize.height / 2)
+        for segment in enemyLayer.children where
+            segment.name == "snakeTail"
+                && segment.userData?["snakeHeadID"] as? String == headID {
+            let index = (segment.userData?["segmentIndex"] as? NSNumber)?.intValue ?? 0
+            let sourceIndex = index + 1
+            segment.position = sourcePoint(CGPoint(
+                x: center.x - CGFloat(sourceIndex) * 13,
+                y: center.y + sin(CGFloat(sourceIndex * 20) * .pi / 180) * 22
+            ))
+        }
+    }
+
+    private func snakeSegments(for head: SKNode) -> [SKNode] {
+        guard let headID = head.userData?["enemyID"] as? String else { return [] }
+        return enemyLayer.children.filter {
+            $0.name == "snakeTail" && $0.userData?["snakeHeadID"] as? String == headID
         }
     }
 
@@ -2448,7 +2496,6 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             "enemyID": enemyID,
             "kind": kind.rawValue,
             "health": kind.health,
-            "speed": session.enemySpeeds[kind.original],
             "score": kind.score,
             "freezeFrames": freezeFrames,
             "rotation": initialRotation,
@@ -2871,7 +2918,14 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 x: generator.position.x + randomCoordinate(-10...10),
                 y: generator.position.y + randomCoordinate(-10...10)
             )
-            let born = spawnEnemy(kind: kind, at: offset, freezeFrames: 5, closeToPlayer: true)
+            let born = spawnEnemy(
+                kind: kind,
+                at: offset,
+                freezeFrames: 5,
+                closeToPlayer: OriginalGeneratorRule.childUsesCloseSafePosition(
+                    kind: kind.original
+                )
+            )
             if kind == .blackHole {
                 born?.userData?["blackHoleSize"] = 10.0
                 if let born {
@@ -2895,7 +2949,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             }
             for enemy in enemies {
             guard enemy.parent != nil else { continue }
-            let baseSpeed = CGFloat((enemy.userData?["speed"] as? NSNumber)?.doubleValue ?? 1)
+            let baseSpeed = session.enemySpeeds[requestedKind.original]
             let cubeTier = (enemy.userData?["cubeTier"] as? NSNumber)?.intValue ?? 0
             let seekerMean = (enemy.userData?["seekerMean"] as? NSNumber)?.intValue ?? 0
             let maximumSpeed = OriginalBasicEnemyRule.maximumSpeed(
@@ -2979,15 +3033,18 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             case .snake:
                 var heading = CGFloat((enemy.userData?["snakeHeading"] as? NSNumber)?.doubleValue ?? 0)
                 var turnDirection = (enemy.userData?["snakeTurnDirection"] as? NSNumber)?.intValue ?? 0
-                let headingRadians = heading * .pi / 180
-                velocity = velocity + CGVector(
-                    dx: cos(headingRadians) * maximumSpeed,
-                    dy: sin(headingRadians) * maximumSpeed
+                velocity = velocity + SnakeHeadRule.sceneSteeringAcceleration(
+                    sourceHeading: heading,
+                    maximumSpeed: maximumSpeed
                 )
-                heading += turnDirection == 0 ? 4 : -4
-                if originalRandomInt(1...100) > 90 {
-                    turnDirection = 1 - turnDirection
-                }
+                heading = SnakeHeadRule.sourceHeadingAfterTurn(
+                    heading,
+                    turnDirection: turnDirection
+                )
+                turnDirection = SnakeHeadRule.turnDirectionAfterRoll(
+                    turnDirection,
+                    roll: originalRandomInt(1...100)
+                )
                 enemy.userData?["snakeHeading"] = heading
                 enemy.userData?["snakeTurnDirection"] = turnDirection
                 _ = applyBlackHoleInfluence(to: enemy, kind: kind, velocity: &velocity)
@@ -3064,12 +3121,19 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             if !movesBeforeSteering, kind != .interceptor {
                 enemy.position.x += velocity.dx
                 enemy.position.y += velocity.dy
-                let velocityBeforeBounce = velocity
-                bounce(enemy, velocity: &velocity, margin: 8)
-                if kind == .snake,
-                   velocity.dx != velocityBeforeBounce.dx || velocity.dy != velocityBeforeBounce.dy {
-                    let heading = CGFloat((enemy.userData?["snakeHeading"] as? NSNumber)?.doubleValue ?? 0)
-                    enemy.userData?["snakeHeading"] = heading + 90
+                if kind == .snake {
+                    var heading = CGFloat(
+                        (enemy.userData?["snakeHeading"] as? NSNumber)?.doubleValue ?? 0
+                    )
+                    SnakeHeadRule.bounce(
+                        position: &enemy.position,
+                        velocity: &velocity,
+                        sourceHeading: &heading,
+                        arenaSize: playfieldSize
+                    )
+                    enemy.userData?["snakeHeading"] = heading
+                } else {
+                    bounce(enemy, velocity: &velocity, margin: 8)
                 }
             }
 
@@ -3233,8 +3297,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
     private func spawnSnakeSegments(for head: SKNode, freezeFrames: Int) {
         guard let headID = head.userData?["enemyID"] as? String else { return }
-        for index in 0..<24 {
-            let originalFrame = 23 - index
+        for index in 0..<SnakeSegmentRule.tailSegmentCount {
+            let originalFrame = SnakeSegmentRule.originalFrame(segmentIndex: index)
             let segment = SKSpriteNode(texture: snakeTailTexture(frame: originalFrame))
             segment.name = "snakeTail"
             segment.size = OriginalGraphicsSet(
@@ -3306,11 +3370,12 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             )
             segment.position.x += velocity.dx
             segment.position.y += velocity.dy
-            bounce(segment, velocity: &velocity, margin: 8)
+            bounce(segment, velocity: &velocity, margin: SnakeSegmentRule.boundaryMargin)
             segment.userData?["dx"] = velocity.dx
             segment.userData?["dy"] = velocity.dy
             segment.zRotation = atan2(velocity.dy, velocity.dx) + .pi / 2
-            if squaredDistance(segment.position, player.position) < 24 * 24,
+            if squaredDistance(segment.position, player.position)
+                < SnakeSegmentRule.playerCollisionThresholdSquared,
                hitPlayer(killer: segment) {
                 return
             }
@@ -3326,7 +3391,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             (($0.userData?["segmentIndex"] as? NSNumber)?.intValue ?? 0)
                 < (($1.userData?["segmentIndex"] as? NSNumber)?.intValue ?? 0)
         }
-        nearest?.userData?["snakeDyingMove"] = awardPoints ? 30 : 300
+        nearest?.userData?["snakeDyingMove"] = SnakeSegmentRule.cascadeStartFrame(
+            awardsPoints: awardPoints
+        )
     }
 
     private func updateDyingSnakeSegments(maximumSpeed: CGFloat) {
@@ -3383,11 +3450,12 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 )
                 segment.position.x += velocity.dx
                 segment.position.y += velocity.dy
-                bounce(segment, velocity: &velocity, margin: 8)
+                bounce(segment, velocity: &velocity, margin: SnakeSegmentRule.boundaryMargin)
                 segment.userData?["dx"] = velocity.dx
                 segment.userData?["dy"] = velocity.dy
                 segment.zRotation = atan2(velocity.dy, velocity.dx) + .pi / 2
-                if squaredDistance(segment.position, player.position) < 24 * 24,
+                if squaredDistance(segment.position, player.position)
+                    < SnakeSegmentRule.playerCollisionThresholdSquared,
                    hitPlayer(killer: segment) {
                     return
                 }
@@ -4012,7 +4080,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             let frame = snakeNode.name == "snakeTail"
                 ? ((snakeNode.userData?["originalFrame"] as? NSNumber)?.intValue ?? 0)
                 : 24
-            if squaredDistance(position, snakeNode.position) < CGFloat(9 * 9 + frame) {
+            if squaredDistance(position, snakeNode.position)
+                < SnakeSegmentRule.projectileCollisionThresholdSquared(originalFrame: frame) {
                 damageEnemy(snakeNode, projectile: projectile)
                 return true
             }
@@ -4073,7 +4142,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 cubeTier: cubeTier
             ) else { return false }
             radiusSquared = threshold
-        case .snake, .interceptor, .triangle:
+        case .snake:
+            radiusSquared = SnakeSegmentRule.playerCollisionThresholdSquared
+        case .interceptor, .triangle:
             radiusSquared = 24 * 24
         case .blackHole:
             let blackHoleSize = CGFloat((enemy.userData?["blackHoleSize"] as? NSNumber)?.doubleValue ?? 20)
@@ -4090,7 +4161,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             dy: CGFloat((square.userData?["dy"] as? NSNumber)?.doubleValue ?? 0)
         )
         let shotVelocity = projectileVelocity(projectile)
-        let maximumSpeed = CGFloat((square.userData?["speed"] as? NSNumber)?.doubleValue ?? 1) * 1.1
+        let maximumSpeed = session.enemySpeeds[.greenSquare] * 1.1
         let avoidingVelocity = OriginalGreenSquareRule.velocityAvoidingProjectile(
             squarePosition: square.position,
             squareVelocity: squareVelocity,
