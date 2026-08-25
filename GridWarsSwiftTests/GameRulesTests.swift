@@ -13,20 +13,23 @@ final class GameRulesTests: XCTestCase {
             keyCode: 35,
             pressed: true,
             cheatMode: false,
-            isPlaying: true
+            isPlaying: true,
+            isPaused: false
         ))
         XCTAssertEqual(OriginalCheatPauseRule.pauseState(
             keyCode: 35,
             pressed: true,
             cheatMode: true,
-            isPlaying: true
+            isPlaying: true,
+            isPaused: false
         ), true)
         XCTAssertEqual(OriginalCheatPauseRule.pauseState(
             keyCode: 35,
             pressed: false,
             cheatMode: true,
-            isPlaying: true
-        ), false)
+            isPlaying: true,
+            isPaused: true
+        ), true)
         XCTAssertTrue(OriginalCheatPauseRule.shouldAdvanceSingleFrame(
             keyCode: 31,
             pressed: true,
@@ -42,6 +45,12 @@ final class GameRulesTests: XCTestCase {
             cheatMode: true,
             isPlaying: true,
             isPaused: true
+        ))
+        XCTAssertTrue(OriginalCheatPauseRule.pauseStateAfterSingleFrame(
+            pauseKeyIsHeld: true
+        ))
+        XCTAssertFalse(OriginalCheatPauseRule.pauseStateAfterSingleFrame(
+            pauseKeyIsHeld: false
         ))
     }
 
@@ -2375,6 +2384,73 @@ final class GameRulesTests: XCTestCase {
             controllerAxes: axes,
             pressedButtons: [bomb]
         ).finishIsPressed)
+    }
+
+    func testHighScoreHeldInputsUseOriginalSharedCooldownAndRepeat() {
+        var settings = OriginalRuntimeSettings()
+        var axes = Array(repeating: CGFloat.zero, count: 15)
+        axes[1] = 0.7
+        let bomb = settings.dualAnalogBombButton
+        var state = OriginalHighScoreInputFrameState()
+
+        var frame = OriginalHighScoreInputFrameRule.advance(
+            settings: settings,
+            controllerAxes: axes,
+            pressedButtons: [bomb],
+            pressedPhysicalKeys: [],
+            state: state
+        )
+        XCTAssertEqual(frame.characterDelta, 1)
+        XCTAssertFalse(frame.finishes)
+        state = frame.state
+
+        for _ in 0..<7 {
+            frame = OriginalHighScoreInputFrameRule.advance(
+                settings: settings,
+                controllerAxes: axes,
+                pressedButtons: [],
+                pressedPhysicalKeys: [],
+                state: state
+            )
+            state = frame.state
+            XCTAssertEqual(frame.characterDelta, 0)
+            XCTAssertFalse(frame.finishes)
+        }
+
+        frame = OriginalHighScoreInputFrameRule.advance(
+            settings: settings,
+            controllerAxes: axes,
+            pressedButtons: [],
+            pressedPhysicalKeys: [],
+            state: state
+        )
+        XCTAssertEqual(frame.characterDelta, 1)
+        XCTAssertFalse(frame.finishes)
+
+        axes[1] = 0
+        state = OriginalHighScoreInputFrameState()
+        for _ in 0..<20 {
+            frame = OriginalHighScoreInputFrameRule.advance(
+                settings: settings,
+                controllerAxes: axes,
+                pressedButtons: [bomb],
+                pressedPhysicalKeys: [],
+                state: state
+            )
+            state = frame.state
+        }
+        XCTAssertTrue(frame.finishes)
+
+        settings.controllerType = .keyboard
+        frame = OriginalHighScoreInputFrameRule.advance(
+            settings: settings,
+            controllerAxes: axes,
+            pressedButtons: [bomb],
+            pressedPhysicalKeys: [126],
+            state: state
+        )
+        XCTAssertEqual(frame.characterDelta, -1)
+        XCTAssertFalse(frame.finishes)
     }
 
     func testOriginalSoundManifestMatchesSourceIncludingItsMissingWarningAsset() {

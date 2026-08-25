@@ -549,10 +549,12 @@ Friends. A zero score skips Scores entirely. Ending a live game with a positive
 score still runs the normal qualification/name-entry path after gameplay state,
 particles, and Grid deformation have been cleared.
 
-The cheat pause is a held-P loop. While P remains held, each O hit releases one
-complete 50-Hz iteration and immediately pauses again; advance simulation and
-renderer-owned Grid animation phase together. Do not add a pause overlay—the
-last rendered gameplay frame remains visible.
+The cheat pause is a local loop entered when P is observed down. Releasing P
+after entry does not leave that loop; O is still required. O releases one
+complete 50-Hz iteration and the next iteration enters the pause loop again
+only if P remains down. Advance simulation and renderer-owned Grid animation
+phase together. Do not add a pause overlay—the last rendered gameplay frame
+remains visible.
 
 ## Fonts and menus
 
@@ -595,6 +597,13 @@ the selected slot. Movement Y cycles ASCII, movement X selects a slot, fire Y
 toggles case, and the configured mouse or Dual-Analog/Joypad BOMB completes the
 entry. The eight character slots are global in the source: retain the last name
 for the next record, but reset the local selection to slot zero.
+
+The name editor's local `bombtime` starts at 20 and is shared by controller
+case toggle, character cycling, position movement, held Up/Down, and controller
+BOMB completion. Axis movement can act once immediately, then repeats after
+8 or 15 frames even if it never returns to neutral; neutral input only clears
+the corresponding ignore flag. Decrement the cooldown before testing a held
+controller BOMB. A generic one-action-until-neutral latch is observably wrong.
 
 Qualification and validity are separate. An invalid score that exceeds the
 tenth-place score skips insertion and displays as unranked, but the original

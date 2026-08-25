@@ -107,7 +107,7 @@ time, and each completed fidelity milestone has its own commit:
       textures, blending, timing, randomness, persistence, and verification
 - [x] macOS Debug build
 - [x] Generic iOS Simulator Debug build
-- [x] 126 gameplay, input, persistence, audio, and rendering-rule unit tests
+- [x] 127 gameplay, input, persistence, audio, and rendering-rule unit tests
 - [x] macOS launch and rendering smoke test
 - [x] Deterministic 136-state Swift capture catalog at 1024×768
 - [x] Manual side-by-side review of all 136 Original/Swift capture pairs,

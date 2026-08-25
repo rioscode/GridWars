@@ -36,6 +36,82 @@ struct OriginalHighScoreControllerInput: Equatable {
     var finishIsPressed: Bool
 }
 
+struct OriginalHighScoreInputFrameState: Equatable {
+    fileprivate(set) var cooldownFrames = 20
+    fileprivate(set) var ignoresMoveX = false
+    fileprivate(set) var ignoresMoveY = false
+    fileprivate(set) var ignoresFireY = false
+
+    mutating func registerImmediateSelection() {
+        cooldownFrames = 15
+        ignoresMoveX = true
+    }
+}
+
+struct OriginalHighScoreInputFrameResult: Equatable {
+    var state: OriginalHighScoreInputFrameState
+    var togglesCase = false
+    var characterDelta = 0
+    var selectionDelta = 0
+    var finishes = false
+}
+
+enum OriginalHighScoreInputFrameRule {
+    static func advance(
+        settings: OriginalRuntimeSettings,
+        controllerAxes: [CGFloat],
+        pressedButtons: Set<Int>,
+        pressedPhysicalKeys: Set<UInt16>,
+        state initialState: OriginalHighScoreInputFrameState
+    ) -> OriginalHighScoreInputFrameResult {
+        let input = OriginalHighScoreControllerRule.resolve(
+            settings: settings,
+            controllerAxes: controllerAxes,
+            pressedButtons: pressedButtons
+        )
+        var state = initialState
+        var moveX = abs(input.moveX) < 0.3 ? 0 : input.moveX
+        var moveY = abs(input.moveY) < 0.3 ? 0 : input.moveY
+        var fireY = abs(input.fireY) < 0.3 ? 0 : input.fireY
+
+        if moveX == 0 { state.ignoresMoveX = false }
+        if moveY == 0 { state.ignoresMoveY = false }
+        if fireY == 0 { state.ignoresFireY = false }
+        if state.ignoresMoveX, state.cooldownFrames > 0 { moveX = 0 }
+        if state.ignoresMoveY, state.cooldownFrames > 0 { moveY = 0 }
+        if state.ignoresFireY, state.cooldownFrames > 0 { fireY = 0 }
+
+        // BlitzMax tests held Up and Down after the joystick suppression, so
+        // Down wins if both keys are held and the shared cooldown is clear.
+        if state.cooldownFrames == 0 {
+            if pressedPhysicalKeys.contains(126) { moveY = -1 }
+            if pressedPhysicalKeys.contains(125) { moveY = 1 }
+        }
+
+        if moveX != 0 { state.ignoresMoveX = true }
+        if moveY != 0 { state.ignoresMoveY = true }
+        if fireY != 0 { state.ignoresFireY = true }
+
+        var result = OriginalHighScoreInputFrameResult(state: state)
+        if fireY != 0 {
+            result.togglesCase = true
+            result.state.cooldownFrames = 15
+        }
+        if moveY != 0 {
+            result.characterDelta = moveY < 0 ? -1 : 1
+            result.state.cooldownFrames = 8
+        }
+        if moveX != 0 {
+            result.selectionDelta = moveX < 0 ? -1 : 1
+            result.state.cooldownFrames = 15
+        }
+
+        result.state.cooldownFrames = max(0, result.state.cooldownFrames - 1)
+        result.finishes = input.finishIsPressed && result.state.cooldownFrames == 0
+        return result
+    }
+}
+
 enum OriginalHighScoreControllerRule {
     static func resolve(
         settings: OriginalRuntimeSettings,

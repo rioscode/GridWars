@@ -12,10 +12,13 @@ enum OriginalCheatPauseRule {
         keyCode: UInt16,
         pressed: Bool,
         cheatMode: Bool,
-        isPlaying: Bool
+        isPlaying: Bool,
+        isPaused: Bool
     ) -> Bool? {
         guard keyCode == 35, cheatMode, isPlaying else { return nil }
-        return pressed
+        // The source enters a local pause loop when P is observed down. Once
+        // entered, releasing P does not leave it; only O releases one frame.
+        return pressed || isPaused
     }
 
     static func shouldAdvanceSingleFrame(
@@ -32,6 +35,10 @@ enum OriginalCheatPauseRule {
             && cheatMode
             && isPlaying
             && isPaused
+    }
+
+    static func pauseStateAfterSingleFrame(pauseKeyIsHeld: Bool) -> Bool {
+        pauseKeyIsHeld
     }
 }
 

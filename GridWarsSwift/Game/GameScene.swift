@@ -157,7 +157,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private var previousControllerButtons = Set<Int>()
     private var controllerHorizontalIsLatched = false
     private var controllerVerticalIsLatched = false
-    private var highScoreFireAxisIsLatched = false
+    private var highScoreInputFrameState = OriginalHighScoreInputFrameState()
     private var playerMotion = PlayerMotionState()
     private var gridSimulation = GridSimulation(arenaSize: CGSize(width: 1_024, height: 768))
     private var particleSimulation = ParticleSimulation(arenaSize: CGSize(width: 1_024, height: 768))
@@ -167,6 +167,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private var menuPresentationPage = OriginalMenuPage.options
     private var menuPresentationFrame = 0
     private var gameplayPaused = false
+    private var cheatPauseKeyIsHeld = false
     private var cheatMode = false
     private var godMode = false
     private var particleGravityEnabled = true
@@ -1587,6 +1588,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 gridRenderer.advanceAnimation()
             }
             if highScoreNameEntry != nil {
+                advanceHighScoreInputFrame()
                 cycleColors()
                 if originalRandomInt(0...100) > 90 {
                     emitFirework(style: 2)
@@ -1790,7 +1792,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         )
         controllerHorizontalIsLatched = false
         controllerVerticalIsLatched = false
-        highScoreFireAxisIsLatched = false
+        highScoreInputFrameState = OriginalHighScoreInputFrameState()
     }
 
     private func finishHighScoreNameEntry() {
@@ -1817,7 +1819,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         unrankedScoreEntry = nil
         controllerHorizontalIsLatched = false
         controllerVerticalIsLatched = false
-        highScoreFireAxisIsLatched = false
+        highScoreInputFrameState = OriginalHighScoreInputFrameState()
     }
 
     private func renderPresentation() {
@@ -2235,7 +2237,6 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         previousControllerButtons = controllerButtons
 
         if highScoreNameEntry != nil {
-            handleHighScoreController(newlyPressedButtons: newlyPressed)
             return
         }
         if menuModel.isOpen {
@@ -2285,48 +2286,31 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         }
     }
 
-    private func handleHighScoreController(newlyPressedButtons: Set<Int>) {
+    private func advanceHighScoreInputFrame() {
         guard var entry = highScoreNameEntry else { return }
-        let input = OriginalHighScoreControllerRule.resolve(
+        let input = OriginalHighScoreInputFrameRule.advance(
             settings: menuModel.settings,
             controllerAxes: controllerAxes,
-            pressedButtons: newlyPressedButtons
+            pressedButtons: controllerButtons,
+            pressedPhysicalKeys: pressedKeys,
+            state: highScoreInputFrameState
         )
-        var changed = false
-
-        if abs(input.fireY) < 0.3 {
-            highScoreFireAxisIsLatched = false
-        } else if !highScoreFireAxisIsLatched {
+        highScoreInputFrameState = input.state
+        if input.togglesCase {
             entry.toggleCase()
-            highScoreFireAxisIsLatched = true
             audio.play(.enemyHit)
-            changed = true
         }
-
-        if abs(input.moveY) < 0.3 {
-            controllerVerticalIsLatched = false
-        } else if !controllerVerticalIsLatched {
-            entry.cycleCharacter(by: input.moveY < 0 ? -1 : 1)
-            controllerVerticalIsLatched = true
+        if input.characterDelta != 0 {
+            entry.cycleCharacter(by: input.characterDelta)
             audio.play(.enemyHit)
-            changed = true
         }
-
-        if abs(input.moveX) < 0.3 {
-            controllerHorizontalIsLatched = false
-        } else if !controllerHorizontalIsLatched {
-            entry.moveSelection(by: input.moveX < 0 ? -1 : 1)
-            controllerHorizontalIsLatched = true
+        if input.selectionDelta != 0 {
+            entry.moveSelection(by: input.selectionDelta)
             audio.play(.enemyHit)
-            changed = true
         }
-
         highScoreNameEntry = entry
-        if input.finishIsPressed {
+        if input.finishes {
             finishHighScoreNameEntry()
-            renderPresentation()
-        } else if changed {
-            renderPresentation()
         }
     }
 
@@ -6146,21 +6130,28 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             var entry = highScoreNameEntry ?? OriginalHighScoreNameEntry()
             let previousEntry = entry
             switch keyCode {
-            case 123: entry.moveSelection(by: -1)
-            case 124: entry.moveSelection(by: 1)
-            case 126: entry.cycleCharacter(by: -1)
-            case 125: entry.cycleCharacter(by: 1)
+            case 123:
+                entry.moveSelection(by: -1)
+                highScoreInputFrameState.registerImmediateSelection()
+            case 124:
+                entry.moveSelection(by: 1)
+                highScoreInputFrameState.registerImmediateSelection()
+            case 126, 125:
+                break
             case 36:
                 finishHighScoreNameEntry()
                 renderPresentation()
                 return
-            case 49: entry.setASCII(32)
+            case 49:
+                entry.setASCII(32)
+                highScoreInputFrameState.registerImmediateSelection()
             default:
                 if var ascii = originalKeyCode, (48...90).contains(ascii) {
                     let shiftIsDown = pressedOriginalKeys.contains(160)
                         || pressedOriginalKeys.contains(161)
                     if (65...90).contains(ascii), !shiftIsDown { ascii += 32 }
                     entry.setASCII(ascii)
+                    highScoreInputFrameState.registerImmediateSelection()
                 }
             }
             if entry != previousEntry { audio.play(.enemyHit) }
@@ -6173,8 +6164,10 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             keyCode: keyCode,
             pressed: pressed,
             cheatMode: cheatMode,
-            isPlaying: screenFlow.phase == .playing
+            isPlaying: screenFlow.phase == .playing,
+            isPaused: gameplayPaused
         ) {
+            cheatPauseKeyIsHeld = pressed
             gameplayPaused = pauseState
             renderPresentation()
             return
@@ -6192,6 +6185,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             ) {
                 gridRenderer.advanceAnimation()
                 simulateFrame()
+                gameplayPaused = OriginalCheatPauseRule.pauseStateAfterSingleFrame(
+                    pauseKeyIsHeld: cheatPauseKeyIsHeld
+                )
                 renderPresentation()
             }
             return

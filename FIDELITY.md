@@ -316,8 +316,10 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   F3-F7, F1/F2, the 1-4/X/Z/S cheat actions and the
   P-held/O-single-step loop are wired to the original macOS key positions;
   pause preserves the last gameplay frame without adding a non-original
-  overlay, and each O step now advances the Grid animation phase with the
-  gameplay frame. End Game from live play follows the source's return-code-2
+  overlay. Releasing P after entering the source's local pause loop does not
+  resume it: O is still required. Each O step advances the Grid animation
+  phase with the gameplay frame and re-enters the loop only while P remains
+  held. End Game from live play follows the source's return-code-2
   path through cleared gameplay state and the score/high-score decision; a
   zero score returns directly to the title, while a completed post-game score
   page returns to the title instead of continuing to Friends. The historical
@@ -325,8 +327,10 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   a clean title return because mobile apps cannot terminate themselves.
   The name editor accepts the source's direct key range and case behavior,
   configurable mouse BOMB, calibrated controller axes/case toggle and the
-  Dual-Analog/Joypad BOMB buttons. Its eight global character slots persist
-  into the next record while selection restarts at zero. Invalid scores that
+  Dual-Analog/Joypad BOMB buttons. Held arrows and axes share the original
+  8/15/20-frame `bombtime` repeat delay rather than waiting for an axis to
+  return to neutral. Its eight global character slots persist into the next
+  record while selection restarts at zero. Invalid scores that
   would otherwise qualify remain unranked but keep the source high-score music;
   all completed entries are checksummed and persisted before presentation
   continues.
@@ -471,7 +475,7 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   archived legacy `Language/Data types.bbdoc` documents the implicit numeric
   conversions used by the original. Swift random ranges and intentional
   integer truncations follow those references.
-- Build evidence (2026-08-25): the macOS unit-test action (126 tests) and generic
+- Build evidence (2026-08-25): the macOS unit-test action (127 tests) and generic
   iOS Simulator Debug build both pass. The rule suite
   covers initial difficulty, motion, weapons, scoring, upgrade effects,
   power-up selection/spawn/lifecycle thresholds, spawn timing,
