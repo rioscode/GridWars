@@ -4,7 +4,7 @@ This file defines the acceptance surface for the native Swift port. A checked
 item requires three forms of evidence: an original BlitzMax source reference,
 the corresponding Swift implementation, and a test or visual/runtime check.
 
-## Evidence in progress
+## Acceptance evidence
 
 - Player motion and weapons: `gridwars.bmx:96, 4982-5604, 5963-5988`,
   `gridparttrail.bmx:2017-2080`, and `utils.bmx:178-191` map to
@@ -522,11 +522,20 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   simulator's Application Support directory. The mobile Exit Program -> Sure?
   -> Yes path returned to the animated Title without terminating the app, as
   required by the iOS platform equivalent. The generic unsigned iPhoneOS arm64
-  build passes without the former orientation validation warning. The paired
-  iPhone 17 Pro Max reports Developer Mode enabled but no active CoreDevice
-  tunnel, the other detected iPhone is unavailable, and the Mac has no valid
-  Apple development signing identity. Real-device evidence therefore remains
-  explicitly pending in `PLAN.md`.
+  build passes without the former orientation validation warning.
+- Physical iOS acceptance evidence (2026-08-25): Xcode signed, installed, and
+  launched the Debug application on an iPhone 17 Pro Max running iOS 26.6.
+  `GridWarsPhysicalSmokeTests.testPhysicalTouchAndLifecycleFlow` then passed in
+  47.458 seconds with zero failures. The UI test started from attract mode,
+  entered gameplay with BOMB, sent movement and aim drags through both virtual
+  sticks, triggered the bomb shockwave, opened OPT, activated Continue, sent
+  the app Home, restored it to the foreground, terminated it, and completed a
+  cold relaunch. Its seven retained screenshots were visually inspected and
+  show attract, gameplay, the shockwave, Options, resumed gameplay,
+  foreground restoration, and title presentation after relaunch. A direct,
+  read-only CoreDevice check of the app container found the emitted 280-line
+  `Config.txt`, 76-line `Colours.txt`, and 150-line `hiscores.dat` in
+  `Library/Application Support/GridWars`.
 
 ## Core loop and progression
 
@@ -651,3 +660,6 @@ the corresponding Swift implementation, and a test or visual/runtime check.
       at matching 1024×768 state and frame counts.
 - [x] Full playthrough smoke tests cover start, death/respawn, game over,
       high-score insertion, options persistence, and attract-mode return.
+- [x] Physical iPhone testing covers signed installation, landscape gameplay,
+      both touch sticks, BOMB, OPT/Continue, Home/foreground, cold relaunch,
+      retained screenshots, and on-device legacy persistence.

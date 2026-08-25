@@ -630,6 +630,16 @@ Use three levels of evidence:
 2. deterministic fixed-state captures against the original renderer;
 3. manual playthroughs on macOS and real iPhone/iPad hardware.
 
+For a fixed-landscape SpriteKit app, drive physical UI tests with normalized
+application coordinates, but derive menu-row Y positions after the 4:3
+aspect-fit transform. A row that is centered at source Y 464 on a 768-point
+scene lands near normalized screen Y 0.62 on the tested 2868×1320 device;
+rounding that to 0.60 selected no hit frame. After Home/activate, wait for the
+interface-orientation transition before taking evidence screenshots. XCUITest
+may store the physical PNG pixel matrix in portrait order even though its image
+orientation metadata and the running interface are landscape, so do not reject
+the layout from raw width/height alone.
+
 The repeatable macOS interaction sequence and its data-isolated Debug
 high-score hook are documented in `docs/RUNTIME-SMOKE.md`.
 

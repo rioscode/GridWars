@@ -12,8 +12,8 @@ authority for gameplay and presentation.
 The port includes all ten enemies and generators, the 21 grid selectors, the
 original particle recipes, weapons and power-ups, attract screens, menus,
 graphics sets, sound effects, tracker music, high scores, legacy configuration
-import, and all five controller modes. The remaining evidence work is tracked
-honestly in `FIDELITY.md`.
+import, and all five controller modes. The completed source, test, visual, and
+physical-device acceptance evidence is recorded in `FIDELITY.md`.
 
 ### Requirements
 
@@ -64,6 +64,20 @@ xcodebuild -project GridWars.xcodeproj -scheme GridWars-iOS \
 xcodebuild -project GridWars.xcodeproj -scheme GridWars-macOS \
   -configuration Debug -destination 'platform=macOS' \
   -derivedDataPath .build/DerivedData-tests CODE_SIGNING_ALLOWED=NO test
+```
+
+With an unlocked, trusted iPhone/iPad in Developer Mode and a development team,
+run the physical touch/lifecycle smoke test with:
+
+```sh
+xcodebuild -project GridWars.xcodeproj -scheme GridWars-iOS \
+  -configuration Debug -destination 'id=<device-udid>' \
+  -derivedDataPath .build/DerivedData-ios-physical-tests \
+  -resultBundlePath .build/PhysicalSmoke.xcresult \
+  DEVELOPMENT_TEAM=<your-team-id> \
+  -allowProvisioningUpdates -allowProvisioningDeviceRegistration \
+  -only-testing:GridWarsSwiftUITests/GridWarsPhysicalSmokeTests/testPhysicalTouchAndLifecycleFlow \
+  test
 ```
 
 ### Swift port controls

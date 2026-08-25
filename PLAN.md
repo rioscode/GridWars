@@ -84,9 +84,9 @@ they can be tested without rendering.
 
 ## Current status
 
-The source-level implementation inventory is complete on the
-`codex/swift-port` branch. Behavioural acceptance continues one subsystem at a
-time, and each completed fidelity milestone has its own commit:
+The source-level implementation and acceptance inventory is complete on the
+`codex/swift-port` branch. Each completed fidelity milestone has its own
+commit:
 
 - [x] Shared SwiftUI/SpriteKit app sources
 - [x] macOS keyboard and mouse input
@@ -110,7 +110,8 @@ time, and each completed fidelity milestone has its own commit:
 - [x] Generic unsigned iPhoneOS arm64 Debug build
 - [x] iPhone 17 Pro and iPad Air 11-inch Simulator touch/layout smoke tests,
       plus iPhone persistence, lifecycle, and exit validation
-- [ ] Physical iPhone/iPad gameplay and lifecycle smoke test
+- [x] Physical iPhone 17 Pro Max gameplay, touch, menu, lifecycle, and
+      persistence smoke test on iOS 26.6
 - [x] 127 gameplay, input, persistence, audio, and rendering-rule unit tests
 - [x] macOS launch and rendering smoke test
 - [x] Deterministic 136-state Swift capture catalog at 1024×768
@@ -227,11 +228,12 @@ cannot hold two non-modifier keys simultaneously. iPhone 17 Pro and iPad Air
 11-inch Simulator runs additionally verify aspect-fit mobile layout, touch
 start and both virtual sticks. The iPhone run also verifies BOMB,
 OPT/Continue, background/foreground persistence, and the mobile Title-return
-equivalent for Exit Program. A fresh post-runtime 136-state macOS catalog is
-byte-identical to the manually accepted catalog. The paired iPhone 17 Pro Max
-reports Developer Mode enabled but no active CoreDevice tunnel, the other
-detected iPhone is unavailable, and the Mac has no valid Apple development
-signing identity. Physical iPhone/iPad hardware therefore remains the final
-platform gate; this evidence gap is not represented as completed 1:1 proof.
+equivalent for Exit Program. A signed Debug build and XCUITest then repeated
+the mobile interaction flow on a physical iPhone 17 Pro Max with iOS 26.6:
+BOMB start, both virtual sticks, BOMB shockwave, OPT/Continue, Home/foreground,
+and cold relaunch all passed. Seven retained test screenshots were inspected,
+and the device app container held the expected 280-line `Config.txt`, 76-line
+`Colours.txt`, and 150-line `hiscores.dat`. A fresh post-runtime 136-state
+macOS catalog is byte-identical to the manually accepted catalog.
 The complete visual review and the renderer-specific acceptance boundary are
 recorded in `docs/CAPTURE-REVIEW.md`.

@@ -64,19 +64,47 @@ Application Support directory contained the complete legacy files: 280 lines
 in `Config.txt`, 76 in `Colours.txt`, and 150 in `hiscores.dat`. Exit Program
 -> Sure? -> Yes returned to the animated title while the iOS app remained open.
 
-This is simulator evidence, not a substitute for physical-device validation.
-The generic unsigned iPhoneOS arm64 build succeeds, including the target's
-landscape-only full-screen declaration. The paired iPhone 17 Pro Max reports
-Developer Mode enabled but no active CoreDevice tunnel, the other detected
-iPhone is unavailable, and the Mac has no valid Apple development signing
-identity.
+The generic unsigned iPhoneOS arm64 build also succeeds, including the target's
+landscape-only full-screen declaration. iOS maps the source's application-exit
+request to a clean title return because mobile applications cannot terminate
+themselves.
 
-For iOS/iPadOS, repeat the normal start, twin-stick movement/aim, BOMB, OPT,
-background/foreground, and persistence checks on a physical device. iOS maps
-the source's application-exit request to a clean title return because mobile
-applications cannot terminate themselves.
+## Recorded physical iPhone acceptance
 
-Before that run, connect and unlock the device, trust this Mac, enable Developer
-Mode, and select an Apple development team for the `GridWars-iOS` target. The
-remaining work is signing, installation, and touch/lifecycle observation on
-hardware; the device-target Swift compilation itself already passes.
+On 2026-08-25, Xcode signed, installed, and launched the Debug build on a
+physical iPhone 17 Pro Max running iOS 26.6. The shared `GridWars-iOS` scheme's
+UI test repeated the mobile interaction sequence with real device events:
+
+1. launch in attract mode and tap BOMB to start;
+2. wait for live gameplay and drag both the movement and aim virtual sticks;
+3. tap BOMB and capture the visible Grid shockwave;
+4. open OPT and activate Continue;
+5. press Home, reactivate the app, and verify the foreground presentation;
+6. terminate the app, cold-launch it, and verify the title presentation.
+
+The test passed in 47.458 seconds with zero failures. Its seven retained Xcode
+attachments (`01-attract` through `07-cold-relaunch`) were inspected and show
+the expected attract, gameplay, shockwave, Options, resumed-gameplay,
+foreground, and relaunch states. XCUITest stores the device PNG pixels in
+portrait order even while the interface and game run in landscape; Xcode's
+orientation metadata and the manual device screenshot show the intended
+2868×1320 landscape presentation.
+
+The reproducible device command is:
+
+```sh
+xcodebuild -project GridWars.xcodeproj -scheme GridWars-iOS \
+  -configuration Debug -destination 'id=<device-udid>' \
+  -derivedDataPath .build/DerivedData-ios-physical-tests \
+  -resultBundlePath .build/PhysicalSmoke.xcresult \
+  DEVELOPMENT_TEAM=<your-team-id> \
+  -allowProvisioningUpdates -allowProvisioningDeviceRegistration \
+  -only-testing:GridWarsSwiftUITests/GridWarsPhysicalSmokeTests/testPhysicalTouchAndLifecycleFlow \
+  test
+```
+
+After the lifecycle run, a read-only CoreDevice listing found `Config.txt`,
+`Colours.txt`, and `hiscores.dat` under
+`Library/Application Support/GridWars` in the app data container. Copies read
+back from the phone contained exactly 280, 76, and 150 lines respectively,
+matching the legacy codecs and simulator evidence.
