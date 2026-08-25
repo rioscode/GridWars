@@ -475,8 +475,9 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   archived legacy `Language/Data types.bbdoc` documents the implicit numeric
   conversions used by the original. Swift random ranges and intentional
   integer truncations follow those references.
-- Build evidence (2026-08-25): the macOS unit-test action (127 tests) and generic
-  iOS Simulator Debug build both pass. The rule suite
+- Build evidence (2026-08-25): the macOS unit-test action (127 tests), generic
+  iOS Simulator Debug build, and unsigned generic iPhoneOS arm64 Debug build
+  all pass. The rule suite
   covers initial difficulty, motion, weapons, scoring, upgrade effects,
   power-up selection/spawn/lifecycle thresholds, spawn timing,
   triangle bonds, snake following, black-hole integer conversions,
@@ -520,8 +521,11 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   `Config.txt`, 76-line `Colours.txt`, and 150-line `hiscores.dat` under the
   simulator's Application Support directory. The mobile Exit Program -> Sure?
   -> Yes path returned to the animated Title without terminating the app, as
-  required by the iOS platform equivalent. Xcode detected two physical iPhones
-  during this audit, but both were offline; real-device evidence remains
+  required by the iOS platform equivalent. The generic unsigned iPhoneOS arm64
+  build passes without the former orientation validation warning. The paired
+  iPhone 17 Pro Max reports Developer Mode enabled but no active CoreDevice
+  tunnel, the other detected iPhone is unavailable, and the Mac has no valid
+  Apple development signing identity. Real-device evidence therefore remains
   explicitly pending in `PLAN.md`.
 
 ## Core loop and progression

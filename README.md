@@ -38,8 +38,10 @@ choose **My Mac**, and press **Run** (`Cmd-R`). Build products stay in `.build/`
 2. Select the `GridWars-iOS` scheme.
 3. Choose an iPhone/iPad Simulator and press **Run** (`Cmd-R`).
 
-For a physical device, select a development team for the `GridWars-iOS`
-target's Signing & Capabilities settings first.
+For a physical device, connect and unlock the iPhone or iPad, trust the Mac,
+enable Developer Mode on the device, and select a development team for the
+`GridWars-iOS` target's Signing & Capabilities settings. Then choose the device
+as the run destination and press **Run**.
 
 ### Command-line verification
 
@@ -52,6 +54,12 @@ xcodebuild -project GridWars.xcodeproj -scheme GridWars-iOS \
   -configuration Debug -sdk iphonesimulator \
   -destination 'generic/platform=iOS Simulator' \
   -derivedDataPath .build/DerivedData-iOS CODE_SIGNING_ALLOWED=NO build
+
+xcodebuild -project GridWars.xcodeproj -scheme GridWars-iOS \
+  -configuration Debug -sdk iphoneos \
+  -destination 'generic/platform=iOS' \
+  -derivedDataPath .build/DerivedData-ios-device \
+  CODE_SIGNING_ALLOWED=NO build
 
 xcodebuild -project GridWars.xcodeproj -scheme GridWars-macOS \
   -configuration Debug -destination 'platform=macOS' \

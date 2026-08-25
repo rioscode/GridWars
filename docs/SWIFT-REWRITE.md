@@ -74,6 +74,14 @@ fixed controls outside this translated world, and crop the world at the
 1024×768 viewport. This preserves both negative source overscroll and the
 source-space top-left Y convention.
 
+The original presentation is a fixed landscape game. On iPadOS, declaring
+only the two landscape orientations without `UIRequiresFullScreen` triggers a
+device-build validation warning because multitasking applications are expected
+to support every orientation. Declare the mobile target as requiring full
+screen in both Debug and Release. This preserves the 4:3 aspect-fit arena and
+prevents a platform windowing requirement from silently broadening the
+original orientation contract.
+
 Run source-space helpers in source space. `SafeXY` clamps and offsets a
 top-left-Y position, and its non-close branch chooses
 `Rand(0, 360 * 8) / 8.0` before applying `Sin` to X and `Cos` to Y. Convert the

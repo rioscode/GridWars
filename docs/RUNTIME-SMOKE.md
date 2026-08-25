@@ -65,9 +65,18 @@ in `Config.txt`, 76 in `Colours.txt`, and 150 in `hiscores.dat`. Exit Program
 -> Sure? -> Yes returned to the animated title while the iOS app remained open.
 
 This is simulator evidence, not a substitute for physical-device validation.
-Xcode listed two real iPhones during the run, but both were offline.
+The generic unsigned iPhoneOS arm64 build succeeds, including the target's
+landscape-only full-screen declaration. The paired iPhone 17 Pro Max reports
+Developer Mode enabled but no active CoreDevice tunnel, the other detected
+iPhone is unavailable, and the Mac has no valid Apple development signing
+identity.
 
 For iOS/iPadOS, repeat the normal start, twin-stick movement/aim, BOMB, OPT,
 background/foreground, and persistence checks on a physical device. iOS maps
 the source's application-exit request to a clean title return because mobile
 applications cannot terminate themselves.
+
+Before that run, connect and unlock the device, trust this Mac, enable Developer
+Mode, and select an Apple development team for the `GridWars-iOS` target. The
+remaining work is signing, installation, and touch/lifecycle observation on
+hardware; the device-target Swift compilation itself already passes.
