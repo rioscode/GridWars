@@ -494,6 +494,21 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   resolution. No semantic state, geometry, layout, text, object, frame, or
   layer-order mismatch remains. `docs/CAPTURE-REVIEW.md` records the catalog
   digests, method, result, and the bounded OpenGL/SpriteKit raster differences.
+- Interactive acceptance evidence (2026-08-25): the Debug macOS app completed
+  the data-isolated high-score path with Medium score `19001` and name
+  `codex   `. The highlighted tenth-place row was visible, all three legacy
+  files were written below `FileManager.default.temporaryDirectory`, and the
+  stored checksum `3542` matched an independent byte-sum calculation over the
+  score, empty play time, padded name, and recorded settings string. The
+  post-game Scores page returned to Title after its 750-frame interval. A
+  separate live run entered the P pause loop at displayed simulation frame 62;
+  two full-window captures 1.2 seconds apart were byte-identical after P had
+  been released. O resumed the loop and the displayed frame advanced to 109.
+  `testCheatPauseRequiresHeldPAndOSingleStepsOnlyWhilePaused` covers the
+  complementary held-P branch, including exactly one O step and re-entry into
+  pause. The attract Options -> Exit Program -> Sure? path terminated the
+  process. The same acceptance session changed Autofire from 0 to 1, observed
+  the emitted `Config.txt`, and restored it to 0 before completion.
 
 ## Core loop and progression
 
@@ -568,7 +583,7 @@ the corresponding Swift implementation, and a test or visual/runtime check.
 - [x] Top-scores screens for all three difficulties and settings inspection.
 - [x] “Know Your Friends” and “Know Your Enemies” screens.
 - [x] Get Ready, death/respawn, Game Over, and attract-mode return.
-- [ ] Pause/step and exit flows.
+- [x] Pause/step and exit flows.
 - [x] Options, Configure, Video, Game, Audio, Controller, Hybrid, Mouse,
       Keyboard, Joypad, and Dual Analog screens (`control.bmx`).
 - [x] Runtime F3–F7 controls and F1/F2 cheat mode with keys 1–4, X, Z, S, P,
@@ -616,5 +631,5 @@ the corresponding Swift implementation, and a test or visual/runtime check.
       attract return, and F3–F7/F1 runtime controls.
 - [x] Side-by-side captures against the BlitzMax reference have been reviewed
       at matching 1024×768 state and frame counts.
-- [ ] Full playthrough smoke tests cover start, death/respawn, game over,
+- [x] Full playthrough smoke tests cover start, death/respawn, game over,
       high-score insertion, options persistence, and attract-mode return.

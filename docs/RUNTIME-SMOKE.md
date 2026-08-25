@@ -18,7 +18,8 @@ milestone:
 7. Press F8 to enter the Debug-only high-score acceptance state. Type an
    eight-character name (or shorter), press Return, and verify the highlighted
    row plus the checksummed `hiscores.dat` written under
-   `/private/tmp/GridWars-Runtime-Smoke-<PID>/`.
+   `FileManager.default.temporaryDirectory/GridWars-Runtime-Smoke-<PID>/`
+   (normally `$TMPDIR/GridWars-Runtime-Smoke-<PID>/` on macOS).
 8. From attract mode choose Exit Program, accept `Sure?`, and confirm that the
    macOS process terminates.
 
@@ -28,6 +29,28 @@ temporary directory and resets the in-memory score table. It therefore tests
 the real editor, insertion, checksum, save, and presentation paths without
 reading or changing the user's high scores. Release builds contain neither the
 key hook nor the smoke-state preparation.
+
+## Recorded macOS acceptance
+
+The 2026-08-25 Debug run completed the checklist. F8 inserted Medium score
+`19001` with the padded name `codex   `, displayed it as the highlighted tenth
+row, and wrote `Config.txt`, `Colours.txt`, and `hiscores.dat` to an isolated
+process directory. The record's stored checksum was `3542`; independently
+summing the bytes of its score, play time, name, and settings fields also gave
+`3542`. The Scores page returned to Title after 750 frames.
+
+With the F7 frame counter visible, pressing and releasing P froze frame 62.
+Two screenshots taken 1.2 seconds apart had the same SHA-256
+`7bfca71e3349be9d5092589def5158edf4eba01c49d9315de73e9b952f78d2e3`.
+O with P released resumed the simulation, which had reached frame 109 at the
+next capture. The Computer Use driver cannot send two simultaneous
+non-modifier keys, so the held-`P+O` re-entry branch is additionally locked by
+`testCheatPauseRequiresHeldPAndOSingleStepsOnlyWhilePaused`. Finally, the
+attract Exit Program confirmation removed GridWars from the running-app list.
+
+The same acceptance series changed Autofire from 0 to 1, confirmed the value
+in Application Support `Config.txt`, then restored and re-verified 0. The
+isolated F8 path did not read or alter the user's high-score table.
 
 For iOS/iPadOS, repeat the normal start, twin-stick movement/aim, BOMB, OPT,
 background/foreground, and persistence checks on a physical device. iOS maps

@@ -107,6 +107,7 @@ time, and each completed fidelity milestone has its own commit:
       textures, blending, timing, randomness, persistence, and verification
 - [x] macOS Debug build
 - [x] Generic iOS Simulator Debug build
+- [ ] Physical iPhone/iPad gameplay and lifecycle smoke test
 - [x] 127 gameplay, input, persistence, audio, and rendering-rule unit tests
 - [x] macOS launch and rendering smoke test
 - [x] Deterministic 136-state Swift capture catalog at 1024×768
@@ -213,9 +214,13 @@ Style-by-style visual
 correction reduced the pixel difference for all 20 nonempty grid selectors and
 made the empty selector pixel-identical. The Moiré selector still exposes a
 known OpenGL per-vertex-gradient versus SpriteKit rasterization difference. An
-interactive macOS smoke run now verifies start, menus, Continue, bomb,
-death/respawn, final Game Over, attract return, and runtime function keys.
-High-score insertion/persistence, pause/step/exit, and physical iPhone/iPad
-hardware remain explicit final gates; these evidence gaps are not represented
+interactive macOS smoke runs now verify start, menus, Continue, bomb,
+death/respawn, final Game Over, high-score insertion and checksum persistence,
+the 750-frame post-game Title return, accepted-and-restored settings, the
+source pause latch/O release, attract return, runtime function keys, and actual
+process termination through Exit Program. The held-P single-step branch is
+covered by its source-specific deterministic rule test because the UI driver
+cannot hold two non-modifier keys simultaneously. Physical iPhone/iPad
+hardware remains the final platform gate; this evidence gap is not represented
 as completed 1:1 proof. The complete visual review and the renderer-specific
 acceptance boundary are recorded in `docs/CAPTURE-REVIEW.md`.
