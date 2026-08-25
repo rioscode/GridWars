@@ -72,6 +72,16 @@ xcodebuild -project GridWars.xcodeproj -scheme GridWars-macOS \
 - Keep changes scoped to the port. Mention unrelated issues instead of fixing
   them opportunistically.
 
+## Presentation backups
+
+- Treat `GridWars_Presentation.pptx` as the canonical presentation.
+- After every milestone commit, material presentation update, or comparable
+  checkpoint, run `./scripts/backup-presentation.sh "<checkpoint-label>"`.
+- Keep timestamped copies in `presentation-backups/`. Backup names include the
+  local date, time, checkpoint label, and current short Git commit.
+- Never overwrite or delete an existing presentation backup unless the user
+  explicitly requests it.
+
 ## Planning reference
 
 Read `PLAN.md`, `FIDELITY.md`, and `docs/SWIFT-REWRITE.md` before changing the
