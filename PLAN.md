@@ -107,9 +107,9 @@ time, and each completed fidelity milestone has its own commit:
       textures, blending, timing, randomness, persistence, and verification
 - [x] macOS Debug build
 - [x] Generic iOS Simulator Debug build
-- [x] 119 gameplay, input, persistence, audio, and rendering-rule unit tests
+- [x] 121 gameplay, input, persistence, audio, and rendering-rule unit tests
 - [x] macOS launch and rendering smoke test
-- [x] Deterministic 134-state Swift capture catalog at 1024×768
+- [x] Deterministic 136-state Swift capture catalog at 1024×768
 - [x] Source-ordered Grid simulation and style-specific rendering pass for all
       21 selectors, including fixed-50-Hz animation phases and original
       particle-image composition
@@ -202,10 +202,11 @@ time, and each completed fidelity milestone has its own commit:
       incorrectly treating index zero as a highlighted multiple
 
 `FIDELITY.md` is the acceptance ledger. The isolated BlitzMax harness and the
-Swift port now each capture the same 134 attract, transition, gameplay, HUD,
+Swift port now each capture the same 136 attract, transition, gameplay, HUD,
 entity, enemy-motion/lifecycle, generator, power-up, grid, particle,
-player/weapon, graphics-set, and menu states. The original reference checksums
-are pinned, and the comparison tool verified all 134 1024×768 pairs.
+player/weapon, graphics-set, and menu states. The catalog also isolates HUD
+overlap order and a scrolled 1280×960 arena. The original reference checksums
+are pinned, and the comparison tool verified all 136 1024×768 pairs.
 Style-by-style visual
 correction reduced the pixel difference for all 20 nonempty grid selectors and
 made the empty selector pixel-identical. The Moiré selector still exposes a

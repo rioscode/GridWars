@@ -63,10 +63,11 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   `(180,80,200)` multiplication. Nine static icons, nine collection results,
   and aged, merge, expiry, and Black-Hole captures measure respectively
   `0.00472276...0.00478242`, `0.00505081...0.00574582`, `0.00507924`,
-  `0.00480415`, `0.00476707`, and `0.00492752`. Two independent complete
-  original runs are byte-identical, the added Black Hole reference is
-  independently byte-identical, the 134-state Swift catalog is byte-identical
-  across two runs, and all 134 original/Swift pairs pass.
+  `0.00480415`, `0.00476707`, and `0.00492752`. Two earlier complete original
+  runs are byte-identical; the later Black Hole, HUD-overlap, and camera-scroll
+  references were each independently reproduced byte-for-byte. The 136-state
+  Swift catalog is byte-identical across two runs, and all 136 original/Swift
+  pairs pass.
 - Grid, stars, and particles: `gridparttrail.bmx:16-31, 298-2109`,
   `gridwars.bmx:1159-1170, 5642-5682` map to `GridSimulation`,
   `GridRenderer`, `OriginalStarRule`, `ParticleSimulation`,
@@ -88,7 +89,7 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   recipe. The four particle captures differ by only
   `0.000187054...0.00272124`; point grids 0/1 measure `0.00281094` and
   `0.00205562`, and the new Black Hole particle state measures `0.0047782`.
-  All 134 original/Swift pairs remain valid at 1024×768.
+  All 136 original/Swift pairs remain valid at 1024×768.
 - Player lifecycle: `gridwars.bmx:4344-4503` maps to the frame-based death and
   Get Ready states in `GameScene`: 256 death particles, non-killer removal,
   100 death frames, 60 title frames, 40 contraction frames, delayed life loss,
@@ -390,18 +391,30 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   graphics-set captures to 0.01588–0.01620. The score, high score, multiplier,
   lives and bomb indicators use the original vector font, coordinates, alpha
   and icon frames. The isolated original
-  renderer now produces 134 valid full-frame 1024×768 attract, transition,
+  renderer now produces 136 valid full-frame 1024×768 attract, transition,
   gameplay, HUD, entity, enemy-motion/lifecycle, generator, power-up, grid,
   particle, player/weapon, graphics-set, and menu references via
   `scripts/capture-original.sh`;
   capture mode bypasses all
   legacy configuration and high-score I/O. A persistence-free Swift catalog
-  covers the same 134 states via `scripts/capture-screens.sh`, and
+  covers the same 136 states via `scripts/capture-screens.sh`, and
   `scripts/compare-captures.sh` measures every matching pair. Two independent
-  complete original runs produced byte-identical PNGs. Enemy
+  complete earlier original runs produced byte-identical PNGs, and the two new
+  references were independently reproduced byte-for-byte. Enemy
   pages reproduce the original individual rotation, pulse and squash rates,
   while the score and friend pages retain their delayed colour trails instead
   of applying a uniform palette tint.
+  A final source-order audit also replaces the glowing arena rectangle with
+  the configured full-alpha, additive, four-line `W-1`/`H-1` border; moves the
+  HUD below shield/player/shots/border; refreshes the Triangle twin's natural
+  size on a live graphics-set change; preserves the Friends page's repeated
+  Super-shot trail slot; and renders the high-score underline as a hard
+  two-pixel additive line. Gameplay improves from `0.00490633` to
+  `0.00362501`, default HUD from `0.00467425` to `0.00339294`, and all five
+  graphics-set captures improve to `0.00359151...0.00370794`. Dedicated
+  HUD-overlap and 1280×960 camera-scroll references measure `0.00315914` and
+  `0.00450569`. All 136 pairs pass at 1024×768, and two complete Swift runs
+  are byte-identical.
 - Persistence and legacy data: `control.bmx:218-872`,
   `gridwars.bmx:3275-3610`, and `utils.bmx:46-74` map to
   `LegacyPersistence`, the high-score presentation in `GameScene` and
@@ -445,7 +458,7 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   archived legacy `Language/Data types.bbdoc` documents the implicit numeric
   conversions used by the original. Swift random ranges and intentional
   integer truncations follow those references.
-- Build evidence (2026-08-25): the macOS unit-test action (119 tests) and generic
+- Build evidence (2026-08-25): the macOS unit-test action (121 tests) and generic
   iOS Simulator Debug build both pass. The rule suite
   covers initial difficulty, motion, weapons, scoring, upgrade effects,
   power-up selection/spawn/lifecycle thresholds, spawn timing,
@@ -521,16 +534,16 @@ the corresponding Swift implementation, and a test or visual/runtime check.
 - [x] Star count/depth parallax and all four particle styles.
 - [x] Particle gravity, lifetime, decay, capacity, fireworks, trails, and
       per-entity particle recipes.
-- [ ] Solid, Low, Medium, High, and User graphic sets with correct frames,
+- [x] Solid, Low, Medium, High, and User graphic sets with correct frames,
       blend modes, rotation, scale, and bloom appearance.
-- [ ] Original vector font, HUD positions, score popups, shield, icons, target,
+- [x] Original vector font, HUD positions, score popups, shield, icons, target,
       playfield clipping, and scrolling camera.
 
 ## Screens and interaction
 
-- [ ] Animated title/credits screen and timed attract-mode order.
-- [ ] Top-scores screens for all three difficulties and settings inspection.
-- [ ] “Know Your Friends” and “Know Your Enemies” screens.
+- [x] Animated title/credits screen and timed attract-mode order.
+- [x] Top-scores screens for all three difficulties and settings inspection.
+- [x] “Know Your Friends” and “Know Your Enemies” screens.
 - [x] Get Ready, death/respawn, Game Over, and attract-mode return.
 - [ ] Pause/step and exit flows.
 - [ ] Options, Configure, Video, Game, Audio, Controller, Hybrid, Mouse,

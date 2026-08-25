@@ -2388,6 +2388,39 @@ final class GameRulesTests: XCTestCase {
         )
     }
 
+    func testArenaBorderUsesSourceLastPixelCoordinatesAfterSceneYInversion() {
+        XCTAssertEqual(
+            OriginalArenaBorderRule.sceneSegments(
+                playfieldSize: CGSize(width: 1_024, height: 768)
+            ),
+            [
+                OriginalVectorSegment(
+                    start: CGPoint(x: 0, y: 768),
+                    end: CGPoint(x: 1_023, y: 768)
+                ),
+                OriginalVectorSegment(
+                    start: CGPoint(x: 0, y: 768),
+                    end: CGPoint(x: 0, y: 1)
+                ),
+                OriginalVectorSegment(
+                    start: CGPoint(x: 0, y: 1),
+                    end: CGPoint(x: 1_023, y: 1)
+                ),
+                OriginalVectorSegment(
+                    start: CGPoint(x: 1_023, y: 1),
+                    end: CGPoint(x: 1_023, y: 768)
+                ),
+            ]
+        )
+    }
+
+    func testFriendScreenPreservesRepeatedSuperShotTrailColorIndex() {
+        XCTAssertEqual(
+            (1...9).map { OriginalFriendScreenRule.trailColorIndex(entryIndex: $0) },
+            [0, 1, 2, 3, 4, 5, 6, 6, 7]
+        )
+    }
+
     func testMoireGridMapsSourceRowAndBottomRightTriangleAfterYInversion() {
         XCTAssertEqual(
             OriginalMoireGridRule.sourceRow(forSceneRow: 0, rowCount: 48),
@@ -2481,7 +2514,7 @@ final class GameRulesTests: XCTestCase {
 
     func testCaptureCatalogCoversEveryFidelityCategory() {
         let scenarios = OriginalCaptureScenario.all
-        XCTAssertEqual(scenarios.count, 134)
+        XCTAssertEqual(scenarios.count, 136)
         XCTAssertEqual(Set(scenarios.map(\.name)).count, scenarios.count)
         XCTAssertEqual(
             OriginalCaptureScenario(name: "power-up-message")?.subject,

@@ -335,12 +335,36 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
     private func rebuildArenaBorder() {
         gridLayer.childNode(withName: "arenaBorder")?.removeFromParent()
-        let border = SKShapeNode(rect: CGRect(origin: .zero, size: playfieldSize))
+        let border = SKNode()
         border.name = "arenaBorder"
-        border.strokeColor = SKColor(red: 0.15, green: 0.45, blue: 1, alpha: 0.75)
-        border.lineWidth = 3
-        border.glowWidth = 3
+        border.zPosition = 31
+        for segment in OriginalArenaBorderRule.sceneSegments(playfieldSize: playfieldSize) {
+            let path = CGMutablePath()
+            path.move(to: OriginalLineRasterRule.scenePixelCenter(segment.start))
+            path.addLine(to: OriginalLineRasterRule.scenePixelCenter(segment.end))
+            let line = SKShapeNode(path: path)
+            line.lineWidth = 2
+            line.lineCap = .butt
+            line.lineJoin = .miter
+            line.isAntialiased = false
+            line.blendMode = .add
+            border.addChild(line)
+        }
         gridLayer.addChild(border)
+        updateArenaBorderAppearance()
+    }
+
+    private func updateArenaBorderAppearance() {
+        let color = SKColor(
+            red: CGFloat(menuModel.settings.gridRed) / 255,
+            green: CGFloat(menuModel.settings.gridGreen) / 255,
+            blue: CGFloat(menuModel.settings.gridBlue) / 255,
+            alpha: 1
+        )
+        for case let line as SKShapeNode in gridLayer
+            .childNode(withName: "arenaBorder")?.children ?? [] {
+            line.strokeColor = color
+        }
     }
 
     private func setupPlayer() {
@@ -385,6 +409,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
     private func setupHUD() {
         hudLayer.addChild(hudRenderer.node)
+        // DrawAll emits the fixed HUD after power-ups but before the player,
+        // shield, shots, and arena border. The controls stay above gameplay.
+        hudRenderer.node.zPosition = -83
 
         messageLabel.fontSize = 40
         messageLabel.numberOfLines = 3
@@ -564,7 +591,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
              .generator, .powerUp, .powerUpCollection, .powerUpLifecycle,
              .grid, .particleStyle,
              .graphicsSet, .getReady, .death, .gameOver, .highScoreEntry,
-             .hudDefault, .hudUpgraded, .powerUpMessage:
+             .hudDefault, .hudUpgraded, .hudOverlap, .cameraScroll,
+             .powerUpMessage:
             true
         case let .menu(menu):
             menu == .optionsGame || menu == .confirmEndGame
@@ -739,6 +767,30 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             }
             _ = session.registerScore(baseScore: 123_456)
             updatePlayerShield()
+            updateHUD()
+        case .hudOverlap:
+            prepareGameplayCapture()
+            player.position = sourcePoint(CGPoint(x: playfieldSize.width / 2, y: 19))
+            updateHUD()
+        case .cameraScroll:
+            prepareGameplayCapture()
+            menuModel.settings.playfieldWidth = 1_280
+            menuModel.settings.playfieldHeight = 960
+            menuModel.settings.starCount = 0
+            menuModel.settings.scroll = true
+            applyRuntimeSettings()
+            player.position = sourcePoint(CGPoint(x: 16, y: 16))
+            cameraOffset = CGPoint(x: -80, y: 272)
+            updateWorldTransformAndStars()
+            let samplePosition = sourcePoint(CGPoint(x: 160, y: 160))
+            _ = spawnEnemy(
+                kind: .pinwheel,
+                at: samplePosition,
+                freezeFrames: 0,
+                closeToPlayer: true,
+                playBornSound: false
+            )
+            showFloatingScore(baseScore: 25, at: samplePosition)
             updateHUD()
         case .powerUpMessage:
             prepareGameplayCapture()
@@ -2387,6 +2439,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 menuModel.settings.gridBlue = color.blue
             }
         }
+        updateArenaBorderAppearance()
     }
 
     private func configurePlayfieldIfNeeded() {
@@ -2464,8 +2517,13 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             let textureName = kind == .cube && cubeTier > 0 ? "purplesquare2" : kind.textureName
             sprite.texture = OriginalGraphics.texture(named: textureName, setIndex: setIndex)
             sprite.size = sprite.texture?.size() ?? sprite.size
-            (sprite.childNode(withName: "triangleTwin") as? SKSpriteNode)?.texture =
-                OriginalGraphics.texture(named: kind.textureName, setIndex: setIndex)
+            if let twin = sprite.childNode(withName: "triangleTwin") as? SKSpriteNode {
+                twin.texture = OriginalGraphics.texture(
+                    named: kind.textureName,
+                    setIndex: setIndex
+                )
+                twin.size = twin.texture?.size() ?? twin.size
+            }
         }
         for powerUp in pickupLayer.children where powerUp.name == "powerUp" {
             let rawKind = (powerUp.userData?["kind"] as? NSNumber)?.intValue ?? 0

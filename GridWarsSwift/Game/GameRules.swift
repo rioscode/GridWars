@@ -37,6 +37,39 @@ enum OriginalLineRasterRule {
     }
 }
 
+enum OriginalArenaBorderRule {
+    static func sceneSegments(playfieldSize: CGSize) -> [OriginalVectorSegment] {
+        let right = playfieldSize.width - 1
+        let top = playfieldSize.height
+        let bottom: CGFloat = 1
+        return [
+            OriginalVectorSegment(
+                start: CGPoint(x: 0, y: top),
+                end: CGPoint(x: right, y: top)
+            ),
+            OriginalVectorSegment(
+                start: CGPoint(x: 0, y: top),
+                end: CGPoint(x: 0, y: bottom)
+            ),
+            OriginalVectorSegment(
+                start: CGPoint(x: 0, y: bottom),
+                end: CGPoint(x: right, y: bottom)
+            ),
+            OriginalVectorSegment(
+                start: CGPoint(x: right, y: bottom),
+                end: CGPoint(x: right, y: top)
+            ),
+        ]
+    }
+}
+
+enum OriginalFriendScreenRule {
+    static func trailColorIndex(entryIndex: Int) -> Int {
+        if entryIndex == 8 { return 6 }
+        return min(7, max(0, entryIndex - 1))
+    }
+}
+
 enum OriginalMoireGridRule {
     static func sourceRow(forSceneRow row: Int, rowCount: Int) -> Int {
         rowCount - 1 - row

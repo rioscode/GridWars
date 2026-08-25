@@ -29,12 +29,12 @@ Capture mode uses the original compiled renderer, entity types, draw functions,
 and assets; fixes the random seed; installs default scores and colours; and
 skips all reads and writes under `~/.config/gridwars`. It changes only the
 selected fixed state, window mode, and PNG export after the named frame. The
-134 available references cover:
+136 available references cover:
 
 - the title, scores, friends, and enemies attract pages at frame 600;
 - the options page at frame 20;
-- gameplay, default and upgraded HUD states, and the fading power-up threshold
-  message;
+- gameplay, default and upgraded HUD states, player/HUD overlap order, a
+  scrolled 1280×960 arena, and the fading power-up threshold message;
 - Get Ready title/rings, player death, Game Over, and high-score entry;
 - isolated player motion, boundary response, shield, all four front-cannon
   counts, and combined reverse/side shooters;
@@ -70,11 +70,11 @@ captures just one named state, for example:
 
 The script copies source and assets to a `mktemp` directory, textually includes
 `scripts/original-catalog.bmx`, patches and builds only that copy, captures the
-134 states, then deletes the temporary build.
+136 states, then deletes the temporary build.
 
 ## Swift renderer
 
-The macOS target supports a persistence-free capture mode for 134 fixed states:
+The macOS target supports a persistence-free capture mode for 136 fixed states:
 the attract screens, gameplay transitions, every enemy and generator, every
 power-up plus nine collection and four lifecycle checks, six basic-enemy
 motion checks, four Black Hole lifecycle/particle checks,

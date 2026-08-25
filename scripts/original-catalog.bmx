@@ -19,12 +19,16 @@ Function CaptureOriginalCatalog:Int(mode$, directory$)
 	Local graphicsKind:Int = -1
 	Local overview:Int = False
 	Local upgradedHUD:Int = False
+	Local hudOverlap:Int = False
+	Local cameraScroll:Int = False
 	Local powerUpMessage:Int = False
 
 	Select mode
 		Case "gameplay"; overview = True
 		Case "hud-default"; overview = 2
 		Case "hud-upgraded"; overview = 2; upgradedHUD = True
+		Case "hud-overlap"; overview = 2; hudOverlap = True
+		Case "camera-scroll"; overview = 2; cameraScroll = True
 		Case "power-up-message"; overview = 2; powerUpMessage = True
 
 		Case "enemy-pinwheel"; entityKind = 0
@@ -165,6 +169,8 @@ Function CaptureOriginalCatalog:Int(mode$, directory$)
 		Cls
 		part.DrawParticles()
 	Else
+		If hudOverlap Then CaptureOriginalHUDOverlap()
+		If cameraScroll Then CaptureOriginalCameraScroll()
 		If graphicsKind >= 0
 			gfxset = graphicsKind
 			LoadImages()
@@ -206,6 +212,26 @@ Function CaptureOriginalCatalog:Int(mode$, directory$)
 	SaveScreenshot(directory + "/" + mode + ".png")
 	Flip 1
 	Return True
+End Function
+
+Function CaptureOriginalHUDOverlap()
+	px = SCREENW/2
+	py = 19
+End Function
+
+Function CaptureOriginalCameraScroll()
+	PLAYFIELDW = 1280
+	PLAYFIELDH = 960
+	NUMGPOINTSW = PLAYFIELDW/GRIDWIDTH
+	NUMGPOINTSH = PLAYFIELDH/GRIDHEIGHT
+	gridpoint.ResetAll()
+	showstars = 0
+	gxoff = -80
+	gyoff = -80
+	px = 16
+	py = 16
+	nme1.Create(160,160,0,1)
+	score.Create("25",160,160)
 End Function
 
 Function CaptureOriginalPlayer(kind:Int)

@@ -73,6 +73,8 @@ enum OriginalCaptureSubject: Equatable {
     case highScoreEntry
     case hudDefault
     case hudUpgraded
+    case hudOverlap
+    case cameraScroll
     case powerUpMessage
     case menu(OriginalMenuCapture)
 
@@ -166,6 +168,8 @@ struct OriginalCaptureScenario: Equatable {
             .init("high-score-entry", .highScoreEntry),
             .init("hud-default", .hudDefault),
             .init("hud-upgraded", .hudUpgraded),
+            .init("hud-overlap", .hudOverlap),
+            .init("camera-scroll", .cameraScroll),
             .init("power-up-message", .powerUpMessage),
         ]
 

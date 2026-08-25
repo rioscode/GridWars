@@ -68,6 +68,12 @@ than the screen. Brightness is an integer assignment of `480/d`, truncated
 before clamping to 255; keeping it as an untruncated floating channel changes
 the shallow star levels.
 
+The ordinary world camera uses the source X offset unchanged. Its scene Y
+offset is the complement `playfieldH - screenH - sourceGYOffset`. Keep HUD and
+fixed controls outside this translated world, and crop the world at the
+1024×768 viewport. This preserves both negative source overscroll and the
+source-space top-left Y convention.
+
 Run source-space helpers in source space. `SafeXY` clamps and offsets a
 top-left-Y position, and its non-close branch chooses
 `Rand(0, 360 * 8) / 8.0` before applying `Sin` to X and `Cos` to Y. Convert the
@@ -132,6 +138,13 @@ visible while `frames > 60 || frames % 15 > 7`, scaled by
 `2.75 + frames/128`, and drawn with alpha blend before the additive player
 sprite. Applying one global additive blend to the combined shield/player node
 changes both its alpha and overlap.
+
+HUD text, lives, bombs, and the fading threshold message are drawn after
+pickups but before the shield, player, shots, and arena border. The arena
+border is four separate hard additive two-pixel lines, uses the configured
+grid RGB at full alpha, and ends at source `W-1`/`H-1`; a glowing rectangle or
+a topmost HUD changes overlap pixels even when each object looks plausible in
+isolation.
 
 Projectile bounds expose a one-pixel consequence of the coordinate transform.
 The source accepts `0 <= sourceY <= H-1`; with `sceneY = H-sourceY`, the exact
@@ -302,6 +315,10 @@ For animation sheets:
 Do not palette-tint white source art unless the original calls `SetColor` for
 that draw. Keep texture color multiplication, node alpha, and blend mode as
 three separate decisions.
+
+When switching graphics sets at runtime, refresh the texture and natural pixel
+size of every sprite, including nested child sprites such as Triangle's twin.
+Changing only the texture can leave a child at the previous set's dimensions.
 
 ## Blend and alpha semantics
 
@@ -544,6 +561,11 @@ Classic `Rect(...,0)` menu outlines are hard, pixel-centered line loops. Do
 not use SpriteKit's default antialiased centered rectangle without applying the
 source raster conversion. Preserve fixed source coordinates and historical UI
 typos such as the displayed `180` value for a stored scale of `128`.
+
+Small screen-specific quirks are part of the contract. The Friends page uses
+colour-trail slot 6 for both Super Shots and the preceding entry, and the
+high-score name underline is a hard additive two-pixel `DrawLine`, not a
+translucent filled rectangle.
 
 ## Audio, input, and persistence
 

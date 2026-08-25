@@ -260,14 +260,23 @@ final class OriginalScreenRenderer {
         addText("Time:  \(playTime)", x: size.width / 2 - 200, y: size.height / 2 - 40, scale: 3, color: green, size: size)
         addText("Name:  \(entry.name)", x: size.width / 2 - 200, y: size.height / 2, scale: 3, color: green, size: size)
         for index in 0..<8 {
-            let underline = SKShapeNode(rect: CGRect(
+            let sourceStart = CGPoint(
                 x: size.width / 2 - 95 + CGFloat(index * 15),
-                y: size.height / 2 - 24,
-                width: 12,
-                height: 2
-            ))
-            underline.fillColor = index == entry.selectedIndex ? .yellow : green
-            underline.strokeColor = .clear
+                y: size.height / 2 + 22
+            )
+            let sceneStart = CGPoint(x: sourceStart.x, y: size.height - sourceStart.y)
+            let path = CGMutablePath()
+            path.move(to: OriginalLineRasterRule.scenePixelCenter(sceneStart))
+            path.addLine(to: OriginalLineRasterRule.scenePixelCenter(CGPoint(
+                x: sceneStart.x + 12,
+                y: sceneStart.y
+            )))
+            let underline = SKShapeNode(path: path)
+            underline.strokeColor = index == entry.selectedIndex ? .yellow : green
+            underline.lineWidth = 2
+            underline.lineCap = .butt
+            underline.isAntialiased = false
+            underline.blendMode = .add
             content.addChild(underline)
         }
         addText("Up and Down to select letter,", x: size.width / 2 - 250, y: size.height / 2 + 80, scale: 3, color: .white, size: size)
@@ -571,7 +580,7 @@ final class OriginalScreenRenderer {
             if entry.2 == nil {
                 let star = makeSprite("whitestar", atTopLeftPosition: CGPoint(x: x, y: y), size: size)
                 star.zRotation = CGFloat(frame * 6 + (index == 2 ? 45 : 0)) * .pi / 180
-                let trailIndex = min(7, max(0, index - 1))
+                let trailIndex = OriginalFriendScreenRule.trailColorIndex(entryIndex: index)
                 star.color = friendTrailColors[trailIndex]
                 star.colorBlendFactor = 1
                 content.addChild(star)
