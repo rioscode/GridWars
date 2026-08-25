@@ -767,6 +767,32 @@ final class GameRulesTests: XCTestCase {
         XCTAssertTrue(bond.isBroken)
     }
 
+    func testTriangleRuleKeepsOriginalDistancesAndCollisionThresholds() {
+        XCTAssertEqual(TriangleRule.pairDistanceSquared, 1_024)
+        XCTAssertEqual(TriangleRule.partnerFarDistance, 150)
+        XCTAssertEqual(TriangleRule.partnerNearDistance, 64)
+        XCTAssertEqual(TriangleRule.partnerAcceleration, 32)
+        XCTAssertEqual(TriangleRule.playerHomingRange, 300)
+        XCTAssertEqual(TriangleRule.boundaryMargin, 8)
+        XCTAssertEqual(TriangleRule.playerCollisionThresholdSquared, 576)
+        XCTAssertEqual(TriangleRule.projectileCollisionThresholdSquared, 148)
+        XCTAssertEqual(TriangleRule.bondPlayerCollisionRadius, 12)
+        XCTAssertEqual(
+            TriangleRule.bondBlackHoleCollisionThresholdSquared(size: 20),
+            1_744
+        )
+    }
+
+    func testTriangleBlackHoleSpinInvertsOnlyTheSourceYComponent() {
+        let forward = TriangleRule.sceneBlackHoleSpinImpulse(sourceRotation: 0)
+        XCTAssertEqual(forward.dx, -8, accuracy: 0.0001)
+        XCTAssertEqual(forward.dy, 0, accuracy: 0.0001)
+
+        let sourceDown = TriangleRule.sceneBlackHoleSpinImpulse(sourceRotation: 45)
+        XCTAssertEqual(sourceDown.dx, 0, accuracy: 0.0001)
+        XCTAssertEqual(sourceDown.dy, 8, accuracy: 0.0001)
+    }
+
     func testSnakeTailUsesOriginalFifteenPixelFollowingRule() {
         XCTAssertEqual(SnakeSegmentRule.tailSegmentCount, 24)
         XCTAssertEqual(SnakeSegmentRule.originalFrame(segmentIndex: 0), 23)
@@ -2043,7 +2069,7 @@ final class GameRulesTests: XCTestCase {
 
     func testCaptureCatalogCoversEveryFidelityCategory() {
         let scenarios = OriginalCaptureScenario.all
-        XCTAssertEqual(scenarios.count, 103)
+        XCTAssertEqual(scenarios.count, 107)
         XCTAssertEqual(Set(scenarios.map(\.name)).count, scenarios.count)
         XCTAssertEqual(
             OriginalCaptureScenario(name: "power-up-message")?.subject,
@@ -2063,6 +2089,7 @@ final class GameRulesTests: XCTestCase {
         var blackHoleCaptures = 0
         var snakeCaptures = 0
         var interceptorCaptures = 0
+        var triangleCaptures = 0
         var generators = 0
         var powerUps = 0
         var grids = 0
@@ -2077,6 +2104,7 @@ final class GameRulesTests: XCTestCase {
             case .blackHole: blackHoleCaptures += 1
             case .snake: snakeCaptures += 1
             case .interceptor: interceptorCaptures += 1
+            case .triangle: triangleCaptures += 1
             case .generator: generators += 1
             case .powerUp: powerUps += 1
             case .grid: grids += 1
@@ -2091,6 +2119,7 @@ final class GameRulesTests: XCTestCase {
         XCTAssertEqual(blackHoleCaptures, OriginalBlackHoleCapture.allCases.count)
         XCTAssertEqual(snakeCaptures, OriginalSnakeCapture.allCases.count)
         XCTAssertEqual(interceptorCaptures, OriginalInterceptorCapture.allCases.count)
+        XCTAssertEqual(triangleCaptures, OriginalTriangleCapture.allCases.count)
         XCTAssertEqual(generators, OriginalEnemyKind.allCases.count)
         XCTAssertEqual(powerUps, PowerUpKind.allCases.count)
         XCTAssertEqual(grids, 21)

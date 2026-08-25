@@ -126,7 +126,25 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   shield, and projectile-block captures measure `0.00471278`, `0.00476220`,
   and `0.00479132`. All 103 catalog pairs pass and two independent complete
   original runs are byte-identical, accepting the Interceptor checklist entry.
-  Triangle remains under compound-enemy audit.
+  Trish's audit against `gridwars.bmx:2293-2564, 3056-3065, 5608-5623` and
+  `utils.bmx:240-258` preserves per-entry list-ordered pairing, the 32-point
+  attach threshold, 64/150-point elastic bounds, 32-point acceleration,
+  live-speed cap, eight-point bounce, 24-point player collision, and 12-point
+  bond-line collision. Strength and resistance remain endpoint-local; both
+  endpoints draw the same additive bond, possibly in different colours after
+  a hit, and each attached sprite retains the source `r*2`/`r*4+180` pair.
+  Projectile hits emit four strength-coloured particles before adding
+  `shotVelocity*5/16` and subtracting 2.5 strength. A zero-strength hit detaches
+  without killing; the next unattached hit takes the 150-point, shockwave,
+  killed-sound, and 32-particle path. Point-free `le.Kill(False)` intentionally
+  keeps that killed sound. Bonded Black-Hole handling designates one resistant
+  partner even for an inactive hole, applies the scene-Y-corrected spin,
+  subtracts 0.25 strength, and directly removes a broken endpoint without kill
+  effects before growing the hole. Motion, elastic-bond, projectile-hit, and
+  Black-Hole-break captures measure `0.00471665`, `0.00484561`, `0.00478878`,
+  and `0.00485916`; the static paired capture improves to `0.00481618`. All
+  107 catalog pairs pass and two independent complete original runs are
+  byte-identical, accepting the Triangle checklist entry.
 - Grid and particle simulation: `gridparttrail.bmx:494-2017` maps to
   `GridSimulation`, `GridRenderer`, `ParticleSimulation`, and
   `ParticleRenderer`. The port has all 21 grid-style selectors, the original
@@ -296,12 +314,12 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   graphics-set captures to 0.01588–0.01620. The score, high score, multiplier,
   lives and bomb indicators use the original vector font, coordinates, alpha
   and icon frames. The isolated original
-  renderer now produces 103 valid full-frame 1024×768 attract, transition,
+  renderer now produces 107 valid full-frame 1024×768 attract, transition,
   gameplay, HUD, entity, enemy-motion/lifecycle, generator, power-up, grid,
   particle, graphics-set, and menu references via `scripts/capture-original.sh`;
   capture mode bypasses all
   legacy configuration and high-score I/O. A persistence-free Swift catalog
-  covers the same 103 states via `scripts/capture-screens.sh`, and
+  covers the same 107 states via `scripts/capture-screens.sh`, and
   `scripts/compare-captures.sh` measures every matching pair. Two independent
   complete original runs produced byte-identical PNGs. Enemy
   pages reproduce the original individual rotation, pulse and squash rates,
@@ -350,7 +368,7 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   archived legacy `Language/Data types.bbdoc` documents the implicit numeric
   conversions used by the original. Swift random ranges and intentional
   integer truncations follow those references.
-- Build evidence (2026-08-25): the macOS unit-test action (101 tests) and generic
+- Build evidence (2026-08-25): the macOS unit-test action (103 tests) and generic
   iOS Simulator Debug build both pass. The rule suite
   covers initial difficulty, motion, weapons, scoring, upgrades, spawn timing,
   triangle bonds, snake following, black-hole integer conversions,
@@ -396,7 +414,7 @@ the corresponding Swift implementation, and a test or visual/runtime check.
 - [x] Ivan the Interceptor: facing AI, shield cone, projectile blocking, 100
       points (`nme7`).
 - [x] Indy the Butterfly: fast homing/separation, 10 points (`nme8`).
-- [ ] Trish the Triangle: pairing, elastic bond, bond collision, black-hole
+- [x] Trish the Triangle: pairing, elastic bond, bond collision, black-hole
       interaction, 150 points (`le`).
 - [x] Ten generator variants with original health, birth rate, warning flash,
       scoring, and geometry (`ge`).

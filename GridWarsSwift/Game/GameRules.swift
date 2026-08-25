@@ -1047,6 +1047,28 @@ struct TriangleBondState: Equatable {
     }
 }
 
+enum TriangleRule {
+    static let pairDistanceSquared: CGFloat = 32 * 32
+    static let partnerFarDistance: CGFloat = 150
+    static let partnerNearDistance: CGFloat = 64
+    static let partnerAcceleration: CGFloat = 32
+    static let playerHomingRange: CGFloat = 300
+    static let boundaryMargin: CGFloat = 8
+    static let playerCollisionThresholdSquared: CGFloat = 24 * 24
+    static let projectileCollisionThresholdSquared: CGFloat = 12 * 12 + 2 * 2
+    static let bondPlayerCollisionRadius: CGFloat = 12
+
+    static func sceneBlackHoleSpinImpulse(sourceRotation: CGFloat) -> CGVector {
+        let radians = sourceRotation * 2 * .pi / 180
+        // le.Spin subtracts (Cos(r*2)*8, Sin(r*2)*8) in source Y-down space.
+        return CGVector(dx: -cos(radians) * 8, dy: sin(radians) * 8)
+    }
+
+    static func bondBlackHoleCollisionThresholdSquared(size: CGFloat) -> CGFloat {
+        12 * 12 + size * size * 4
+    }
+}
+
 enum SnakeSegmentRule {
     static let tailSegmentCount = 24
     static let followDistance: CGFloat = 15

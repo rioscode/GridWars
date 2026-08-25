@@ -57,6 +57,7 @@ enum OriginalCaptureSubject: Equatable {
     case blackHole(OriginalBlackHoleCapture)
     case snake(OriginalSnakeCapture)
     case interceptor(OriginalInterceptorCapture)
+    case triangle(OriginalTriangleCapture)
     case generator(OriginalEnemyKind)
     case powerUp(PowerUpKind)
     case grid(Int)
@@ -95,6 +96,13 @@ enum OriginalInterceptorCapture: String, CaseIterable {
     case motion
     case shield
     case block
+}
+
+enum OriginalTriangleCapture: String, CaseIterable {
+    case motion
+    case bond
+    case hit
+    case blackHole = "black-hole"
 }
 
 struct OriginalCaptureScenario: Equatable {
@@ -148,6 +156,9 @@ struct OriginalCaptureScenario: Equatable {
         }
         scenarios += OriginalInterceptorCapture.allCases.map {
             .init("interceptor-\($0.rawValue)", .interceptor($0))
+        }
+        scenarios += OriginalTriangleCapture.allCases.map {
+            .init("triangle-\($0.rawValue)", .triangle($0))
         }
         scenarios += enemies.map { .init("generator-\($0.0)", .generator($0.1)) }
 

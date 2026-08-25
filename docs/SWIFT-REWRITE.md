@@ -125,6 +125,39 @@ already at SpriteKit `-(rot + 90)`, so the child path needs a positive
 ship. Collision remains velocity-facing and must not be substituted with this
 animated three-line fan.
 
+Triangle pairing is list-ordered state mutation, not a global nearest-neighbor
+pass. Each unfrozen `le.Update` scans the current list after earlier entries
+have already moved, attaches to the first unattached endpoint within squared
+distance `32*32`, and immediately applies its bond force. Each endpoint owns
+its own `strength` and `resist` fields. The spring adds 32 units toward the
+partner beyond 150 points or away below 64, then the live global Triangle speed
+caps the result before movement and the eight-point boundary bounce.
+
+Render both endpoint views of a Triangle bond. `DrawBond` runs once for every
+attached list entry, so the same two-pixel additive line is drawn twice; after
+a hit, the two passes may use different colours because each computes
+`(20+strength*8, 220-strength*8, 0)` from its local strength. An attached
+Triangle also draws its second image at source rotation `r*4+180`, while the
+first remains at `r*2`. Deduplicating the line or inheriting the parent's
+rotation twice changes the visible star/bond.
+
+Triangle destruction has three distinct paths. A projectile always emits four
+strength-coloured particles first. While attached it adds `shotVelocity*5/16`
+to the hit endpoint and subtracts 2.5 strength; reaching zero only detaches the
+pair. An unattached endpoint then awards 150 points, shockwaves, plays the kill
+sound, emits 32 more particles, and is removed. `le.Kill(False)` still takes
+that last path and still plays the kill sound, unlike most point-free enemy
+kills.
+
+Bonded Black-Hole handling is different again. The first non-resistant endpoint
+marks its partner resistant for every Black Hole in the list, even an inactive
+one. `Spin(Cos(r*2)*16, Sin(r*2)*16)` subtracts half of that source velocity
+from the partner and 0.25 from the partner's strength; after Y conversion its
+scene impulse is `(-cos(r*2)*8, +sin(r*2)*8)`. If this breaks the bond, the
+pulled endpoint is removed directly and the Black Hole grows—there are no kill
+particles, score, shockwave, or killed sound. Do not route this case through a
+generic destruction helper.
+
 Max2D does not always transform geometry around the center one might infer
 from the call site. `DrawTarget` rotates each `DrawLine(x-sz,y-sz,x+sz,y+sz)`
 difference vector around the shared first endpoint. Replacing it with centered

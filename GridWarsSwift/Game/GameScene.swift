@@ -543,6 +543,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
         let preparesOriginalState: Bool = switch captureRequest.scenario.subject {
         case .gameplay, .enemy, .enemyMotion, .blackHole, .snake, .interceptor,
+             .triangle,
              .generator, .powerUp,
              .grid, .particleStyle,
              .graphicsSet, .getReady, .death, .gameOver, .highScoreEntry,
@@ -590,6 +591,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         case let .interceptor(capture):
             prepareGameplayCapture()
             configureInterceptorCapture(capture)
+        case let .triangle(capture):
+            prepareGameplayCapture()
+            configureTriangleCapture(capture)
         case let .generator(kind):
             prepareGameplayCapture()
             spawnGenerator(
@@ -796,6 +800,16 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             )
             if let first, let second {
                 attachTriangles(first, second)
+                updateEnemyVisual(
+                    first,
+                    kind: .triangle,
+                    rotation: (first.userData?["rotation"] as? NSNumber)?.intValue ?? 0
+                )
+                updateEnemyVisual(
+                    second,
+                    kind: .triangle,
+                    rotation: (second.userData?["rotation"] as? NSNumber)?.intValue ?? 0
+                )
                 updateTrianglePairsAndBonds()
             }
             return
@@ -990,6 +1004,88 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 updateProjectiles()
             }
         }
+    }
+
+    private func configureTriangleCapture(_ capture: OriginalTriangleCapture) {
+        player.position = sourcePoint(CGPoint(x: playfieldSize.width / 2, y: 100))
+        let center = CGPoint(x: playfieldSize.width / 2, y: playfieldSize.height / 2)
+
+        if capture == .motion {
+            _ = spawnEnemy(
+                kind: .triangle,
+                at: center,
+                freezeFrames: 0,
+                closeToPlayer: true,
+                playBornSound: false
+            )
+            for _ in 0..<30 {
+                updateEnemies(kinds: [.triangle])
+            }
+            updateTrianglePairsAndBonds()
+            return
+        }
+
+        let halfDistance: CGFloat = capture == .bond ? 90 : (capture == .blackHole ? 50 : 55)
+        guard let first = spawnEnemy(
+            kind: .triangle,
+            at: CGPoint(x: center.x - halfDistance, y: center.y),
+            freezeFrames: 0,
+            closeToPlayer: true,
+            playBornSound: false
+        ), let second = spawnEnemy(
+            kind: .triangle,
+            at: CGPoint(x: center.x + halfDistance, y: center.y),
+            freezeFrames: 0,
+            closeToPlayer: true,
+            playBornSound: false
+        ) else { return }
+
+        for triangle in [first, second] {
+            triangle.userData?["dx"] = 0.0
+            triangle.userData?["dy"] = 0.0
+            triangle.userData?["rotation"] = 0
+            updateEnemyVisual(triangle, kind: .triangle, rotation: 0)
+        }
+        attachTriangles(first, second)
+        updateEnemyVisual(first, kind: .triangle, rotation: 0)
+        updateEnemyVisual(second, kind: .triangle, rotation: 0)
+
+        switch capture {
+        case .motion:
+            break
+        case .bond:
+            for _ in 0..<30 {
+                updateEnemies(kinds: [.triangle])
+            }
+        case .hit:
+            let projectile = SKNode()
+            projectile.userData = NSMutableDictionary(dictionary: [
+                "dx": 10.0,
+                "dy": 0.0,
+            ])
+            damageEnemy(first, projectile: projectile)
+        case .blackHole:
+            second.userData?["triangleStrength"] = 0.25
+            guard let blackHole = spawnEnemy(
+                kind: .blackHole,
+                at: first.position,
+                freezeFrames: 0,
+                closeToPlayer: true,
+                playBornSound: false
+            ) else { return }
+            blackHole.userData?["dx"] = 0.0
+            blackHole.userData?["dy"] = 0.0
+            blackHole.userData?["rotation"] = 45
+            blackHole.userData?["blackHoleSize"] = 20.0
+            blackHole.userData?["blackHoleActive"] = false
+            // Reproduce the live frame order: bond visuals already exist when
+            // the later enemy update snaps the bond.
+            updateTrianglePairsAndBonds()
+            updateEnemies(kinds: [.triangle])
+            updateEnemyVisual(blackHole, kind: .blackHole, rotation: 45)
+            return
+        }
+        updateTrianglePairsAndBonds()
     }
 
     private func configureMenuCapture(_ capture: OriginalMenuCapture) {
@@ -2995,9 +3091,6 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 updateDyingSnakeSegments(maximumSpeed: session.enemySpeeds[.snake])
                 if deathFramesRemaining > 0 { return }
             }
-            if requestedKind == .triangle {
-                pairEligibleTriangles()
-            }
             let enemies = enemyLayer.children.filter {
                 $0.name == "enemy" && $0.userData?["kind"] as? String == requestedKind.rawValue
             }
@@ -3059,6 +3152,10 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 dy: player.position.y - enemy.position.y
             )
             let towardPlayer = playerDifference / (playerDifference.length + 0.001)
+
+            if kind == .triangle {
+                pairEligibleTriangle(enemy)
+            }
 
             switch kind {
             case .pinwheel:
@@ -3520,7 +3617,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 dx: player.position.x - triangle.position.x,
                 dy: player.position.y - triangle.position.y
             ).length + 0.001
-            if distance < 300 { velocity = velocity + towardPlayer }
+            if distance < TriangleRule.playerHomingRange {
+                velocity = velocity + towardPlayer
+            }
             _ = applyBlackHoleInfluence(to: triangle, kind: .triangle, velocity: &velocity)
             return
         }
@@ -3530,10 +3629,10 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             dy: partner.position.y - triangle.position.y
         )
         let distance = difference.length + 0.001
-        if distance > 150 {
-            velocity = velocity + difference / distance * 32
-        } else if distance < 64 {
-            velocity = velocity - difference / distance * 32
+        if distance > TriangleRule.partnerFarDistance {
+            velocity = velocity + difference / distance * TriangleRule.partnerAcceleration
+        } else if distance < TriangleRule.partnerNearDistance {
+            velocity = velocity - difference / distance * TriangleRule.partnerAcceleration
         }
         _ = applyBlackHoleInfluence(to: triangle, kind: .triangle, velocity: &velocity)
     }
@@ -3548,13 +3647,10 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 && $0.userData?["kind"] as? String == EnemyKind.triangle.rawValue
                 && (($0.userData?["freezeFrames"] as? NSNumber)?.intValue ?? 0) == 0
         }
-        var drawnPairs = Set<String>()
         for triangle in triangles {
             guard let partner = trianglePartner(of: triangle),
-                  let firstID = triangle.userData?["enemyID"] as? String,
-                  let secondID = partner.userData?["enemyID"] as? String else { continue }
-            let pairID = [firstID, secondID].sorted().joined(separator: "-")
-            guard drawnPairs.insert(pairID).inserted else { continue }
+                  let triangleID = triangle.userData?["enemyID"] as? String,
+                  let partnerID = partner.userData?["enemyID"] as? String else { continue }
 
             let strength = CGFloat((triangle.userData?["triangleStrength"] as? NSNumber)?.doubleValue
                                    ?? Double(TriangleBondState.initialStrength))
@@ -3570,27 +3666,30 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 alpha: 1
             )
             bond.lineWidth = 2
-            bond.glowWidth = 2
-            bond.zPosition = -1
+            bond.glowWidth = 0
+            bond.blendMode = .add
+            bond.lineCap = .butt
+            bond.lineJoin = .miter
+            bond.zPosition = 1
+            bond.userData = NSMutableDictionary(dictionary: [
+                "triangleFirstID": triangleID,
+                "triangleSecondID": partnerID,
+            ])
             enemyLayer.addChild(bond)
 
         }
     }
 
-    private func pairEligibleTriangles() {
-        let triangles = enemyLayer.children.filter {
-            $0.name == "enemy"
-                && $0.userData?["kind"] as? String == EnemyKind.triangle.rawValue
-        }
-        for triangle in triangles where trianglePartner(of: triangle) == nil {
-            let freezeFrames = (triangle.userData?["freezeFrames"] as? NSNumber)?.intValue ?? 0
-            guard freezeFrames == 0 else { continue }
-            guard let partner = triangles.first(where: {
-                $0 !== triangle
-                    && trianglePartner(of: $0) == nil
-                    && squaredDistance(triangle.position, $0.position) < 32 * 32
-            }) else { continue }
-            attachTriangles(triangle, partner)
+    private func pairEligibleTriangle(_ triangle: SKNode) {
+        guard trianglePartner(of: triangle) == nil else { return }
+        for candidate in enemyLayer.children where candidate !== triangle {
+            guard candidate.name == "enemy",
+                  candidate.userData?["kind"] as? String == EnemyKind.triangle.rawValue,
+                  trianglePartner(of: candidate) == nil,
+                  squaredDistance(triangle.position, candidate.position)
+                    < TriangleRule.pairDistanceSquared else { continue }
+            attachTriangles(triangle, candidate)
+            return
         }
     }
 
@@ -3602,7 +3701,11 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                   let secondID = partner.userData?["enemyID"] as? String else { continue }
             let pairID = [firstID, secondID].sorted().joined(separator: "-")
             guard checkedPairs.insert(pairID).inserted else { continue }
-            if distanceFromPoint(player.position, toLineFrom: triangle.position, to: partner.position) <= 12 {
+            if distanceFromPoint(
+                player.position,
+                toLineFrom: triangle.position,
+                to: partner.position
+            ) <= TriangleRule.bondPlayerCollisionRadius {
                 _ = hitPlayer()
                 return
             }
@@ -3628,7 +3731,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         first.userData?["triangleResist"] = false
         second.userData?["trianglePartnerID"] = firstID
         second.userData?["triangleStrength"] = TriangleBondState.initialStrength
-        second.userData?["triangleResist"] = true
+        second.userData?["triangleResist"] = false
     }
 
     private func trianglePartner(of triangle: SKNode) -> SKNode? {
@@ -3639,14 +3742,29 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     private func detachTriangle(_ triangle: SKNode) {
+        if let triangleID = triangle.userData?["enemyID"] as? String {
+            removeTriangleBondVisuals(involving: triangleID)
+        }
         if let partner = trianglePartner(of: triangle) {
             partner.userData?["trianglePartnerID"] = nil
             partner.userData?["triangleStrength"] = 0
             partner.userData?["triangleResist"] = false
+            partner.childNode(withName: "triangleTwin")?.isHidden = true
         }
         triangle.userData?["trianglePartnerID"] = nil
         triangle.userData?["triangleStrength"] = 0
         triangle.userData?["triangleResist"] = false
+        triangle.childNode(withName: "triangleTwin")?.isHidden = true
+    }
+
+    private func removeTriangleBondVisuals(involving triangleID: String) {
+        for bond in enemyLayer.children where bond.name == "triangleBond" {
+            let firstID = bond.userData?["triangleFirstID"] as? String
+            let secondID = bond.userData?["triangleSecondID"] as? String
+            if firstID == triangleID || secondID == triangleID {
+                bond.removeFromParent()
+            }
+        }
     }
 
     private func updateInterceptorShieldVisual(_ interceptor: SKNode) {
@@ -3799,6 +3917,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             let resists = (enemy.userData?["triangleResist"] as? NSNumber)?.boolValue ?? false
             guard !resists else { return false }
             for blackHole in enemies(of: .blackHole) {
+                // BlackHole2 designates the opposite endpoint as the resistant
+                // spinner as soon as it visits any Black Hole, active or not.
+                partner.userData?["triangleResist"] = true
                 let blackHoleSize = CGFloat((blackHole.userData?["blackHoleSize"] as? NSNumber)?.doubleValue ?? 20)
                 let difference = CGVector(
                     dx: blackHole.position.x - enemy.position.x,
@@ -3808,15 +3929,17 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 if distance < 100 + blackHoleSize * 10 {
                     velocity = velocity + difference / distance
                 }
-                if distance * distance < 12 * 12 + blackHoleSize * blackHoleSize * 4 {
+                let distanceSquared = difference.dx * difference.dx
+                    + difference.dy * difference.dy
+                if distanceSquared
+                    < TriangleRule.bondBlackHoleCollisionThresholdSquared(size: blackHoleSize) {
                     let rotation = CGFloat((blackHole.userData?["rotation"] as? NSNumber)?.doubleValue ?? 0)
-                    let radians = rotation * 2 * .pi / 180
                     var partnerVelocity = CGVector(
                         dx: CGFloat((partner.userData?["dx"] as? NSNumber)?.doubleValue ?? 0),
                         dy: CGFloat((partner.userData?["dy"] as? NSNumber)?.doubleValue ?? 0)
                     )
                     partnerVelocity = partnerVelocity
-                        - CGVector(dx: cos(radians) * 8, dy: sin(radians) * 8)
+                        + TriangleRule.sceneBlackHoleSpinImpulse(sourceRotation: rotation)
                     partner.userData?["dx"] = partnerVelocity.dx
                     partner.userData?["dy"] = partnerVelocity.dy
                     let strength = CGFloat((partner.userData?["triangleStrength"] as? NSNumber)?.doubleValue
@@ -3826,7 +3949,10 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                     partner.userData?["triangleStrength"] = bond.strength
                     if bond.isBroken {
                         detachTriangle(enemy)
-                        destroyEnemy(enemy, playSound: false, awardPoints: false)
+                        // BlackHole2 removes the swallowed endpoint directly;
+                        // unlike le.Kill(False), it emits no particles, score,
+                        // shockwave, or killed sound.
+                        enemy.removeFromParent()
                         growBlackHole(blackHole, amount: 1)
                         return true
                     }
@@ -4147,7 +4273,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             damageEnemy(seeker, projectile: projectile)
             return true
         }
-        for triangle in enemies(of: .triangle) where squaredDistance(position, triangle.position) < 12 * 12 + 2 * 2 {
+        for triangle in enemies(of: .triangle) where
+            squaredDistance(position, triangle.position)
+                < TriangleRule.projectileCollisionThresholdSquared {
             damageEnemy(triangle, projectile: projectile)
             return true
         }
@@ -4230,7 +4358,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         case .interceptor:
             radiusSquared = InterceptorRule.playerCollisionThresholdSquared
         case .triangle:
-            radiusSquared = 24 * 24
+            radiusSquared = TriangleRule.playerCollisionThresholdSquared
         case .blackHole:
             let blackHoleSize = CGFloat((enemy.userData?["blackHoleSize"] as? NSNumber)?.doubleValue ?? 20)
             radiusSquared = BlackHoleRule.playerCollisionThresholdSquared(size: blackHoleSize)
@@ -4483,7 +4611,12 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         let kind = EnemyKind(rawValue: enemy.userData?["kind"] as? String ?? "") ?? .pinwheel
         let cubeTier = (enemy.userData?["cubeTier"] as? NSNumber)?.intValue ?? 0
         if kind == .triangle, originalName == "enemy" {
-            detachTriangle(enemy)
+            destroyTriangle(
+                enemy,
+                awardPoints: awardPoints,
+                preHitParticlesEmitted: preHitParticlesEmitted
+            )
+            return
         }
         if kind == .blackHole,
            let id = enemy.userData?["enemyID"] as? String {
@@ -4597,6 +4730,69 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             }
             enemy.removeFromParent()
         }
+        updateHUD()
+    }
+
+    private func destroyTriangle(
+        _ triangle: SKNode,
+        awardPoints: Bool,
+        preHitParticlesEmitted: Bool
+    ) {
+        guard triangle.parent != nil, triangle.name == "enemy" else { return }
+        let position = triangle.position
+        let rotation = CGFloat((triangle.userData?["rotation"] as? NSNumber)?.intValue ?? 0)
+        let strength = CGFloat(
+            (triangle.userData?["triangleStrength"] as? NSNumber)?.doubleValue
+                ?? Double(TriangleBondState.initialStrength)
+        )
+        if let triangleID = triangle.userData?["enemyID"] as? String {
+            removeTriangleBondVisuals(involving: triangleID)
+        }
+        triangle.name = "destroying"
+        triangle.physicsBody?.categoryBitMask = 0
+
+        // le.Kill always emits these four strength-coloured particles before
+        // changing its attachment state or awarding points.
+        if !preHitParticlesEmitted {
+            emitParticles(
+                count: 4,
+                at: position,
+                kind: .threeDirections,
+                color: ParticleColor(
+                    red: 20 + Int(strength * 4),
+                    green: 220 - Int(strength * 4),
+                    blue: 0
+                ),
+                rotation: { _ in rotation }
+            )
+        }
+
+        if !awardPoints {
+            // The source clears only this endpoint's `attached` flag here. A
+            // bomb visits the other endpoint later in the same list traversal.
+            triangle.userData?["trianglePartnerID"] = nil
+            triangle.userData?["triangleResist"] = false
+        } else {
+            showFloatingScore(baseScore: OriginalEnemyKind.triangle.baseScore, at: position)
+            for event in session.registerEnemyDestroyed(
+                baseScore: OriginalEnemyKind.triangle.baseScore
+            ) {
+                handleProgressionEvent(event)
+            }
+            destroyedEnemyCount += 1
+        }
+
+        gridSimulation.shockwave(at: position)
+        // Unlike the other enemy Kill(False) paths, le.Kill plays this sound
+        // even when no points were requested (bomb/Black Hole absorption).
+        playSpatial(.triangleKilled, at: position)
+        emitParticles(
+            count: 32,
+            at: position,
+            kind: .threeDirections,
+            color: colorPalette[.triangle]
+        )
+        triangle.removeFromParent()
         updateHUD()
     }
 

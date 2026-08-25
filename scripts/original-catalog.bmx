@@ -7,6 +7,7 @@ Function CaptureOriginalCatalog:Int(mode$, directory$)
 	Local blackHoleKind:Int = -1
 	Local snakeKind:Int = -1
 	Local interceptorKind:Int = -1
+	Local triangleKind:Int = -1
 	Local generatorKind:Int = -1
 	Local powerKind:Int = -1
 	Local gridKind:Int = -1
@@ -48,6 +49,10 @@ Function CaptureOriginalCatalog:Int(mode$, directory$)
 		Case "interceptor-motion"; interceptorKind = 0
 		Case "interceptor-shield"; interceptorKind = 1
 		Case "interceptor-block"; interceptorKind = 2
+		Case "triangle-motion"; triangleKind = 0
+		Case "triangle-bond"; triangleKind = 1
+		Case "triangle-hit"; triangleKind = 2
+		Case "triangle-black-hole"; triangleKind = 3
 
 		Case "generator-pinwheel"; generatorKind = 1
 		Case "generator-diamond"; generatorKind = 2
@@ -141,6 +146,7 @@ Function CaptureOriginalCatalog:Int(mode$, directory$)
 		If blackHoleKind >= 0 Then CaptureOriginalBlackHole(blackHoleKind)
 		If snakeKind >= 0 Then CaptureOriginalSnake(snakeKind)
 		If interceptorKind >= 0 Then CaptureOriginalInterceptor(interceptorKind)
+		If triangleKind >= 0 Then CaptureOriginalTriangle(triangleKind)
 		If generatorKind >= 0 Then ge.Create(SCREENW/2, SCREENH/2, generatorKind, 60, 24, 0)
 		If powerKind >= 0 Then pu.Create(SCREENW/2, SCREENH/2, powerKind, 0)
 
@@ -165,6 +171,77 @@ Function CaptureOriginalCatalog:Int(mode$, directory$)
 	SaveScreenshot(directory + "/" + mode + ".png")
 	Flip 1
 	Return True
+End Function
+
+Function CaptureOriginalTriangle(kind:Int)
+	px = SCREENW/2
+	py = 100
+	Local centerX:Int = SCREENW/2
+	Local centerY:Int = SCREENH/2
+	Local first:le
+	Local second:le
+	Local triangle:le
+
+	If kind = 0
+		first = le.Create(centerX, centerY, 0, 1)
+		For Local frame:Int = 0 Until 30
+			For triangle = EachIn le_list
+				triangle.Update()
+			Next
+		Next
+		Return
+	EndIf
+
+	Local halfDistance:Int = 55
+	If kind = 1 Then halfDistance = 90
+	If kind = 3 Then halfDistance = 50
+	first = le.Create(centerX-halfDistance, centerY, 0, 1)
+	second = le.Create(centerX+halfDistance, centerY, 0, 1)
+	first.x = centerX-halfDistance
+	first.y = centerY
+	first.dx = 0
+	first.dy = 0
+	first.r = 0
+	second.x = centerX+halfDistance
+	second.y = centerY
+	second.dx = 0
+	second.dy = 0
+	second.r = 0
+	first.attached = True
+	first.le2 = second
+	first.strength = 25
+	first.resist = False
+	second.attached = True
+	second.le2 = first
+	second.strength = 25
+	second.resist = False
+
+	Select kind
+		Case 1
+			For Local frame:Int = 0 Until 30
+				For triangle = EachIn le_list
+					triangle.Update()
+				Next
+			Next
+		Case 2
+			first.Kill(True,-50,0)
+		Case 3
+			second.strength = 0.25
+			nme5.Create(first.x, first.y, 20, 0, 1)
+			For Local blackHole:nme5 = EachIn nme5_list
+				blackHole.x = first.x
+				blackHole.y = first.y
+				blackHole.dx = 0
+				blackHole.dy = 0
+				blackHole.r = 45
+				blackHole.sz = 20
+				blackHole.active = False
+				Exit
+			Next
+			For triangle = EachIn le_list
+				triangle.Update()
+			Next
+	End Select
 End Function
 
 Function CaptureOriginalInterceptor(kind:Int)

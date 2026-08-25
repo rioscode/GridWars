@@ -29,7 +29,7 @@ Capture mode uses the original compiled renderer, entity types, draw functions,
 and assets; fixes the random seed; installs default scores and colours; and
 skips all reads and writes under `~/.config/gridwars`. It changes only the
 selected fixed state, window mode, and PNG export after the named frame. The
-103 available references cover:
+107 available references cover:
 
 - the title, scores, friends, and enemies attract pages at frame 600;
 - the options page at frame 20;
@@ -41,6 +41,8 @@ selected fixed state, window mode, and PNG export after the named frame. The
 - Black Hole paired motion, terminal shrink, and overload explosion states;
 - Snake 30-frame motion, persistent Tail hit, and eight-step chain cascade;
 - Interceptor 30-frame motion, active shield, and projectile-block states;
+- Triangle 30-frame motion, elastic bond, projectile-hit, and Black-Hole bond
+  break states;
 - all nine power-ups;
 - all 21 grid styles and all four particle styles; and
 - Solid, Low, Medium, High, and User graphics sets; and
@@ -62,16 +64,17 @@ captures just one named state, for example:
 
 The script copies source and assets to a `mktemp` directory, textually includes
 `scripts/original-catalog.bmx`, patches and builds only that copy, captures the
-103 states, then deletes the temporary build.
+107 states, then deletes the temporary build.
 
 ## Swift renderer
 
-The macOS target supports a persistence-free capture mode for 103 fixed states:
+The macOS target supports a persistence-free capture mode for 107 fixed states:
 the attract screens, gameplay transitions, every enemy and generator, every
 power-up, six basic-enemy motion checks, three Black Hole lifecycle checks,
-three Snake behaviour checks, three Interceptor steering/shield checks, all 21
-grid styles, all particle and graphics sets, HUD variants, and every menu page.
-Captures are normalized to the original 1024×768 pixel size.
+three Snake behaviour checks, three Interceptor steering/shield checks, four
+Triangle motion/bond checks, all 21 grid styles, all particle and graphics sets,
+HUD variants, and every menu page. Captures are normalized to the original
+1024×768 pixel size.
 Run:
 
 ```sh

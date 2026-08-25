@@ -72,7 +72,8 @@ else
     motion-butterfly \
     black-hole-motion black-hole-shrink black-hole-explosion \
     snake-motion snake-tail-hit snake-cascade \
-    interceptor-motion interceptor-shield interceptor-block \
+  interceptor-motion interceptor-shield interceptor-block \
+  triangle-motion triangle-bond triangle-hit triangle-black-hole \
     generator-pinwheel generator-diamond generator-green-square generator-cube \
     generator-seeker generator-black-hole generator-triangle generator-snake \
     generator-interceptor generator-butterfly \
