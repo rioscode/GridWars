@@ -631,6 +631,67 @@ final class GameRulesTests: XCTestCase {
         XCTAssertEqual(PlayerWeaponRule.timerFrames(cannons: 4), 6)
     }
 
+    func testProjectileUpdateUsesConvertedBoundsAndPreservesMinimumSpeedTypo() {
+        let arena = CGSize(width: 1_024, height: 768)
+        let firstHalf = ProjectileUpdateRule.resolveBoundary(
+            positionAfterHalfStep: CGPoint(x: 512, y: 768),
+            velocity: CGVector(dx: 0, dy: 2),
+            arenaSize: arena,
+            isBouncy: true
+        )
+        XCTAssertEqual(firstHalf.position.y, 768)
+        XCTAssertEqual(firstHalf.velocity.dy, 2)
+        XCTAssertFalse(firstHalf.shouldRemove)
+
+        let secondHalf = ProjectileUpdateRule.resolveBoundary(
+            positionAfterHalfStep: CGPoint(x: 512, y: 769),
+            velocity: firstHalf.velocity,
+            arenaSize: arena,
+            isBouncy: true
+        )
+        XCTAssertEqual(secondHalf.position.y, 767)
+        XCTAssertEqual(secondHalf.velocity.dy, -2)
+        XCTAssertFalse(secondHalf.shouldRemove)
+
+        let ordinary = ProjectileUpdateRule.resolveBoundary(
+            positionAfterHalfStep: CGPoint(x: 512, y: 769),
+            velocity: CGVector(dx: 0, dy: 2),
+            arenaSize: arena,
+            isBouncy: false
+        )
+        XCTAssertTrue(ordinary.shouldRemove)
+
+        let adjusted = ProjectileUpdateRule.enforceSourceMinimumSpeed(
+            velocity: CGVector(dx: 1, dy: 1),
+            originalSpeed: 10
+        )
+        XCTAssertEqual(adjusted.dx, 12.5, accuracy: 0.0001)
+        XCTAssertEqual(adjusted.dy, 1, accuracy: 0.0001)
+    }
+
+    func testProjectileUpgradeModeUsesLiveTimersAndSuperPrecedence() {
+        XCTAssertTrue(ProjectileUpgradeRule.collisionRemovesProjectile(
+            collided: true,
+            superShotFrames: 0
+        ))
+        XCTAssertFalse(ProjectileUpgradeRule.collisionRemovesProjectile(
+            collided: true,
+            superShotFrames: 1
+        ))
+        XCTAssertEqual(
+            ProjectileUpgradeRule.colorRole(superShotFrames: 0, bouncyShotFrames: 0),
+            .shot
+        )
+        XCTAssertEqual(
+            ProjectileUpgradeRule.colorRole(superShotFrames: 0, bouncyShotFrames: 1),
+            .bouncyShot
+        )
+        XCTAssertEqual(
+            ProjectileUpgradeRule.colorRole(superShotFrames: 1, bouncyShotFrames: 1),
+            .superShot
+        )
+    }
+
     func testPowerUpCapsFallBackToTwoThousandPoints() {
         var session = GameSession()
         session.collectPowerUp(.extraCannon)
@@ -2122,7 +2183,7 @@ final class GameRulesTests: XCTestCase {
 
     func testCaptureCatalogCoversEveryFidelityCategory() {
         let scenarios = OriginalCaptureScenario.all
-        XCTAssertEqual(scenarios.count, 115)
+        XCTAssertEqual(scenarios.count, 120)
         XCTAssertEqual(Set(scenarios.map(\.name)).count, scenarios.count)
         XCTAssertEqual(
             OriginalCaptureScenario(name: "power-up-message")?.subject,
@@ -2144,6 +2205,7 @@ final class GameRulesTests: XCTestCase {
         var interceptorCaptures = 0
         var triangleCaptures = 0
         var playerCaptures = 0
+        var projectileCaptures = 0
         var generators = 0
         var powerUps = 0
         var grids = 0
@@ -2160,6 +2222,7 @@ final class GameRulesTests: XCTestCase {
             case .interceptor: interceptorCaptures += 1
             case .triangle: triangleCaptures += 1
             case .player: playerCaptures += 1
+            case .projectile: projectileCaptures += 1
             case .generator: generators += 1
             case .powerUp: powerUps += 1
             case .grid: grids += 1
@@ -2176,6 +2239,7 @@ final class GameRulesTests: XCTestCase {
         XCTAssertEqual(interceptorCaptures, OriginalInterceptorCapture.allCases.count)
         XCTAssertEqual(triangleCaptures, OriginalTriangleCapture.allCases.count)
         XCTAssertEqual(playerCaptures, OriginalPlayerCapture.allCases.count)
+        XCTAssertEqual(projectileCaptures, OriginalProjectileCapture.allCases.count)
         XCTAssertEqual(generators, OriginalEnemyKind.allCases.count)
         XCTAssertEqual(powerUps, PowerUpKind.allCases.count)
         XCTAssertEqual(grids, 21)

@@ -24,6 +24,21 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   differences are `0.00585720`, `0.00481007`, `0.00472743`, `0.00471062`,
   `0.00471184`, `0.00471593`, `0.00471702`, and `0.00473237`. All 115 catalog
   pairs pass, and two independent complete original runs are byte-identical.
+- Projectile upgrades: `gridwars.bmx:92-93, 2882-3141, 5456-5460` and
+  `colordefs.bmx:42-53` map to `ProjectileUpdateRule`,
+  `ProjectileUpgradeRule`, and `GameScene.updateProjectiles`. Each projectile
+  still executes two source-ordered half-steps, including collision before
+  active-Black-Hole deflection and the original typo that normalizes `dx`
+  twice without changing `dy`. Upgrade behavior and colour are read from the
+  live global-equivalent timers on every frame; Super takes precedence when
+  both timers are active. Super collisions run their enemy effects but keep
+  the shot, while Bouncy reflects. Converting source bounds `0...H-1` through
+  `sceneY = H-sourceY` gives the non-obvious SpriteKit interval `1...H`.
+  Five isolated captures cover two-target Super piercing, that exact upper
+  Bouncy boundary, a green Bouncy collision, and red/green active-Black-Hole
+  deflection. Their normalized differences are `0.00516206`, `0.00470918`,
+  `0.00499543`, `0.00480980`, and `0.00481247`; two Swift runs are
+  byte-identical, as are two independent complete 120-state original runs.
 - Player lifecycle: `gridwars.bmx:4344-4503` maps to the frame-based death and
   Get Ready states in `GameScene`: 256 death particles, non-killer removal,
   100 death frames, 60 title frames, 40 contraction frames, delayed life loss,
@@ -325,13 +340,13 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   graphics-set captures to 0.01588–0.01620. The score, high score, multiplier,
   lives and bomb indicators use the original vector font, coordinates, alpha
   and icon frames. The isolated original
-  renderer now produces 115 valid full-frame 1024×768 attract, transition,
+  renderer now produces 120 valid full-frame 1024×768 attract, transition,
   gameplay, HUD, entity, enemy-motion/lifecycle, generator, power-up, grid,
   particle, player/weapon, graphics-set, and menu references via
   `scripts/capture-original.sh`;
   capture mode bypasses all
   legacy configuration and high-score I/O. A persistence-free Swift catalog
-  covers the same 115 states via `scripts/capture-screens.sh`, and
+  covers the same 120 states via `scripts/capture-screens.sh`, and
   `scripts/compare-captures.sh` measures every matching pair. Two independent
   complete original runs produced byte-identical PNGs. Enemy
   pages reproduce the original individual rotation, pulse and squash rates,
@@ -380,7 +395,7 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   archived legacy `Language/Data types.bbdoc` documents the implicit numeric
   conversions used by the original. Swift random ranges and intentional
   integer truncations follow those references.
-- Build evidence (2026-08-25): the macOS unit-test action (106 tests) and generic
+- Build evidence (2026-08-25): the macOS unit-test action (108 tests) and generic
   iOS Simulator Debug build both pass. The rule suite
   covers initial difficulty, motion, weapons, scoring, upgrades, spawn timing,
   triangle bonds, snake following, black-hole integer conversions,
@@ -436,7 +451,7 @@ the corresponding Swift implementation, and a test or visual/runtime check.
 - [x] Original inertia, maximum speed, boundary response, facing, and trail.
 - [x] One through four front-cannon formations and original shot timers/speeds.
 - [x] Reverse and side shooters with exact timed duration.
-- [ ] Super shots pierce; bouncy shots reflect; both retain black-hole
+- [x] Super shots pierce; bouncy shots reflect; both retain black-hole
       interaction and their original particle colours.
 - [ ] All nine power-ups: reverse, side, extra cannon, faster shots, extra
       player, extra bomb, shield, super shots, and bouncy shots (`pu`).

@@ -549,7 +549,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
         let preparesOriginalState: Bool = switch captureRequest.scenario.subject {
         case .gameplay, .enemy, .enemyMotion, .blackHole, .snake, .interceptor,
-             .triangle, .player,
+             .triangle, .player, .projectile,
              .generator, .powerUp,
              .grid, .particleStyle,
              .graphicsSet, .getReady, .death, .gameOver, .highScoreEntry,
@@ -603,6 +603,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         case let .player(capture):
             prepareGameplayCapture()
             configurePlayerCapture(capture)
+        case let .projectile(capture):
+            prepareGameplayCapture()
+            configureProjectileCapture(capture)
         case let .generator(kind):
             prepareGameplayCapture()
             spawnGenerator(
@@ -1140,6 +1143,69 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 )
             }
             for _ in 0..<6 { updateProjectiles() }
+        }
+    }
+
+    private func configureProjectileCapture(_ capture: OriginalProjectileCapture) {
+        player.position = sourcePoint(CGPoint(x: playfieldSize.width / 2, y: 100))
+        let center = CGPoint(x: playfieldSize.width / 2, y: playfieldSize.height / 2)
+
+        switch capture {
+        case .superPierce:
+            _ = session.collectPowerUp(.superShots)
+            for xOffset in [0, 20] {
+                _ = spawnEnemy(
+                    kind: .pinwheel,
+                    at: CGPoint(x: center.x + CGFloat(xOffset), y: center.y),
+                    freezeFrames: 0,
+                    closeToPlayer: true,
+                    playBornSound: false
+                )
+            }
+            let projectile = spawnProjectile(direction: CGVector(dx: 1, dy: 0), speed: 40)
+            projectile?.position = CGPoint(x: center.x - 20, y: center.y)
+            updateProjectiles()
+
+        case .bouncyWall:
+            _ = session.collectPowerUp(.bouncyShots)
+            let projectile = spawnProjectile(direction: CGVector(dx: 0, dy: 1), speed: 2)
+            projectile?.position = sourcePoint(CGPoint(x: center.x, y: 1))
+            updateProjectiles()
+
+        case .bouncyHit:
+            _ = session.collectPowerUp(.bouncyShots)
+            _ = spawnEnemy(
+                kind: .pinwheel,
+                at: center,
+                freezeFrames: 0,
+                closeToPlayer: true,
+                playBornSound: false
+            )
+            let projectile = spawnProjectile(direction: CGVector(dx: 1, dy: 0), speed: 40)
+            projectile?.position = CGPoint(x: center.x - 20, y: center.y)
+            updateProjectiles()
+
+        case .superBlackHole, .bouncyBlackHole:
+            _ = session.collectPowerUp(
+                capture == .superBlackHole ? .superShots : .bouncyShots
+            )
+            guard let blackHole = spawnEnemy(
+                kind: .blackHole,
+                at: center,
+                freezeFrames: 0,
+                closeToPlayer: true,
+                playBornSound: false
+            ) else { return }
+            blackHole.userData?["blackHoleSize"] = 20.0
+            blackHole.userData?["blackHoleActive"] = true
+            updateEnemyVisual(
+                blackHole,
+                kind: .blackHole,
+                rotation: (blackHole.userData?["rotation"] as? NSNumber)?.intValue ?? 0
+            )
+            let projectile = spawnProjectile(direction: CGVector(dx: 1, dy: 0), speed: 10)
+            projectile?.position = CGPoint(x: center.x - 60, y: center.y)
+            updateProjectiles()
         }
     }
 
@@ -2642,12 +2708,13 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         audio.play(.shotBorn)
     }
 
+    @discardableResult
     private func spawnProjectile(
         direction: CGVector,
         speed: CGFloat,
         offset: CGVector = .zero
-    ) {
-        guard projectileLayer.children.count < 500 else { return }
+    ) -> SKSpriteNode? {
+        guard projectileLayer.children.count < 500 else { return nil }
         let projectile = SKSpriteNode(texture: OriginalGraphics.texture(
             named: "yellowshot",
             setIndex: activeGraphicsSetIndex
@@ -2668,6 +2735,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             "speed": speed,
         ])
         projectileLayer.addChild(projectile)
+        return projectile
     }
 
     @discardableResult
@@ -3940,8 +4008,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 )
         }
         for projectile in projectileLayer.children where projectile.parent != nil {
-            let isSuperShot = (projectile.userData?["superShot"] as? NSNumber)?.boolValue ?? false
-            guard !isSuperShot else { continue }
+            guard session.superShotFrames == 0 else { continue }
             for interceptor in interceptors {
                 let geometry = cachedInterceptorShieldGeometry(interceptor)
                 if geometry.contains(
@@ -4247,38 +4314,33 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 projectile.position.x += velocity.dx / 2
                 projectile.position.y += velocity.dy / 2
 
-                if projectile.position.x < 0 || projectile.position.x > arena.width - 1 {
-                    projectile.position.x -= velocity.dx
-                    if session.bouncyShotFrames == 0 {
-                        shouldRemove = true
-                    } else {
-                        velocity.dx = -velocity.dx
-                    }
-                }
-                if projectile.position.y < 0 || projectile.position.y > arena.height - 1 {
-                    projectile.position.y -= velocity.dy
-                    if session.bouncyShotFrames == 0 {
-                        shouldRemove = true
-                    } else {
-                        velocity.dy = -velocity.dy
-                    }
-                }
+                let boundary = ProjectileUpdateRule.resolveBoundary(
+                    positionAfterHalfStep: projectile.position,
+                    velocity: velocity,
+                    arenaSize: arena,
+                    isBouncy: session.bouncyShotFrames > 0
+                )
+                projectile.position = boundary.position
+                velocity = boundary.velocity
+                shouldRemove = boundary.shouldRemove
 
                 projectile.userData?["dx"] = velocity.dx
                 projectile.userData?["dy"] = velocity.dy
                 if !shouldRemove {
                     let collided = checkProjectileCollisions(projectile)
-                    if session.superShotFrames == 0 { shouldRemove = collided }
+                    shouldRemove = ProjectileUpgradeRule.collisionRemovesProjectile(
+                        collided: collided,
+                        superShotFrames: session.superShotFrames
+                    )
                 }
                 if !shouldRemove {
                     applyBlackHoles(toProjectile: projectile, velocity: &velocity)
                 }
 
-                let speed = velocity.length
-                if speed > 0, speed < originalSpeed / 2 {
-                    velocity.dx = velocity.dx / speed * (originalSpeed / 2)
-                    velocity.dx = velocity.dx / speed * (originalSpeed / 2)
-                }
+                velocity = ProjectileUpdateRule.enforceSourceMinimumSpeed(
+                    velocity: velocity,
+                    originalSpeed: originalSpeed
+                )
                 if shouldRemove {
                     let position = projectile.position
                     projectile.removeFromParent()
@@ -4307,15 +4369,18 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     private var projectileColor: SKColor {
-        if session.superShotFrames > 0 { return skColor(colorPalette[.superShot]) }
-        if session.bouncyShotFrames > 0 { return skColor(colorPalette[.bouncyShot]) }
-        return skColor(colorPalette[.shot])
+        skColor(colorPalette[projectileColorRole])
     }
 
     private var projectileParticleColor: ParticleColor {
-        if session.superShotFrames > 0 { return colorPalette[.superShot] }
-        if session.bouncyShotFrames > 0 { return colorPalette[.bouncyShot] }
-        return colorPalette[.shot]
+        colorPalette[projectileColorRole]
+    }
+
+    private var projectileColorRole: OriginalColorRole {
+        ProjectileUpgradeRule.colorRole(
+            superShotFrames: session.superShotFrames,
+            bouncyShotFrames: session.bouncyShotFrames
+        )
     }
 
     private func createProjectileImpact(at position: CGPoint) {
@@ -4517,8 +4582,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         if categories == Category.projectile | Category.enemy {
             let projectile = first.physicsBody?.categoryBitMask == Category.projectile ? first : second
             let enemy = first.physicsBody?.categoryBitMask == Category.enemy ? first : second
-            let isSuperShot = (projectile.userData?["superShot"] as? NSNumber)?.boolValue ?? false
-            if !isSuperShot { projectile.removeFromParent() }
+            if session.superShotFrames == 0 { projectile.removeFromParent() }
             damageEnemy(enemy, projectile: projectile)
         } else if categories == Category.player | Category.enemy {
             let enemy = first.physicsBody?.categoryBitMask == Category.enemy ? first : second

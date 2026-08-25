@@ -38,6 +38,8 @@ for screen in \
   player-motion player-boundary player-shield \
   weapon-cannon-1 weapon-cannon-2 weapon-cannon-3 weapon-cannon-4 \
   weapon-reverse-side \
+  projectile-super-pierce projectile-bouncy-wall projectile-bouncy-hit \
+  projectile-super-black-hole projectile-bouncy-black-hole \
   generator-pinwheel generator-diamond generator-green-square generator-cube \
   generator-seeker generator-black-hole generator-triangle generator-snake \
   generator-interceptor generator-butterfly \

@@ -120,6 +120,35 @@ visible while `frames > 60 || frames % 15 > 7`, scaled by
 sprite. Applying one global additive blend to the combined shield/player node
 changes both its alpha and overlap.
 
+Projectile bounds expose a one-pixel consequence of the coordinate transform.
+The source accepts `0 <= sourceY <= H-1`; with `sceneY = H-sourceY`, the exact
+scene interval is `1 <= sceneY <= H`, not SpriteKit's tempting `0...H-1`.
+After each half-step, a boundary violation rolls the position back by the full
+velocity. A Bouncy shot then negates only the violated component; an ordinary
+shot is marked for removal. Test a source shot starting at Y=1 with DY=-2: its
+first half-step reaches source Y=0 without bouncing and its second reaches -1,
+rolls back to 1, and reflects. This fixture catches both off-by-one errors.
+
+Do not attach Super or Bouncy mode to the projectile object. The original
+reads the two global countdowns during every shot update and again while
+drawing all shots, so an in-flight projectile changes behavior and colour as
+the timers start or expire. Super has precedence when both are nonzero. Each
+shot runs exactly two half-steps per frame; within each half-step the order is
+move, boundary, collision, active-Black-Hole deflection, minimum-speed check,
+then removal or Grid push. Super ignores the collision return value but the
+enemy's kill/damage side effects still happen, allowing at most one ordered
+collision per half-step. Bouncy affects only boundary removal; enemy hits
+still remove it and emit green impact particles.
+
+Preserve the minimum-speed typo literally. When Black-Hole deflection lowers a
+shot below half its creation speed, BlitzMax assigns normalized `dx` twice
+using the same old speed and never assigns `dy`. A conventional vector
+normalization changes trajectories near large holes. The Black Hole itself is
+checked for direct collision before its active-only deflection, and deflection
+adds `-Sgn(delta)/(26-Int(size/4))` to each source component. Source position
+delta and source velocity both invert on Y, so the two sign changes cancel and
+the scene formula also subtracts the sign of the scene-space delta.
+
 Keep Snake's `rot` as a source-space heading even though positions and
 velocities live in SpriteKit space. Its steering vector therefore becomes
 `(cos(rot)*speed, -sin(rot)*speed)`. Boundary response still adds 90 source

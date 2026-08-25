@@ -454,6 +454,77 @@ struct ProjectileLaunch: Equatable {
     }
 }
 
+struct ProjectileBoundaryResult: Equatable {
+    var position: CGPoint
+    var velocity: CGVector
+    var shouldRemove: Bool
+}
+
+enum ProjectileUpdateRule {
+    static func resolveBoundary(
+        positionAfterHalfStep: CGPoint,
+        velocity: CGVector,
+        arenaSize: CGSize,
+        isBouncy: Bool
+    ) -> ProjectileBoundaryResult {
+        var position = positionAfterHalfStep
+        var velocity = velocity
+        var shouldRemove = false
+
+        if position.x < 0 || position.x > arenaSize.width - 1 {
+            position.x -= velocity.dx
+            if isBouncy {
+                velocity.dx = -velocity.dx
+            } else {
+                shouldRemove = true
+            }
+        }
+
+        // Source Y is valid from 0 through H-1 and sceneY = H-sourceY,
+        // therefore the exact SpriteKit interval is 1 through H.
+        if position.y < 1 || position.y > arenaSize.height {
+            position.y -= velocity.dy
+            if isBouncy {
+                velocity.dy = -velocity.dy
+            } else {
+                shouldRemove = true
+            }
+        }
+
+        return ProjectileBoundaryResult(
+            position: position,
+            velocity: velocity,
+            shouldRemove: shouldRemove
+        )
+    }
+
+    static func enforceSourceMinimumSpeed(
+        velocity: CGVector,
+        originalSpeed: CGFloat
+    ) -> CGVector {
+        let speed = velocity.length
+        guard speed > 0, speed < originalSpeed / 2 else { return velocity }
+        var result = velocity
+        // The original assigns dx twice with the unchanged pre-adjustment
+        // speed and never assigns dy. Preserve that observable typo exactly.
+        result.dx = result.dx / speed * (originalSpeed / 2)
+        result.dx = result.dx / speed * (originalSpeed / 2)
+        return result
+    }
+}
+
+enum ProjectileUpgradeRule {
+    static func collisionRemovesProjectile(collided: Bool, superShotFrames: Int) -> Bool {
+        collided && superShotFrames == 0
+    }
+
+    static func colorRole(superShotFrames: Int, bouncyShotFrames: Int) -> OriginalColorRole {
+        if superShotFrames > 0 { return .superShot }
+        if bouncyShotFrames > 0 { return .bouncyShot }
+        return .shot
+    }
+}
+
 enum PlayerWeaponRule {
     static func timerFrames(cannons: Int) -> Int {
         4 + cannons / 2

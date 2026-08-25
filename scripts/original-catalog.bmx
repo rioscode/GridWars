@@ -9,6 +9,7 @@ Function CaptureOriginalCatalog:Int(mode$, directory$)
 	Local interceptorKind:Int = -1
 	Local triangleKind:Int = -1
 	Local playerKind:Int = -1
+	Local projectileKind:Int = -1
 	Local generatorKind:Int = -1
 	Local powerKind:Int = -1
 	Local gridKind:Int = -1
@@ -62,6 +63,11 @@ Function CaptureOriginalCatalog:Int(mode$, directory$)
 		Case "weapon-cannon-3"; playerKind = 5
 		Case "weapon-cannon-4"; playerKind = 6
 		Case "weapon-reverse-side"; playerKind = 7
+		Case "projectile-super-pierce"; projectileKind = 0
+		Case "projectile-bouncy-wall"; projectileKind = 1
+		Case "projectile-bouncy-hit"; projectileKind = 2
+		Case "projectile-super-black-hole"; projectileKind = 3
+		Case "projectile-bouncy-black-hole"; projectileKind = 4
 
 		Case "generator-pinwheel"; generatorKind = 1
 		Case "generator-diamond"; generatorKind = 2
@@ -157,6 +163,7 @@ Function CaptureOriginalCatalog:Int(mode$, directory$)
 		If interceptorKind >= 0 Then CaptureOriginalInterceptor(interceptorKind)
 		If triangleKind >= 0 Then CaptureOriginalTriangle(triangleKind)
 		If playerKind >= 0 Then CaptureOriginalPlayer(playerKind)
+		If projectileKind >= 0 Then CaptureOriginalProjectile(projectileKind)
 		If generatorKind >= 0 Then ge.Create(SCREENW/2, SCREENH/2, generatorKind, 60, 24, 0)
 		If powerKind >= 0 Then pu.Create(SCREENW/2, SCREENH/2, powerKind, 0)
 
@@ -299,6 +306,43 @@ Function CaptureOriginalNormalWeapon(cannons:Int, extras:Int)
 		For Local projectile:shot = EachIn shot_list
 			projectile.Update()
 		Next
+	Next
+End Function
+
+Function CaptureOriginalProjectile(kind:Int)
+	px = SCREENW/2
+	py = 100
+	Local centerX:Int = SCREENW/2
+	Local centerY:Int = SCREENH/2
+
+	Select kind
+		Case 0
+			supershots = 20*upgradetime
+			nme1.Create(centerX, centerY, 0, 1)
+			nme1.Create(centerX+20, centerY, 0, 1)
+			shot.Create(centerX-20, centerY, 40, 0, 40)
+		Case 1
+			bouncyshots = 20*upgradetime
+			shot.Create(centerX, 1, 0, -2, 2)
+		Case 2
+			bouncyshots = 20*upgradetime
+			nme1.Create(centerX, centerY, 0, 1)
+			shot.Create(centerX-20, centerY, 40, 0, 40)
+		Case 3, 4
+			If kind = 3 Then supershots = 20*upgradetime Else bouncyshots = 20*upgradetime
+			nme5.Create(centerX, centerY, 20, 0, 1)
+			For Local blackHole:nme5 = EachIn nme5_list
+				blackHole.x = centerX
+				blackHole.y = centerY
+				blackHole.sz = 20
+				blackHole.active = True
+				Exit
+			Next
+			shot.Create(centerX-60, centerY, 10, 0, 10)
+	End Select
+
+	For Local projectile:shot = EachIn shot_list
+		projectile.Update()
 	Next
 End Function
 

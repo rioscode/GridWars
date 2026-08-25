@@ -59,6 +59,7 @@ enum OriginalCaptureSubject: Equatable {
     case interceptor(OriginalInterceptorCapture)
     case triangle(OriginalTriangleCapture)
     case player(OriginalPlayerCapture)
+    case projectile(OriginalProjectileCapture)
     case generator(OriginalEnemyKind)
     case powerUp(PowerUpKind)
     case grid(Int)
@@ -115,6 +116,14 @@ enum OriginalPlayerCapture: String, CaseIterable {
     case cannon3 = "cannon-3"
     case cannon4 = "cannon-4"
     case reverseSide = "reverse-side"
+}
+
+enum OriginalProjectileCapture: String, CaseIterable {
+    case superPierce = "super-pierce"
+    case bouncyWall = "bouncy-wall"
+    case bouncyHit = "bouncy-hit"
+    case superBlackHole = "super-black-hole"
+    case bouncyBlackHole = "bouncy-black-hole"
 }
 
 struct OriginalCaptureScenario: Equatable {
@@ -177,6 +186,9 @@ struct OriginalCaptureScenario: Equatable {
                 ? "weapon"
                 : "player"
             return .init("\(prefix)-\($0.rawValue)", .player($0))
+        }
+        scenarios += OriginalProjectileCapture.allCases.map {
+            .init("projectile-\($0.rawValue)", .projectile($0))
         }
         scenarios += enemies.map { .init("generator-\($0.0)", .generator($0.1)) }
 
