@@ -705,6 +705,185 @@ final class GameRulesTests: XCTestCase {
         XCTAssertTrue(event.contains(.powerUpCollected(.extraCannon, message: "2000 Points!")))
     }
 
+    func testAllNinePowerUpsApplyTheirOriginalEffects() {
+        var session = GameSession(difficulty: .medium)
+
+        for kind in PowerUpKind.allCases {
+            session.collectPowerUp(kind)
+        }
+
+        XCTAssertEqual(session.reverseShooterFrames, 360)
+        XCTAssertEqual(session.sideShooterFrames, 360)
+        XCTAssertEqual(session.cannons, 3)
+        XCTAssertEqual(session.shotSpeed, 4)
+        XCTAssertEqual(session.lives, 4)
+        XCTAssertEqual(session.bombs, 4)
+        XCTAssertEqual(session.shieldFrames, 360)
+        XCTAssertEqual(session.superShotFrames, 360)
+        XCTAssertEqual(session.bouncyShotFrames, 360)
+    }
+
+    func testCappedPowerUpRunsScoreThresholdEventsBeforeCollectionMessage() {
+        var session = GameSession()
+        session.collectPowerUp(.extraCannon)
+        session.collectPowerUp(.extraCannon)
+        _ = session.registerScore(baseScore: 3_000)
+
+        let events = session.collectPowerUp(.extraCannon)
+
+        XCTAssertEqual(events, [
+            .spawnPowerUp(nil),
+            .powerUpCollected(.extraCannon, message: "2000 Points!"),
+        ])
+    }
+
+    func testPowerUpSelectionPreservesRawKindMappingAndConditionalDrawOrder() {
+        var baseDraws = [0, 0, 0]
+        var baseRanges: [ClosedRange<Int>] = []
+        let reverse = OriginalPowerUpRule.choose(
+            cannons: 4,
+            shotSpeed: 5,
+            lives: 3,
+            bombs: 3
+        ) { range in
+            baseRanges.append(range)
+            return baseDraws.removeFirst()
+        }
+        XCTAssertEqual(reverse, .reverseShooter)
+        XCTAssertEqual(baseRanges, [0...1, 0...100, 0...100])
+
+        var sideDraws = [1, 0, 0]
+        let side = OriginalPowerUpRule.choose(
+            cannons: 4,
+            shotSpeed: 5,
+            lives: 3,
+            bombs: 3
+        ) { _ in sideDraws.removeFirst() }
+        XCTAssertEqual(side, .sideShooters)
+
+        var superDraws = [1, 81, 46, 0]
+        let superShots = OriginalPowerUpRule.choose(
+            cannons: 4,
+            shotSpeed: 5,
+            lives: 3,
+            bombs: 3
+        ) { _ in superDraws.removeFirst() }
+        XCTAssertEqual(superShots, .superShots)
+
+        var bouncyDraws = [0, 81, 46, 1]
+        let bouncyShots = OriginalPowerUpRule.choose(
+            cannons: 4,
+            shotSpeed: 5,
+            lives: 3,
+            bombs: 3
+        ) { _ in bouncyDraws.removeFirst() }
+        XCTAssertEqual(bouncyShots, .bouncyShots)
+    }
+
+    func testPowerUpSelectionBiasesNeededCannonsLivesAndBombsInSourceOrder() {
+        var cannonDraws = [0, 0, 2, 1]
+        let cannon = OriginalPowerUpRule.choose(
+            cannons: 2,
+            shotSpeed: 3,
+            lives: 3,
+            bombs: 3
+        ) { _ in cannonDraws.removeFirst() }
+        XCTAssertEqual(cannon, .extraCannon)
+
+        var lifeDraws = [0, 0, 2, 2, 41]
+        let life = OriginalPowerUpRule.choose(
+            cannons: 2,
+            shotSpeed: 3,
+            lives: 1,
+            bombs: 1
+        ) { _ in lifeDraws.removeFirst() }
+        XCTAssertEqual(life, .extraPlayer)
+
+        var bombDraws = [1, 0, 2, 2, 41]
+        let bomb = OriginalPowerUpRule.choose(
+            cannons: 2,
+            shotSpeed: 3,
+            lives: 2,
+            bombs: 1
+        ) { _ in bombDraws.removeFirst() }
+        XCTAssertEqual(bomb, .extraBomb)
+    }
+
+    func testPowerUpSpawnUsesSourceYAndConstructorRandomOrder() {
+        var expectedPositionRandom = BlitzMaxRandomNumberGenerator(seed: 17)
+        let expectedX = expectedPositionRandom.rand(250, 774)
+        let expectedSourceY = expectedPositionRandom.rand(150, 618)
+        var positionRandom = BlitzMaxRandomNumberGenerator(seed: 17)
+        XCTAssertEqual(
+            OriginalPowerUpRule.sceneSpawnPosition(
+                arenaSize: CGSize(width: 1_024, height: 768),
+                using: &positionRandom
+            ),
+            CGPoint(x: expectedX, y: 768 - expectedSourceY)
+        )
+
+        var expectedSpawnRandom = BlitzMaxRandomNumberGenerator(seed: 23)
+        let expectedRotation = expectedSpawnRandom.rand(0, 359)
+        let expectedDirection = expectedSpawnRandom.rand(0, 359)
+        let expectedMagnitude = CGFloat(expectedSpawnRandom.rnd(0.5, 2))
+        var spawnRandom = BlitzMaxRandomNumberGenerator(seed: 23)
+        let state = OriginalPowerUpSpawnState.make(using: &spawnRandom)
+        XCTAssertEqual(state.rotation, expectedRotation)
+        XCTAssertEqual(state.direction, expectedDirection)
+        XCTAssertEqual(state.magnitude, expectedMagnitude, accuracy: 0.000_001)
+        XCTAssertEqual(
+            state.sceneVelocity.dy,
+            -sin(CGFloat(expectedDirection) * .pi / 180) * expectedMagnitude,
+            accuracy: 0.000_001
+        )
+    }
+
+    func testPowerUpAgeMergeExpirationAndMessageThresholdsMatchSource() {
+        XCTAssertFalse(OriginalPowerUpRule.starUsesAgedColor(lifeFrames: 300))
+        XCTAssertTrue(OriginalPowerUpRule.starUsesAgedColor(lifeFrames: 301))
+        XCTAssertFalse(OriginalPowerUpRule.iconUsesAgedColor(lifeFrames: 360))
+        XCTAssertTrue(OriginalPowerUpRule.iconUsesAgedColor(lifeFrames: 361))
+        XCTAssertFalse(OriginalPowerUpRule.canMerge(kind: .shield, lifeFrames: 200))
+        XCTAssertTrue(OriginalPowerUpRule.canMerge(kind: .shield, lifeFrames: 201))
+        XCTAssertFalse(OriginalPowerUpRule.attractsOtherPowerUps(lifeFrames: 300))
+        XCTAssertTrue(OriginalPowerUpRule.attractsOtherPowerUps(lifeFrames: 301))
+        XCTAssertFalse(OriginalPowerUpRule.expiresIntoButterfly(
+            kind: .reverseShooter,
+            lifeFrames: 400
+        ))
+        XCTAssertTrue(OriginalPowerUpRule.expiresIntoButterfly(
+            kind: .reverseShooter,
+            lifeFrames: 401
+        ))
+        XCTAssertEqual(
+            OriginalPowerUpRule.messageLength(kind: .superShots, message: "Super Shots"),
+            15
+        )
+        XCTAssertEqual(
+            OriginalPowerUpRule.messageLength(kind: .shield, message: "2000 Points!"),
+            12
+        )
+
+        let initialVelocity = CGVector(dx: 0.5, dy: -0.25)
+        XCTAssertEqual(
+            OriginalPowerUpRule.velocityTowardPlayer(
+                position: CGPoint(x: 0, y: 0),
+                playerPosition: CGPoint(x: 1_024, y: 1),
+                velocity: initialVelocity,
+                range: 1_024
+            ),
+            initialVelocity
+        )
+        let nearVelocity = OriginalPowerUpRule.velocityTowardPlayer(
+            position: CGPoint(x: 100, y: 100),
+            playerPosition: CGPoint(x: 103, y: 104),
+            velocity: initialVelocity,
+            range: 1_024
+        )
+        XCTAssertEqual(nearVelocity.dx, 0.5 + 3 / 5.001, accuracy: 0.000_001)
+        XCTAssertEqual(nearVelocity.dy, -0.25 + 4 / 5.001, accuracy: 0.000_001)
+    }
+
     func testTimedPowerUpsUseDifficultySpecificOriginalDuration() {
         var easy = GameSession(difficulty: .easy)
         var hard = GameSession(difficulty: .hard)
@@ -2183,7 +2362,7 @@ final class GameRulesTests: XCTestCase {
 
     func testCaptureCatalogCoversEveryFidelityCategory() {
         let scenarios = OriginalCaptureScenario.all
-        XCTAssertEqual(scenarios.count, 120)
+        XCTAssertEqual(scenarios.count, 133)
         XCTAssertEqual(Set(scenarios.map(\.name)).count, scenarios.count)
         XCTAssertEqual(
             OriginalCaptureScenario(name: "power-up-message")?.subject,
@@ -2208,6 +2387,8 @@ final class GameRulesTests: XCTestCase {
         var projectileCaptures = 0
         var generators = 0
         var powerUps = 0
+        var powerUpCollections = 0
+        var powerUpLifecycles = 0
         var grids = 0
         var particles = 0
         var graphicsSets = 0
@@ -2225,6 +2406,8 @@ final class GameRulesTests: XCTestCase {
             case .projectile: projectileCaptures += 1
             case .generator: generators += 1
             case .powerUp: powerUps += 1
+            case .powerUpCollection: powerUpCollections += 1
+            case .powerUpLifecycle: powerUpLifecycles += 1
             case .grid: grids += 1
             case .particleStyle: particles += 1
             case .graphicsSet: graphicsSets += 1
@@ -2242,6 +2425,11 @@ final class GameRulesTests: XCTestCase {
         XCTAssertEqual(projectileCaptures, OriginalProjectileCapture.allCases.count)
         XCTAssertEqual(generators, OriginalEnemyKind.allCases.count)
         XCTAssertEqual(powerUps, PowerUpKind.allCases.count)
+        XCTAssertEqual(powerUpCollections, PowerUpKind.allCases.count)
+        XCTAssertEqual(
+            powerUpLifecycles,
+            OriginalPowerUpLifecycleCapture.allCases.count
+        )
         XCTAssertEqual(grids, 21)
         XCTAssertEqual(particles, 4)
         XCTAssertEqual(graphicsSets, OriginalGraphicsSet.allCases.count)

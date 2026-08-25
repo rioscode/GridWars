@@ -39,6 +39,33 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   deflection. Their normalized differences are `0.00516206`, `0.00470918`,
   `0.00499543`, `0.00480980`, and `0.00481247`; two Swift runs are
   byte-identical, as are two independent complete 120-state original runs.
+- Power-ups: `gridwars.bmx:2570-2876, 3168-3260, 5444-5460` maps to
+  `OriginalPowerUpSpawnState`, `OriginalPowerUpRule`, `GameSession`, and the
+  power-up paths in `GameScene`. All nine kinds retain their exact icon frame,
+  message, timed or immediate effect, cap, and multiplier-scaled 2000-point
+  fallback. Source raw values now map `0/1` to Reverse/Side and `7/8` to
+  Super/Bouncy without the former inversion. Random selection preserves every
+  conditional BRL.Random call and need bias; position is sampled X then source
+  Y before scene inversion, followed by constructor rotation, direction, and
+  magnitude. Only `MakePowerUp` supplies the two-frame freeze and Grid push;
+  direct construction does not. Manual squared collision replaces asynchronous
+  SpriteKit contact delivery, preserving collection before the two-frame
+  freeze check—including the original possibility of repeated collection
+  while frozen—and the rest
+  of the dying update. Same-frame shield drawing, score-threshold events,
+  50-frame vector messages, and pickup audio retain source order. Lifecycle
+  behavior keeps boundary correction, range-limited random homing, the
+  200/300/400-frame merge/attract/expiry thresholds, list-ordered reciprocal
+  attraction, per-merge particles and Butterfly generator, Reverse/Side
+  expiry into a Butterfly, and active-Black-Hole force, growth, 15-particle
+  `r`-oriented absorption ring, and post-removal random call. Star and icon
+  aging switch independently after frames 300 and 360 to exact
+  `(180,80,200)` multiplication. Nine static icons, nine collection results,
+  and aged, merge, expiry, and Black-Hole captures measure respectively
+  `0.00472276...0.00478242`, `0.00505081...0.00574582`, `0.00507924`,
+  `0.00480415`, `0.00476707`, and `0.00492752`. Two independent complete
+  133-state original runs are byte-identical, the 13 new Swift states are
+  byte-identical across two runs, and all 133 original/Swift pairs pass.
 - Player lifecycle: `gridwars.bmx:4344-4503` maps to the frame-based death and
   Get Ready states in `GameScene`: 256 death particles, non-killer removal,
   100 death frames, 60 title frames, 40 contraction frames, delayed life loss,
@@ -340,13 +367,13 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   graphics-set captures to 0.01588–0.01620. The score, high score, multiplier,
   lives and bomb indicators use the original vector font, coordinates, alpha
   and icon frames. The isolated original
-  renderer now produces 120 valid full-frame 1024×768 attract, transition,
+  renderer now produces 133 valid full-frame 1024×768 attract, transition,
   gameplay, HUD, entity, enemy-motion/lifecycle, generator, power-up, grid,
   particle, player/weapon, graphics-set, and menu references via
   `scripts/capture-original.sh`;
   capture mode bypasses all
   legacy configuration and high-score I/O. A persistence-free Swift catalog
-  covers the same 120 states via `scripts/capture-screens.sh`, and
+  covers the same 133 states via `scripts/capture-screens.sh`, and
   `scripts/compare-captures.sh` measures every matching pair. Two independent
   complete original runs produced byte-identical PNGs. Enemy
   pages reproduce the original individual rotation, pulse and squash rates,
@@ -395,9 +422,10 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   archived legacy `Language/Data types.bbdoc` documents the implicit numeric
   conversions used by the original. Swift random ranges and intentional
   integer truncations follow those references.
-- Build evidence (2026-08-25): the macOS unit-test action (108 tests) and generic
+- Build evidence (2026-08-25): the macOS unit-test action (114 tests) and generic
   iOS Simulator Debug build both pass. The rule suite
-  covers initial difficulty, motion, weapons, scoring, upgrades, spawn timing,
+  covers initial difficulty, motion, weapons, scoring, upgrade effects,
+  power-up selection/spawn/lifecycle thresholds, spawn timing,
   triangle bonds, snake following, black-hole integer conversions,
   interceptor geometry, generator non-kill scoring, grid deformation and the
   original particle ring, legacy persistence, checksum handling, and
@@ -453,9 +481,9 @@ the corresponding Swift implementation, and a test or visual/runtime check.
 - [x] Reverse and side shooters with exact timed duration.
 - [x] Super shots pierce; bouncy shots reflect; both retain black-hole
       interaction and their original particle colours.
-- [ ] All nine power-ups: reverse, side, extra cannon, faster shots, extra
+- [x] All nine power-ups: reverse, side, extra cannon, faster shots, extra
       player, extra bomb, shield, super shots, and bouncy shots (`pu`).
-- [ ] Power-up selection bias, caps/2000-point fallback, aging, merging into a
+- [x] Power-up selection bias, caps/2000-point fallback, aging, merging into a
       butterfly generator, and expiration into a butterfly.
 
 ## Grid, particles, and rendering

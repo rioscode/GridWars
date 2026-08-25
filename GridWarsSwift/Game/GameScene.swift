@@ -50,7 +50,6 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         static let player: UInt32 = 1 << 0
         static let projectile: UInt32 = 1 << 1
         static let enemy: UInt32 = 1 << 2
-        static let powerUp: UInt32 = 1 << 3
     }
 
     private enum EnemyKind: String, CaseIterable {
@@ -356,7 +355,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         player.physicsBody?.allowsRotation = false
         player.physicsBody?.categoryBitMask = Category.player
         player.physicsBody?.collisionBitMask = 0
-        player.physicsBody?.contactTestBitMask = Category.enemy | Category.powerUp
+        player.physicsBody?.contactTestBitMask = Category.enemy
         worldLayer.addChild(player)
 
         for ring in readyRings {
@@ -550,7 +549,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         let preparesOriginalState: Bool = switch captureRequest.scenario.subject {
         case .gameplay, .enemy, .enemyMotion, .blackHole, .snake, .interceptor,
              .triangle, .player, .projectile,
-             .generator, .powerUp,
+             .generator, .powerUp, .powerUpCollection, .powerUpLifecycle,
              .grid, .particleStyle,
              .graphicsSet, .getReady, .death, .gameOver, .highScoreEntry,
              .hudDefault, .hudUpgraded, .powerUpMessage:
@@ -619,8 +618,16 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             prepareGameplayCapture()
             spawnPowerUp(
                 at: CGPoint(x: playfieldSize.width / 2, y: playfieldSize.height / 2),
-                kind: kind
+                kind: kind,
+                freezeFrames: 0,
+                pushesGrid: false
             )
+        case let .powerUpCollection(kind):
+            prepareGameplayCapture()
+            configurePowerUpCollectionCapture(kind)
+        case let .powerUpLifecycle(capture):
+            prepareGameplayCapture()
+            configurePowerUpLifecycleCapture(capture)
         case let .grid(style):
             prepareGameplayCapture()
             gridLayer.childNode(withName: "arenaBorder")?.isHidden = true
@@ -769,7 +776,12 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                     playBornSound: false
                 )
             }
-            spawnPowerUp(at: CGPoint(x: 360, y: 260), kind: .shield)
+            spawnPowerUp(
+                at: CGPoint(x: 360, y: 260),
+                kind: .shield,
+                freezeFrames: 0,
+                pushesGrid: false
+            )
         }
     }
 
@@ -1206,6 +1218,90 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             let projectile = spawnProjectile(direction: CGVector(dx: 1, dy: 0), speed: 10)
             projectile?.position = CGPoint(x: center.x - 60, y: center.y)
             updateProjectiles()
+        }
+    }
+
+    private func configurePowerUpCollectionCapture(_ kind: PowerUpKind) {
+        let powerUp = spawnPowerUp(
+            at: CGPoint(x: playfieldSize.width / 2, y: playfieldSize.height / 2),
+            kind: kind,
+            freezeFrames: 0,
+            pushesGrid: false
+        )
+        applyPowerUpCollection(powerUp)
+        powerUp.removeFromParent()
+    }
+
+    private func configurePowerUpLifecycleCapture(_ capture: OriginalPowerUpLifecycleCapture) {
+        player.position = sourcePoint(CGPoint(x: playfieldSize.width / 2, y: 100))
+        let center = CGPoint(x: playfieldSize.width / 2, y: playfieldSize.height / 2)
+
+        switch capture {
+        case .aged:
+            let powerUp = spawnPowerUp(
+                at: center,
+                kind: .extraCannon,
+                freezeFrames: 0,
+                pushesGrid: false
+            )
+            powerUp.userData?["lifeFrames"] = 361
+            updatePowerUpVisual(powerUp, lifeFrames: 361)
+        case .merge:
+            let first = spawnPowerUp(
+                at: CGPoint(x: center.x - 8, y: center.y),
+                kind: .extraCannon,
+                freezeFrames: 0,
+                pushesGrid: false
+            )
+            let second = spawnPowerUp(
+                at: CGPoint(x: center.x + 8, y: center.y),
+                kind: .fasterShots,
+                freezeFrames: 0,
+                pushesGrid: false
+            )
+            for powerUp in [first, second] {
+                powerUp.userData?["lifeFrames"] = 200
+                powerUp.userData?["dx"] = 0.0
+                powerUp.userData?["dy"] = 0.0
+            }
+            updatePowerUps()
+        case .expire:
+            let powerUp = spawnPowerUp(
+                at: center,
+                kind: .reverseShooter,
+                freezeFrames: 0,
+                pushesGrid: false
+            )
+            powerUp.userData?["lifeFrames"] = 400
+            powerUp.userData?["dx"] = 0.0
+            powerUp.userData?["dy"] = 0.0
+            updatePowerUps()
+        case .blackHole:
+            guard let blackHole = spawnEnemy(
+                kind: .blackHole,
+                at: center,
+                freezeFrames: 0,
+                closeToPlayer: true,
+                playBornSound: false
+            ) else { return }
+            blackHole.userData?["blackHoleSize"] = 20.0
+            blackHole.userData?["blackHoleActive"] = true
+            let powerUp = spawnPowerUp(
+                at: CGPoint(x: center.x + 20, y: center.y),
+                kind: .extraCannon,
+                freezeFrames: 0,
+                pushesGrid: false
+            )
+            powerUp.userData?["lifeFrames"] = 10
+            powerUp.userData?["rotation"] = 37
+            powerUp.userData?["dx"] = 0.0
+            powerUp.userData?["dy"] = 0.0
+            updatePowerUps()
+            updateEnemyVisual(
+                blackHole,
+                kind: .blackHole,
+                rotation: (blackHole.userData?["rotation"] as? NSNumber)?.intValue ?? 0
+            )
         }
     }
 
@@ -1871,6 +1967,30 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         return OriginalEnemySpawnState.make(kind: kind.original, using: &spawnRandom)
     }
 
+    private func originalPowerUpSpawnState() -> OriginalPowerUpSpawnState {
+        if var random = captureRandom {
+            let state = OriginalPowerUpSpawnState.make(using: &random)
+            captureRandom = random
+            return state
+        }
+        return OriginalPowerUpSpawnState.make(using: &spawnRandom)
+    }
+
+    private func originalPowerUpPosition() -> CGPoint {
+        if var random = captureRandom {
+            let position = OriginalPowerUpRule.sceneSpawnPosition(
+                arenaSize: playfieldSize,
+                using: &random
+            )
+            captureRandom = random
+            return position
+        }
+        return OriginalPowerUpRule.sceneSpawnPosition(
+            arenaSize: playfieldSize,
+            using: &spawnRandom
+        )
+    }
+
     private func consumeOriginalDiamondJitter() {
         if var random = captureRandom {
             OriginalDiamondRandomRule.consumeIntegerJitter(using: &random)
@@ -2454,11 +2574,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     private func randomPowerUpPosition() -> CGPoint {
-        let arena = playfieldSize
-        return CGPoint(
-            x: randomCoordinate(inset: 250, length: arena.width),
-            y: randomCoordinate(inset: 150, length: arena.height)
-        )
+        originalPowerUpPosition()
     }
 
     private func handleRuntimeKey(_ keyCode: UInt16) -> Bool {
@@ -4587,9 +4703,6 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         } else if categories == Category.player | Category.enemy {
             let enemy = first.physicsBody?.categoryBitMask == Category.enemy ? first : second
             _ = hitPlayer(killer: enemy)
-        } else if categories == Category.player | Category.powerUp {
-            let powerUp = first.physicsBody?.categoryBitMask == Category.powerUp ? first : second
-            collect(powerUp)
         }
     }
 
@@ -5200,6 +5313,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         )
         let node = SKNode()
         node.name = "floatingScore"
+        node.zPosition = -27
         effectLayer.addChild(node)
         floatingScores.append(FloatingScoreEffect(state: state, node: node))
         renderFloatingScore(floatingScores.count - 1)
@@ -5238,52 +5352,35 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     private func choosePowerUpKind() -> PowerUpKind {
-        var kind: PowerUpKind = originalRandomInt(0...1) != 0
-            ? .reverseShooter : .sideShooters
-        if originalRandomInt(0...100) > 80 {
-            kind = .shield
-            if originalRandomInt(0...100) > 45 {
-                kind = originalRandomInt(0...1) != 0 ? .superShots : .bouncyShots
-            }
-        }
-        if session.shotSpeed < 5,
-           originalRandomInt(1...session.shotSpeed) < 2 {
-            kind = .fasterShots
-        }
-        if session.cannons < 4,
-           originalRandomInt(1...session.cannons) == 1 {
-            kind = .extraCannon
-        }
-        if kind.rawValue < 2,
-           originalRandomInt(0...100) > 40 {
-            if session.lives < 2 {
-                kind = .extraPlayer
-            } else if session.bombs < 2 {
-                kind = .extraBomb
-            }
-        }
-        return kind
+        OriginalPowerUpRule.choose(
+            cannons: session.cannons,
+            shotSpeed: session.shotSpeed,
+            lives: session.lives,
+            bombs: session.bombs,
+            randomInt: { originalRandomInt($0) }
+        )
     }
 
-    private func spawnPowerUp(at position: CGPoint, kind: PowerUpKind) {
+    @discardableResult
+    private func spawnPowerUp(
+        at position: CGPoint,
+        kind: PowerUpKind,
+        freezeFrames: Int = 2,
+        pushesGrid: Bool = true
+    ) -> SKNode {
         let powerUp = SKNode()
         powerUp.name = "powerUp"
         powerUp.position = position
-        powerUp.physicsBody = SKPhysicsBody(circleOfRadius: 14)
-        powerUp.physicsBody?.affectedByGravity = false
-        powerUp.physicsBody?.categoryBitMask = Category.powerUp
-        powerUp.physicsBody?.collisionBitMask = 0
-        powerUp.physicsBody?.contactTestBitMask = Category.player
-        let rotation = originalRandomInt(0...359)
-        let direction = CGFloat(originalRandomInt(0...359)) * .pi / 180
-        let magnitude = CGFloat(originalRandomDouble(0.5..<2))
+        let spawnState = originalPowerUpSpawnState()
+        let velocity = spawnState.sceneVelocity
         powerUp.userData = NSMutableDictionary(dictionary: [
             "kind": kind.rawValue,
             "lifeFrames": 0,
-            "freezeFrames": 2,
-            "rotation": rotation,
-            "dx": cos(direction) * magnitude,
-            "dy": -sin(direction) * magnitude,
+            "freezeFrames": freezeFrames,
+            "rotation": spawnState.rotation,
+            "dx": velocity.dx,
+            "dy": velocity.dy,
+            "isDying": false,
         ])
 
         let icon = SKSpriteNode(texture: powerUpTexture(for: kind))
@@ -5309,7 +5406,10 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         star.zPosition = -1
         powerUp.addChild(star)
         pickupLayer.addChild(powerUp)
-        gridSimulation.push(at: position, radiusInPoints: 6, amount: 1)
+        if pushesGrid {
+            gridSimulation.push(at: position, radiusInPoints: 6, amount: 1)
+        }
+        return powerUp
     }
 
     private func powerUpTexture(for kind: PowerUpKind) -> SKTexture {
@@ -5336,9 +5436,12 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private func updatePowerUps() {
         let powerUps = pickupLayer.children.filter { $0.name == "powerUp" }
         for powerUp in powerUps where powerUp.parent != nil {
-            if squaredDistance(powerUp.position, player.position) < 20 * 20 + 16 * 16 {
-                collect(powerUp)
-                continue
+            var isDying = (powerUp.userData?["isDying"] as? NSNumber)?.boolValue ?? false
+            if squaredDistance(powerUp.position, player.position)
+                < OriginalPowerUpRule.collectionDistanceSquared {
+                applyPowerUpCollection(powerUp)
+                isDying = true
+                powerUp.userData?["isDying"] = true
             }
             var freezeFrames = (powerUp.userData?["freezeFrames"] as? NSNumber)?.intValue ?? 0
             if freezeFrames > 0 {
@@ -5350,6 +5453,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             var lifeFrames = (powerUp.userData?["lifeFrames"] as? NSNumber)?.intValue ?? 0
             lifeFrames += 1
             powerUp.userData?["lifeFrames"] = lifeFrames
+            var rotation = (powerUp.userData?["rotation"] as? NSNumber)?.intValue ?? 0
+            rotation += 1
+            powerUp.userData?["rotation"] = rotation
             let rawKind = (powerUp.userData?["kind"] as? NSNumber)?.intValue ?? 0
             let kind = PowerUpKind(rawValue: rawKind) ?? .reverseShooter
             var velocity = CGVector(
@@ -5361,28 +5467,27 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             powerUp.position.y += velocity.dy
             bounce(powerUp, velocity: &velocity, margin: 8)
 
-            if updatePowerUpForBlackHoles(powerUp, velocity: &velocity) {
-                continue
+            if !isDying {
+                updatePowerUpForBlackHoles(powerUp, velocity: &velocity)
             }
 
             if originalRandomInt(0...100) > 96 {
-                let differenceToPlayer = CGVector(
-                    dx: player.position.x - powerUp.position.x,
-                    dy: player.position.y - powerUp.position.y
+                velocity = OriginalPowerUpRule.velocityTowardPlayer(
+                    position: powerUp.position,
+                    playerPosition: player.position,
+                    velocity: velocity,
+                    range: playfieldSize.width
                 )
-                let towardPlayer = differenceToPlayer / (differenceToPlayer.length + 0.001)
-                velocity = velocity + towardPlayer
             }
 
-            if kind.rawValue > 1, lifeFrames > 200 {
-                var didMerge = false
+            if OriginalPowerUpRule.canMerge(kind: kind, lifeFrames: lifeFrames) {
                 for other in powerUps where other !== powerUp && other.parent != nil
                     && ((other.userData?["kind"] as? NSNumber)?.intValue ?? 0) > 1 {
                     let towardOther = CGVector(
                         dx: other.position.x - powerUp.position.x,
                         dy: other.position.y - powerUp.position.y
                     )
-                    if lifeFrames > 300 {
+                    if OriginalPowerUpRule.attractsOtherPowerUps(lifeFrames: lifeFrames) {
                         velocity.dx += towardOther.dx == 0 ? 0 : copysign(1.0 / 64.0, towardOther.dx)
                         velocity.dy += towardOther.dy == 0 ? 0 : copysign(1.0 / 64.0, towardOther.dy)
                         var otherVelocity = CGVector(
@@ -5394,9 +5499,11 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                         other.userData?["dx"] = otherVelocity.dx
                         other.userData?["dy"] = otherVelocity.dy
                     }
-                    if towardOther.dx * towardOther.dx + towardOther.dy * towardOther.dy < 16 * 16 + 16 * 16 {
+                    if towardOther.dx * towardOther.dx + towardOther.dy * towardOther.dy
+                        < OriginalPowerUpRule.mergeDistanceSquared {
                         other.removeFromParent()
-                        didMerge = true
+                        isDying = true
+                        powerUp.userData?["isDying"] = true
                         spawnGenerator(
                             kind: .butterfly,
                             at: powerUp.position,
@@ -5404,22 +5511,21 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                             rate: 20,
                             generatorSize: 20
                         )
+                        emitParticles(
+                            count: 8,
+                            at: powerUp.position,
+                            kind: .random,
+                            color: colorPalette[.powerUp]
+                        )
                     }
                 }
-                if didMerge {
-                    let position = powerUp.position
-                    powerUp.removeFromParent()
-                    emitParticles(
-                        count: 8,
-                        at: position,
-                        kind: .random,
-                        color: colorPalette[.powerUp]
-                    )
-                    continue
-                }
-            } else if kind.rawValue < 2, lifeFrames > 400 {
+            } else if OriginalPowerUpRule.expiresIntoButterfly(
+                kind: kind,
+                lifeFrames: lifeFrames
+            ) {
                 let position = powerUp.position
-                powerUp.removeFromParent()
+                isDying = true
+                powerUp.userData?["isDying"] = true
                 spawnEnemy(kind: .butterfly, at: position, freezeFrames: 30)
                 emitParticles(
                     count: 8,
@@ -5427,34 +5533,45 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                     kind: .random,
                     color: colorPalette[.powerUp]
                 )
-                continue
             }
 
             let speed = velocity.length + 0.001
             if speed > 4 { velocity = velocity / speed * 4 }
             powerUp.userData?["dx"] = velocity.dx
             powerUp.userData?["dy"] = velocity.dy
-            (powerUp.childNode(withName: "powerUpStar") as? SKSpriteNode)?.zRotation =
-                CGFloat(lifeFrames * 6) * .pi / 180
-            if let icon = powerUp.childNode(withName: "powerUpIcon") as? SKSpriteNode {
-                icon.color = lifeFrames > 360 ? .purple : .white
-                icon.colorBlendFactor = lifeFrames > 360 ? 0.55 : 0
-            }
-            if let star = powerUp.childNode(withName: "powerUpStar") as? SKSpriteNode {
-                star.color = lifeFrames > 300
-                    ? SKColor(red: 180 / 255, green: 80 / 255, blue: 200 / 255, alpha: 1)
-                    : SKColor(
-                        red: CGFloat(cyclingRed) / 255,
-                        green: CGFloat(cyclingGreen) / 255,
-                        blue: CGFloat(cyclingBlue) / 255,
-                        alpha: 1
-                    )
-                star.colorBlendFactor = 1
-            }
+            updatePowerUpVisual(powerUp, lifeFrames: lifeFrames)
+            if isDying { powerUp.removeFromParent() }
         }
     }
 
-    private func updatePowerUpForBlackHoles(_ powerUp: SKNode, velocity: inout CGVector) -> Bool {
+    private func updatePowerUpVisual(_ powerUp: SKNode, lifeFrames: Int) {
+        let agedColor = SKColor(
+            red: 180 / 255,
+            green: 80 / 255,
+            blue: 200 / 255,
+            alpha: 1
+        )
+        (powerUp.childNode(withName: "powerUpStar") as? SKSpriteNode)?.zRotation =
+            CGFloat(lifeFrames * 6) * .pi / 180
+        if let icon = powerUp.childNode(withName: "powerUpIcon") as? SKSpriteNode {
+            let isAged = OriginalPowerUpRule.iconUsesAgedColor(lifeFrames: lifeFrames)
+            icon.color = isAged ? agedColor : .white
+            icon.colorBlendFactor = isAged ? 1 : 0
+        }
+        if let star = powerUp.childNode(withName: "powerUpStar") as? SKSpriteNode {
+            star.color = OriginalPowerUpRule.starUsesAgedColor(lifeFrames: lifeFrames)
+                ? agedColor
+                : SKColor(
+                    red: CGFloat(cyclingRed) / 255,
+                    green: CGFloat(cyclingGreen) / 255,
+                    blue: CGFloat(cyclingBlue) / 255,
+                    alpha: 1
+                )
+            star.colorBlendFactor = 1
+        }
+    }
+
+    private func updatePowerUpForBlackHoles(_ powerUp: SKNode, velocity: inout CGVector) {
         for blackHole in enemyLayer.children where blackHole.name == "enemy"
             && blackHole.userData?["kind"] as? String == EnemyKind.blackHole.rawValue
             && ((blackHole.userData?["blackHoleActive"] as? NSNumber)?.boolValue ?? false) {
@@ -5469,7 +5586,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             if distance < 12 + blackHoleSize {
                 let position = powerUp.position
                 let rotation = CGFloat(
-                    ((powerUp.userData?["lifeFrames"] as? NSNumber)?.intValue ?? 0) * 6
+                    (powerUp.userData?["rotation"] as? NSNumber)?.intValue ?? 0
                 )
                 powerUp.removeFromParent()
                 emitParticles(
@@ -5480,30 +5597,48 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                     rotation: { index in CGFloat(index * 24) + rotation }
                 )
                 growBlackHole(blackHole, amount: 1)
-                return true
+                return
             }
         }
-        return false
     }
 
-    private func collect(_ powerUp: SKNode) {
-        guard powerUp.parent != nil else { return }
+    private func applyPowerUpCollection(_ powerUp: SKNode) {
         let position = powerUp.position
-        powerUp.removeFromParent()
         let rawKind = (powerUp.userData?["kind"] as? NSNumber)?.intValue ?? PowerUpKind.extraBomb.rawValue
         let kind = PowerUpKind(rawValue: rawKind) ?? .extraBomb
         let events = session.collectPowerUp(kind)
-        playSpatial(.powerUpCollected, at: position)
         for event in events {
             if case let .powerUpCollected(_, message) = event {
-                messageLabel.text = message
-                messageLabel.isHidden = false
-                messageLabel.run(.sequence([.wait(forDuration: 0.8), .hide()]))
+                showPowerUpCollectionMessage(kind: kind, message: message, at: position)
             } else {
                 handleProgressionEvent(event)
             }
         }
+        playSpatial(.powerUpCollected, at: position)
+        updatePlayerShield()
         updateHUD()
+    }
+
+    private func showPowerUpCollectionMessage(
+        kind: PowerUpKind,
+        message: String,
+        at scenePosition: CGPoint
+    ) {
+        let messageLength = OriginalPowerUpRule.messageLength(kind: kind, message: message)
+        let state = OriginalFloatingScoreState(
+            text: message,
+            sourcePosition: CGPoint(
+                x: Int(scenePosition.x - CGFloat(messageLength * 6)),
+                y: Int(playfieldSize.height - scenePosition.y - 8)
+            ),
+            life: 50
+        )
+        let node = SKNode()
+        node.name = "floatingScore"
+        node.zPosition = -27
+        effectLayer.addChild(node)
+        floatingScores.append(FloatingScoreEffect(state: state, node: node))
+        renderFloatingScore(floatingScores.count - 1)
     }
 
     private func startGetReadySequence() {

@@ -62,6 +62,8 @@ enum OriginalCaptureSubject: Equatable {
     case projectile(OriginalProjectileCapture)
     case generator(OriginalEnemyKind)
     case powerUp(PowerUpKind)
+    case powerUpCollection(PowerUpKind)
+    case powerUpLifecycle(OriginalPowerUpLifecycleCapture)
     case grid(Int)
     case particleStyle(Int)
     case graphicsSet(OriginalGraphicsSet)
@@ -124,6 +126,13 @@ enum OriginalProjectileCapture: String, CaseIterable {
     case bouncyHit = "bouncy-hit"
     case superBlackHole = "super-black-hole"
     case bouncyBlackHole = "bouncy-black-hole"
+}
+
+enum OriginalPowerUpLifecycleCapture: String, CaseIterable {
+    case aged
+    case merge
+    case expire
+    case blackHole = "black-hole"
 }
 
 struct OriginalCaptureScenario: Equatable {
@@ -200,6 +209,12 @@ struct OriginalCaptureScenario: Equatable {
             ("bouncy", .bouncyShots),
         ]
         scenarios += powerUps.map { .init("powerup-\($0.0)", .powerUp($0.1)) }
+        scenarios += powerUps.map {
+            .init("powerup-collect-\($0.0)", .powerUpCollection($0.1))
+        }
+        scenarios += OriginalPowerUpLifecycleCapture.allCases.map {
+            .init("powerup-\($0.rawValue)", .powerUpLifecycle($0))
+        }
         scenarios += (0..<21).map {
             .init(String(format: "grid-%02d", $0), .grid($0))
         }

@@ -222,6 +222,50 @@ difference vector around the shared first endpoint. Replacing it with centered
 spokes halves the visual bounds and changes the shape. `OriginalTargetRule`
 captures this driver-level behavior.
 
+## Power-up lifecycle and collection
+
+Keep the numeric kind mapping literal. `Rand(0,1)` directly selects source
+kinds 0/1 (Reverse/Side), and the rare branch assigns `7+Rand(0,1)`
+(Super/Bouncy). Mapping a nonzero Boolean to the first enum case silently
+reverses both pairs. The later shot-speed, cannon, life, and bomb biases run in
+source order and consume random values only when their preceding condition is
+true. Sample a spawned power-up's X and top-left source Y before converting Y
+to the scene, then draw constructor rotation, direction, and magnitude in that
+order. Symmetric Y bounds preserve the distribution but not seeded positions.
+Keep construction separate from `MakePowerUp`: the latter adds the two-frame
+freeze and Grid push, while direct `pu.Create` calls (including the attract and
+isolated fixtures) do neither.
+
+Collection is the first operation in `pu.Update`, before its freeze test. A
+new score-threshold pickup has `move=2`; if the player overlaps it immediately,
+the original applies the power-up on all three visits (freeze 2, freeze 1, and
+the first moving update) before final removal. Do not let SpriteKit physics
+contacts remove it asynchronously. Store the dying flag across frozen frames,
+apply the effect immediately, skip Black-Hole handling when dying, but still
+run movement, the random player-attraction draw, aging, speed limiting, and
+end-of-update removal after the freeze reaches zero.
+
+The 2000-point cap fallback calls `IncScore` before creating the pickup text,
+so any extra-life, bomb, or power-up threshold events and their sounds precede
+the collection message and collection sound. The message is a `score` entry,
+not an `SKLabelNode`: it starts with life 50, uses the ordinary vector-score
+scale/colour animation, and is drawn behind trails and entities. Its stored
+source position is `(x-mlen*6,y-8)`; Super and Bouncy intentionally use
+`mlen=15`, not their actual string lengths. A newly collected shield is also
+visible in that same draw frame even though the normal player-shield update ran
+earlier in the gameplay frame.
+
+After life 200, kinds 2...8 can merge with another such pickup inside the
+source squared radius; after life 300 they first apply equal-and-opposite
+sign-only attraction. Emit eight particles and create one Butterfly generator
+for every matched list entry, not once per outer update. Reverse and Side
+instead expire after life 400 into a Butterfly plus eight particles. Active
+Black-Hole absorption removes the pickup and grows the hole, but the method
+continues through its later random call; its 15 directed particles use the
+constructor rotation incremented once per moving update (`r`), not the star's
+`life*6` display angle. Drawing changes the star to exact RGB `(180,80,200)`
+after life 300 and independently changes the icon after life 360.
+
 ## Images and animation sheets
 
 Reuse the original PNG bytes whenever possible. Load textures from `CGImage`

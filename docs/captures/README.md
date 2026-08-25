@@ -29,7 +29,7 @@ Capture mode uses the original compiled renderer, entity types, draw functions,
 and assets; fixes the random seed; installs default scores and colours; and
 skips all reads and writes under `~/.config/gridwars`. It changes only the
 selected fixed state, window mode, and PNG export after the named frame. The
-120 available references cover:
+133 available references cover:
 
 - the title, scores, friends, and enemies attract pages at frame 600;
 - the options page at frame 20;
@@ -47,7 +47,8 @@ selected fixed state, window mode, and PNG export after the named frame. The
 - Interceptor 30-frame motion, active shield, and projectile-block states;
 - Triangle 30-frame motion, elastic bond, projectile-hit, and Black-Hole bond
   break states;
-- all nine power-ups;
+- all nine static power-ups, all nine collection messages/effects, aged colour,
+  merge, expiry, and active-Black-Hole absorption states;
 - all 21 grid styles and all four particle styles; and
 - Solid, Low, Medium, High, and User graphics sets; and
 - every options, confirmation, settings, video, game, audio, and controller
@@ -68,13 +69,14 @@ captures just one named state, for example:
 
 The script copies source and assets to a `mktemp` directory, textually includes
 `scripts/original-catalog.bmx`, patches and builds only that copy, captures the
-120 states, then deletes the temporary build.
+133 states, then deletes the temporary build.
 
 ## Swift renderer
 
-The macOS target supports a persistence-free capture mode for 120 fixed states:
+The macOS target supports a persistence-free capture mode for 133 fixed states:
 the attract screens, gameplay transitions, every enemy and generator, every
-power-up, six basic-enemy motion checks, three Black Hole lifecycle checks,
+power-up plus nine collection and four lifecycle checks, six basic-enemy
+motion checks, three Black Hole lifecycle checks,
 three Snake behaviour checks, three Interceptor steering/shield checks, four
 Triangle motion/bond checks, eight player/weapon checks, five projectile-upgrade
 checks, all 21 grid styles, all particle and graphics sets, HUD variants, and

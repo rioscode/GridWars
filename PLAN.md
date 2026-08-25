@@ -107,9 +107,9 @@ time, and each completed fidelity milestone has its own commit:
       textures, blending, timing, randomness, persistence, and verification
 - [x] macOS Debug build
 - [x] Generic iOS Simulator Debug build
-- [x] 108 gameplay, input, persistence, audio, and rendering-rule unit tests
+- [x] 114 gameplay, input, persistence, audio, and rendering-rule unit tests
 - [x] macOS launch and rendering smoke test
-- [x] Deterministic 120-state Swift capture catalog at 1024×768
+- [x] Deterministic 133-state Swift capture catalog at 1024×768
 - [x] Source-ordered Grid simulation and style-specific rendering pass for all
       21 selectors, including fixed-50-Hz animation phases and original
       particle-image composition
@@ -179,6 +179,10 @@ time, and each completed fidelity milestone has its own commit:
 - [x] Super piercing, Bouncy reflection, live upgrade-timer colour precedence,
       two-half-step projectile order, source `1...H` scene bounds, minimum-speed
       typo, and active Black-Hole deflection
+- [x] All nine Power-up effects, raw-value selection and need bias, source-Y
+      spawn sampling, frozen collection order, capped-score fallback,
+      50-frame messages, aging, attraction, merge/expiry Butterflies, and
+      active-Black-Hole absorption
 - [x] Top-left 1×1 `Plot` pixel anchoring for midpoint-circle Get Ready rings
 - [x] OpenGL pixel-center anchoring for one-pixel particle line style 0
 - [x] OpenGL pixel-center anchoring and additive-alpha compensation for the
@@ -191,10 +195,10 @@ time, and each completed fidelity milestone has its own commit:
       compensation
 
 `FIDELITY.md` is the acceptance ledger. The isolated BlitzMax harness and the
-Swift port now each capture the same 120 attract, transition, gameplay, HUD,
+Swift port now each capture the same 133 attract, transition, gameplay, HUD,
 entity, enemy-motion/lifecycle, generator, power-up, grid, particle,
 player/weapon, graphics-set, and menu states. The original reference checksums
-are pinned, and the comparison tool verified all 120 1024×768 pairs.
+are pinned, and the comparison tool verified all 133 1024×768 pairs.
 Style-by-style visual
 correction reduced the pixel difference for all 20 nonempty grid selectors and
 made the empty selector pixel-identical. The Moiré selector still exposes a

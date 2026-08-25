@@ -262,6 +262,121 @@ enum PowerUpKind: Int, CaseIterable, Codable, Equatable {
     }
 }
 
+struct OriginalPowerUpSpawnState: Equatable {
+    let rotation: Int
+    let direction: Int
+    let magnitude: CGFloat
+
+    var sceneVelocity: CGVector {
+        let radians = CGFloat(direction) * .pi / 180
+        return CGVector(
+            dx: cos(radians) * magnitude,
+            dy: -sin(radians) * magnitude
+        )
+    }
+
+    static func make(
+        using random: inout BlitzMaxRandomNumberGenerator
+    ) -> OriginalPowerUpSpawnState {
+        OriginalPowerUpSpawnState(
+            rotation: random.rand(0, 359),
+            direction: random.rand(0, 359),
+            magnitude: CGFloat(random.rnd(0.5, 2))
+        )
+    }
+}
+
+enum OriginalPowerUpRule {
+    static let collectionDistanceSquared: CGFloat = 20 * 20 + 16 * 16
+    static let mergeDistanceSquared: CGFloat = 16 * 16 + 16 * 16
+
+    static func choose(
+        cannons: Int,
+        shotSpeed: Int,
+        lives: Int,
+        bombs: Int,
+        randomInt: (ClosedRange<Int>) -> Int
+    ) -> PowerUpKind {
+        var kind = PowerUpKind(rawValue: randomInt(0...1)) ?? .reverseShooter
+        if randomInt(0...100) > 80 {
+            kind = .shield
+            if randomInt(0...100) > 45 {
+                kind = PowerUpKind(rawValue: 7 + randomInt(0...1)) ?? .superShots
+            }
+        }
+        if shotSpeed < 5, randomInt(1...shotSpeed) < 2 {
+            kind = .fasterShots
+        }
+        if cannons < 4, randomInt(1...cannons) == 1 {
+            kind = .extraCannon
+        }
+        if kind.rawValue < 2, randomInt(0...100) > 40 {
+            if lives < 2 {
+                kind = .extraPlayer
+            } else if bombs < 2 {
+                kind = .extraBomb
+            }
+        }
+        return kind
+    }
+
+    static func sceneSpawnPosition(
+        arenaSize: CGSize,
+        using random: inout BlitzMaxRandomNumberGenerator
+    ) -> CGPoint {
+        let sourceX = random.rand(250, Int(arenaSize.width) - 250)
+        let sourceY = random.rand(150, Int(arenaSize.height) - 150)
+        return CGPoint(x: sourceX, y: Int(arenaSize.height) - sourceY)
+    }
+
+    static func messageLength(kind: PowerUpKind, message: String) -> Int {
+        if message == "2000 Points!" { return 12 }
+        return switch kind {
+        case .reverseShooter: 15
+        case .sideShooters: 13
+        case .extraCannon, .fasterShots, .extraPlayer: 12
+        case .extraBomb: 10
+        case .shield: 6
+        case .superShots, .bouncyShots: 15
+        }
+    }
+
+    static func starUsesAgedColor(lifeFrames: Int) -> Bool {
+        lifeFrames > 15 * 20
+    }
+
+    static func iconUsesAgedColor(lifeFrames: Int) -> Bool {
+        lifeFrames > 18 * 20
+    }
+
+    static func canMerge(kind: PowerUpKind, lifeFrames: Int) -> Bool {
+        kind.rawValue > 1 && lifeFrames > 10 * 20
+    }
+
+    static func attractsOtherPowerUps(lifeFrames: Int) -> Bool {
+        lifeFrames > 15 * 20
+    }
+
+    static func expiresIntoButterfly(kind: PowerUpKind, lifeFrames: Int) -> Bool {
+        kind.rawValue < 2 && lifeFrames > 20 * 20
+    }
+
+    static func velocityTowardPlayer(
+        position: CGPoint,
+        playerPosition: CGPoint,
+        velocity: CGVector,
+        range: CGFloat
+    ) -> CGVector {
+        let difference = CGVector(
+            dx: playerPosition.x - position.x,
+            dy: playerPosition.y - position.y
+        )
+        let distance = difference.length + 0.001
+        guard distance < range else { return velocity }
+        return velocity + difference / distance
+    }
+}
+
 enum ProgressionEvent: Equatable {
     case multiplierIncreased(Int)
     case spawnPowerUp(PowerUpKind?)
@@ -821,7 +936,7 @@ struct GameSession: Equatable {
         case .bouncyShots:
             bouncyShotFrames += timedUpgradeFrames
         }
-        return [.powerUpCollected(kind, message: message)] + scoreEvents
+        return scoreEvents + [.powerUpCollected(kind, message: message)]
     }
 
     @discardableResult

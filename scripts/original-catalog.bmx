@@ -12,6 +12,8 @@ Function CaptureOriginalCatalog:Int(mode$, directory$)
 	Local projectileKind:Int = -1
 	Local generatorKind:Int = -1
 	Local powerKind:Int = -1
+	Local powerCollectionKind:Int = -1
+	Local powerLifecycleKind:Int = -1
 	Local gridKind:Int = -1
 	Local particleKind:Int = -1
 	Local graphicsKind:Int = -1
@@ -89,6 +91,19 @@ Function CaptureOriginalCatalog:Int(mode$, directory$)
 		Case "powerup-shield"; powerKind = 6
 		Case "powerup-super"; powerKind = 7
 		Case "powerup-bouncy"; powerKind = 8
+		Case "powerup-collect-reverse"; powerCollectionKind = 0
+		Case "powerup-collect-side"; powerCollectionKind = 1
+		Case "powerup-collect-cannon"; powerCollectionKind = 2
+		Case "powerup-collect-faster"; powerCollectionKind = 3
+		Case "powerup-collect-player"; powerCollectionKind = 4
+		Case "powerup-collect-bomb"; powerCollectionKind = 5
+		Case "powerup-collect-shield"; powerCollectionKind = 6
+		Case "powerup-collect-super"; powerCollectionKind = 7
+		Case "powerup-collect-bouncy"; powerCollectionKind = 8
+		Case "powerup-aged"; powerLifecycleKind = 0
+		Case "powerup-merge"; powerLifecycleKind = 1
+		Case "powerup-expire"; powerLifecycleKind = 2
+		Case "powerup-black-hole"; powerLifecycleKind = 3
 
 		Case "grid-00"; gridKind = 0
 		Case "grid-01"; gridKind = 1
@@ -166,6 +181,8 @@ Function CaptureOriginalCatalog:Int(mode$, directory$)
 		If projectileKind >= 0 Then CaptureOriginalProjectile(projectileKind)
 		If generatorKind >= 0 Then ge.Create(SCREENW/2, SCREENH/2, generatorKind, 60, 24, 0)
 		If powerKind >= 0 Then pu.Create(SCREENW/2, SCREENH/2, powerKind, 0)
+		If powerCollectionKind >= 0 Then CaptureOriginalPowerUpCollection(powerCollectionKind)
+		If powerLifecycleKind >= 0 Then CaptureOriginalPowerUpLifecycle(powerLifecycleKind)
 
 		If overview = 2 And upgradedHUD
 			numshots = 4
@@ -344,6 +361,71 @@ Function CaptureOriginalProjectile(kind:Int)
 	For Local projectile:shot = EachIn shot_list
 		projectile.Update()
 	Next
+End Function
+
+Function LastOriginalPowerUp:pu()
+	Local result:pu
+	For Local powerUp:pu = EachIn pu_list
+		result = powerUp
+	Next
+	Return result
+End Function
+
+Function CaptureOriginalPowerUpCollection(kind:Int)
+	pu.Create(SCREENW/2, SCREENH/2, kind, 0)
+	Local powerUp:pu = LastOriginalPowerUp()
+	powerUp.UpPower()
+	pu_list.Remove(powerUp)
+End Function
+
+Function CaptureOriginalPowerUpLifecycle(kind:Int)
+	px = SCREENW/2
+	py = 100
+	Local centerX:Int = SCREENW/2
+	Local centerY:Int = SCREENH/2
+	Local powerUp:pu
+
+	Select kind
+		Case 0
+			pu.Create(centerX, centerY, 2, 0)
+			powerUp = LastOriginalPowerUp()
+			powerUp.life = 361
+		Case 1
+			pu.Create(centerX-8, centerY, 2, 0)
+			Local first:pu = LastOriginalPowerUp()
+			pu.Create(centerX+8, centerY, 3, 0)
+			Local second:pu = LastOriginalPowerUp()
+			first.life = 200
+			first.dx = 0
+			first.dy = 0
+			second.life = 200
+			second.dx = 0
+			second.dy = 0
+			first.Update()
+		Case 2
+			pu.Create(centerX, centerY, 0, 0)
+			powerUp = LastOriginalPowerUp()
+			powerUp.life = 400
+			powerUp.dx = 0
+			powerUp.dy = 0
+			powerUp.Update()
+		Case 3
+			nme5.Create(centerX, centerY, 20, 0, 1)
+			For Local blackHole:nme5 = EachIn nme5_list
+				blackHole.x = centerX
+				blackHole.y = centerY
+				blackHole.sz = 20
+				blackHole.active = True
+				Exit
+			Next
+			pu.Create(centerX+20, centerY, 2, 0)
+			powerUp = LastOriginalPowerUp()
+			powerUp.life = 10
+			powerUp.r = 37
+			powerUp.dx = 0
+			powerUp.dy = 0
+			powerUp.Update()
+	End Select
 End Function
 
 Function CaptureOriginalTriangle(kind:Int)

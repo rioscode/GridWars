@@ -84,6 +84,10 @@ else
     generator-interceptor generator-butterfly \
     powerup-reverse powerup-side powerup-cannon powerup-faster powerup-player \
     powerup-bomb powerup-shield powerup-super powerup-bouncy \
+    powerup-collect-reverse powerup-collect-side powerup-collect-cannon \
+    powerup-collect-faster powerup-collect-player powerup-collect-bomb \
+    powerup-collect-shield powerup-collect-super powerup-collect-bouncy \
+    powerup-aged powerup-merge powerup-expire powerup-black-hole \
     particle-0 particle-1 particle-2 particle-3 \
     graphics-solid graphics-low graphics-medium graphics-high graphics-user \
     options-game confirm-exit confirm-end-game confirm-keep-video \
