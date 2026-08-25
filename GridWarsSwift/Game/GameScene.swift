@@ -3666,11 +3666,15 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         }
         let shield = SKShapeNode(path: path)
         shield.name = "interceptorShield"
-        shield.strokeColor = SKColor(red: 1, green: 0.2, blue: 0.2, alpha: 0.9)
+        shield.strokeColor = SKColor(red: 1, green: 32 / 255, blue: 32 / 255, alpha: 1)
         shield.lineWidth = 1
-        shield.glowWidth = 2
-        shield.zPosition = -1
-        shield.zRotation = -.pi / 2
+        shield.glowWidth = 0
+        shield.blendMode = .add
+        shield.zPosition = 1
+        // The source rotates its points by `rot + 270` in a Y-down space.
+        // The sprite parent already contributes `-(rot + 90)` in SpriteKit,
+        // so a +90-degree child rotation leaves the shield at `-rot`.
+        shield.zRotation = .pi / 2
         interceptor.addChild(shield)
     }
 

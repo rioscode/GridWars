@@ -107,9 +107,9 @@ time, and each completed fidelity milestone has its own commit:
       textures, blending, timing, randomness, persistence, and verification
 - [x] macOS Debug build
 - [x] Generic iOS Simulator Debug build
-- [x] 100 gameplay, input, persistence, audio, and rendering-rule unit tests
+- [x] 101 gameplay, input, persistence, audio, and rendering-rule unit tests
 - [x] macOS launch and rendering smoke test
-- [x] Deterministic 100-state Swift capture catalog at 1024×768
+- [x] Deterministic 103-state Swift capture catalog at 1024×768
 - [x] Source-ordered Grid simulation and style-specific rendering pass for all
       21 selectors, including fixed-50-Hz animation phases and original
       particle-image composition
@@ -167,6 +167,9 @@ time, and each completed fidelity milestone has its own commit:
 - [x] Selena Snake source-handed head steering, per-axis corner turns, global
       speed progression, 25-node following order, Tail hit persistence,
       generator `SafeXY`, and 30/300-frame staged chain destruction
+- [x] Ivan Interceptor source-space facing AI, live-speed steering, boundary
+      rollback, frame-cached shield collision cone, legacy `PointInTri` edge
+      behavior, projectile blocking, shield renderer, and destruction order
 - [x] Top-left 1×1 `Plot` pixel anchoring for midpoint-circle Get Ready rings
 - [x] OpenGL pixel-center anchoring for one-pixel particle line style 0
 - [x] OpenGL pixel-center anchoring and additive-alpha compensation for the
@@ -179,10 +182,10 @@ time, and each completed fidelity milestone has its own commit:
       compensation
 
 `FIDELITY.md` is the acceptance ledger. The isolated BlitzMax harness and the
-Swift port now each capture the same 100 attract, transition, gameplay, HUD,
+Swift port now each capture the same 103 attract, transition, gameplay, HUD,
 entity, enemy-motion/lifecycle, generator, power-up, grid, particle,
 graphics-set, and menu states. The original reference checksums are pinned,
-and the comparison tool verified all 100 1024×768 pairs. Style-by-style visual
+and the comparison tool verified all 103 1024×768 pairs. Style-by-style visual
 correction reduced the pixel difference for all 20 nonempty grid selectors and
 made the empty selector pixel-identical. The Moiré selector still exposes a
 known OpenGL per-vertex-gradient versus SpriteKit rasterization difference. An

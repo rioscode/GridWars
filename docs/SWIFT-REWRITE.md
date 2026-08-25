@@ -99,6 +99,32 @@ degrees once for each violated axis; a corner hit adds 180, not one generic
 head because recursive creation adds links to the BlitzMax list while
 unwinding.
 
+Interceptor steering needs the same split representation. Keep `rot` and
+`rotdir` in source-space degrees while storing velocity and position in scene
+coordinates. `TurnToFace` therefore calculates its angle from `(dx, -dy)` and
+the scene-facing acceleration is `(cos(rot), -sin(rot))`. `rotdir` is a count
+of one-degree source turns, although the heading changes by four degrees per
+frame; replacing it with conventional shortest-angle interpolation changes
+both the shield window and the acceleration mode. The original also rolls back
+both position axes for each violated boundary axis, so a corner can undo the
+same movement twice.
+
+Do not derive Interceptor collision from the visible SpriteKit path. BlitzMax
+updates shots before `nme7.Draw`, then `Draw` caches `xrgt/yrgt/xlft/ylft` for
+the next frame's shot tests. Preserve that one-draw-old geometry. Its
+`PointInTri` helper is also observably incomplete: it tests only the two edges
+from the center, omits the forward edge, contains an impossible Y branch, and
+uses the first-edge denominator guard for the other edge. A mathematically
+correct triangle rejects shots the original shield blocks. Port the legacy
+predicate literally and cover it with focused tests.
+
+The shield lines are a separate rendering transform. Source points rotate by
+`rot + 270` in the Y-down coordinate system. The Interceptor sprite parent is
+already at SpriteKit `-(rot + 90)`, so the child path needs a positive
+90-degree local rotation; a negative rotation mirrors the shield behind the
+ship. Collision remains velocity-facing and must not be substituted with this
+animated three-line fan.
+
 Max2D does not always transform geometry around the center one might infer
 from the call site. `DrawTarget` rotates each `DrawLine(x-sz,y-sz,x+sz,y+sz)`
 difference vector around the shared first endpoint. Replacing it with centered

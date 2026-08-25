@@ -110,9 +110,23 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   global-equivalent session speed each frame, and generator-born Snakes keep
   the source's 160-point `SafeXY` because the trailing call argument is `rr`,
   not `close`. Motion, Tail-hit, and eight-step cascade captures measure
-  `0.00566157`, `0.00755665`, and `0.00641933`; all 100 catalog pairs pass,
-  accepting the Snake checklist entry. Interceptor and Triangle remain under
-  compound-enemy audit.
+  `0.00566157`, `0.00755665`, and `0.00641933`, accepting the Snake checklist
+  entry. Ivan's audit against `gridwars.bmx:1570-1775, 3078-3108` and
+  `utils.bmx:193-209, 259-279` keeps `rot`/`rotdir` in source degrees, converts
+  the facing acceleration to scene-handed coordinates, reads the mutable live
+  speed, and preserves the two independent boundary rollbacks. The shield is
+  active only at `Abs(rotdir) <= 4`; its projectile triangle comes from the
+  endpoints cached by the previous `Draw`, not the current visible path. Swift
+  reproduces the source's incomplete `PointInTri` literally, including its
+  omitted forward edge, impossible Y branch, and mismatched denominator guard.
+  Body hits, shield blocks, player collision, Black Hole absorption, 100-point
+  kill path, sound cooldown and 16 particles follow source order. The animated
+  three-line fan is rendered separately with the source `rot+270` transform;
+  correcting its child sign removes a behind-the-ship mirror. Motion, active
+  shield, and projectile-block captures measure `0.00471278`, `0.00476220`,
+  and `0.00479132`. All 103 catalog pairs pass and two independent complete
+  original runs are byte-identical, accepting the Interceptor checklist entry.
+  Triangle remains under compound-enemy audit.
 - Grid and particle simulation: `gridparttrail.bmx:494-2017` maps to
   `GridSimulation`, `GridRenderer`, `ParticleSimulation`, and
   `ParticleRenderer`. The port has all 21 grid-style selectors, the original
@@ -282,12 +296,12 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   graphics-set captures to 0.01588–0.01620. The score, high score, multiplier,
   lives and bomb indicators use the original vector font, coordinates, alpha
   and icon frames. The isolated original
-  renderer now produces 100 valid full-frame 1024×768 attract, transition,
+  renderer now produces 103 valid full-frame 1024×768 attract, transition,
   gameplay, HUD, entity, enemy-motion/lifecycle, generator, power-up, grid,
   particle, graphics-set, and menu references via `scripts/capture-original.sh`;
   capture mode bypasses all
   legacy configuration and high-score I/O. A persistence-free Swift catalog
-  covers the same 100 states via `scripts/capture-screens.sh`, and
+  covers the same 103 states via `scripts/capture-screens.sh`, and
   `scripts/compare-captures.sh` measures every matching pair. Two independent
   complete original runs produced byte-identical PNGs. Enemy
   pages reproduce the original individual rotation, pulse and squash rates,
@@ -336,7 +350,7 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   archived legacy `Language/Data types.bbdoc` documents the implicit numeric
   conversions used by the original. Swift random ranges and intentional
   integer truncations follow those references.
-- Build evidence (2026-08-25): the macOS unit-test action (100 tests) and generic
+- Build evidence (2026-08-25): the macOS unit-test action (101 tests) and generic
   iOS Simulator Debug build both pass. The rule suite
   covers initial difficulty, motion, weapons, scoring, upgrades, spawn timing,
   triangle bonds, snake following, black-hole integer conversions,
@@ -379,7 +393,7 @@ the corresponding Swift implementation, and a test or visual/runtime check.
       collision, split explosion, dynamic score, and loop audio (`nme5`).
 - [x] Selena the Snake: 25-segment chain, head navigation, tail hits, staged
       chain explosion, 100 head points (`nme6`).
-- [ ] Ivan the Interceptor: facing AI, shield cone, projectile blocking, 100
+- [x] Ivan the Interceptor: facing AI, shield cone, projectile blocking, 100
       points (`nme7`).
 - [x] Indy the Butterfly: fast homing/separation, 10 points (`nme8`).
 - [ ] Trish the Triangle: pairing, elastic bond, bond collision, black-hole
