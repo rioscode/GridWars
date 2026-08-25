@@ -178,7 +178,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private var appliedGridColorPosition = 0
     private var appliedGraphicsSetIndex = -1
     private var cameraOffset = CGPoint.zero
-    private let persistenceStore = GridWarsPersistenceStore.applicationDefault()
+    private var persistenceStore = GridWarsPersistenceStore.applicationDefault()
     private let audio = OriginalAudioEngine()
     private var colorPalette = OriginalColorPalette()
     private var highScores = LegacyHighScoreTable()
@@ -520,6 +520,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         simulationFrame = session.difficulty.initialFrame
         bombCooldownFrames = 20
         gameplayPaused = false
+        cheatPauseKeyIsHeld = false
         player.removeAllActions()
         player.alpha = 1
         centerPlayerAndCamera()
@@ -6125,6 +6126,13 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             }
         }
 
+        #if DEBUG
+        if pressed, !isRepeat, keyCode == 100 { // F8, runtime smoke only
+            prepareHighScoreRuntimeSmoke()
+            return
+        }
+        #endif
+
         if highScoreNameEntry != nil {
             guard pressed, !isRepeat else { return }
             var entry = highScoreNameEntry ?? OriginalHighScoreNameEntry()
@@ -6236,6 +6244,32 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             triggerBomb()
         }
     }
+
+    #if DEBUG
+    private func prepareHighScoreRuntimeSmoke() {
+        let processID = ProcessInfo.processInfo.processIdentifier
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "GridWars-Runtime-Smoke-\(processID)",
+            isDirectory: true
+        )
+        persistenceStore = GridWarsPersistenceStore(
+            directoryURL: directory,
+            legacyDirectoryURL: directory.appendingPathComponent("no-legacy", isDirectory: true)
+        )
+        highScores = LegacyHighScoreTable()
+        retainedHighScoreNameCharacters = Array(repeating: 32, count: 8)
+        cheatMode = false
+        godMode = false
+
+        beginGame()
+        getReadyFrame = -1
+        let qualifyingScore = (highScores[session.difficulty].last?.score ?? 0) + 1
+        session.registerScore(baseScore: qualifyingScore)
+        presentPostGameResult()
+        renderPresentation()
+        fputs("GridWars runtime smoke directory: \(directory.path)\n", stderr)
+    }
+    #endif
 
     func setPointerLocation(_ location: CGPoint, relativeDelta: CGVector = .zero) {
         pointerLocation = location

@@ -81,7 +81,8 @@ Official language references used during the port are archived in `docs/bb/`.
 to its Swift implementation and verification evidence. Reusable coordinate,
 texture, blending, timing, and verification lessons are collected in
 `docs/SWIFT-REWRITE.md`; the complete manual Original/Swift image audit is in
-`docs/CAPTURE-REVIEW.md`.
+`docs/CAPTURE-REVIEW.md`, and the final interactive acceptance sequence is in
+`docs/RUNTIME-SMOKE.md`.
 
 
 ## Build instructions

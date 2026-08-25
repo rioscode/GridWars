@@ -622,6 +622,9 @@ Use three levels of evidence:
 2. deterministic fixed-state captures against the original renderer;
 3. manual playthroughs on macOS and real iPhone/iPad hardware.
 
+The repeatable macOS interaction sequence and its data-isolated Debug
+high-score hook are documented in `docs/RUNTIME-SMOKE.md`.
+
 Relevant commands:
 
 ```sh
