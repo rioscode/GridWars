@@ -31,6 +31,7 @@ for screen in \
   enemy-black-hole enemy-triangle enemy-snake enemy-interceptor enemy-butterfly \
   motion-pinwheel motion-diamond motion-green-square motion-cube motion-seeker \
   motion-butterfly \
+  black-hole-motion black-hole-shrink black-hole-explosion \
   generator-pinwheel generator-diamond generator-green-square generator-cube \
   generator-seeker generator-black-hole generator-triangle generator-snake \
   generator-interceptor generator-butterfly \

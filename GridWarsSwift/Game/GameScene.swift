@@ -10,6 +10,11 @@ import AppKit
 
 @MainActor
 final class GameScene: SKScene, SKPhysicsContactDelegate {
+    private struct FloatingScoreEffect {
+        var state: OriginalFloatingScoreState
+        let node: SKNode
+    }
+
     private struct CaptureRequest {
         let scenario: OriginalCaptureScenario
         let outputPath: String
@@ -194,6 +199,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         seed: Int(ProcessInfo.processInfo.systemUptime * 1_000)
     )
     private var captureRandom: BlitzMaxRandomNumberGenerator?
+    private var floatingScores: [FloatingScoreEffect] = []
     private var attractDisplayEffects: [AttractDisplayEffect] = []
     private var cyclingRed = 250
     private var cyclingGreen = 20
@@ -451,6 +457,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         projectileLayer.removeAllChildren()
         pickupLayer.removeAllChildren()
         effectLayer.removeAllChildren()
+        floatingScores.removeAll()
 
         session.restart(difficulty: menuModel.settings.difficulty)
         if cheatMode {
@@ -502,6 +509,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         projectileLayer.removeAllChildren()
         pickupLayer.removeAllChildren()
         effectLayer.removeAllChildren()
+        floatingScores.removeAll()
         particleSimulation.reset()
         audio.stopAllBlackHoleLoops()
         audio.startMusic(.intro)
@@ -534,7 +542,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         captureRandom = BlitzMaxRandomNumberGenerator(seed: 1)
 
         let preparesOriginalState: Bool = switch captureRequest.scenario.subject {
-        case .gameplay, .enemy, .enemyMotion, .generator, .powerUp, .grid, .particleStyle,
+        case .gameplay, .enemy, .enemyMotion, .blackHole, .generator, .powerUp,
+             .grid, .particleStyle,
              .graphicsSet, .getReady, .death, .gameOver, .highScoreEntry,
              .hudDefault, .hudUpgraded, .powerUpMessage:
             true
@@ -571,6 +580,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         case let .enemyMotion(kind):
             prepareGameplayCapture()
             configureBasicEnemyMotionCapture(kind)
+        case let .blackHole(capture):
+            prepareGameplayCapture()
+            configureBlackHoleCapture(capture)
         case let .generator(kind):
             prepareGameplayCapture()
             spawnGenerator(
@@ -825,6 +837,61 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         }
         for _ in 0..<30 {
             updateEnemies(kinds: [kind])
+        }
+    }
+
+    private func configureBlackHoleCapture(_ capture: OriginalBlackHoleCapture) {
+        player.position = sourcePoint(CGPoint(x: playfieldSize.width / 2, y: 100))
+        let center = CGPoint(x: playfieldSize.width / 2, y: playfieldSize.height / 2)
+
+        switch capture {
+        case .motion:
+            let first = spawnEnemy(
+                kind: .blackHole,
+                at: CGPoint(x: center.x - 18, y: center.y),
+                freezeFrames: 0,
+                closeToPlayer: true,
+                playBornSound: false
+            )
+            let second = spawnEnemy(
+                kind: .blackHole,
+                at: CGPoint(x: center.x + 18, y: center.y),
+                freezeFrames: 0,
+                closeToPlayer: true,
+                playBornSound: false
+            )
+            first?.userData?["blackHoleSize"] = 36.0
+            first?.userData?["blackHoleActive"] = true
+            second?.userData?["blackHoleSize"] = 28.0
+            second?.userData?["blackHoleActive"] = true
+            for _ in 0..<30 {
+                updateEnemies(kinds: [.blackHole])
+            }
+        case .shrink:
+            guard let blackHole = spawnEnemy(
+                kind: .blackHole,
+                at: center,
+                freezeFrames: 0,
+                closeToPlayer: true,
+                playBornSound: false
+            ) else { return }
+            blackHole.userData?["blackHoleSize"] = 4.5
+            blackHole.userData?["blackHoleActive"] = true
+            blackHole.userData?["absorbCount"] = 5
+            let projectile = SKNode()
+            projectile.userData = NSMutableDictionary(dictionary: ["dx": 0.0, "dy": 0.0])
+            damageEnemy(blackHole, projectile: projectile)
+        case .explosion:
+            guard let blackHole = spawnEnemy(
+                kind: .blackHole,
+                at: center,
+                freezeFrames: 0,
+                closeToPlayer: true,
+                playBornSound: false
+            ) else { return }
+            blackHole.userData?["blackHoleSize"] = 64.5
+            blackHole.userData?["blackHoleActive"] = true
+            growBlackHole(blackHole, amount: 1)
         }
     }
 
@@ -1303,6 +1370,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         projectileLayer.removeAllChildren()
         pickupLayer.removeAllChildren()
         effectLayer.removeAllChildren()
+        floatingScores.removeAll()
         cameraOffset = .zero
         updateWorldTransformAndStars()
         gridLayer.isHidden = true
@@ -1490,6 +1558,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         updateParticleSimulation()
         cycleColors()
         cycleColors()
+        updateFloatingScores()
         gridSimulation.update()
         if deathFramesRemaining > 0 {
             session.advancePowerUpStatusMessageFrame()
@@ -3429,16 +3498,11 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private func pullPlayerTowardBlackHoles() {
         for blackHole in enemies(of: .blackHole) {
             let blackHoleSize = CGFloat((blackHole.userData?["blackHoleSize"] as? NSNumber)?.doubleValue ?? 20)
-            let difference = CGVector(
-                dx: blackHole.position.x - player.position.x,
-                dy: blackHole.position.y - player.position.y
+            player.position = BlackHoleRule.pulledPlayerPosition(
+                player: player.position,
+                blackHole: blackHole.position,
+                size: blackHoleSize
             )
-            let distance = max(0.001, difference.length)
-            if distance < blackHoleSize * 10 {
-                let pull = difference / distance * (blackHoleSize / 30)
-                player.position.x += pull.dx
-                player.position.y += pull.dy
-            }
         }
     }
 
@@ -3696,23 +3760,17 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             && otherBlackHole.name == "enemy"
             && otherBlackHole.userData?["kind"] as? String == EnemyKind.blackHole.rawValue {
             let otherSize = CGFloat((otherBlackHole.userData?["blackHoleSize"] as? NSNumber)?.doubleValue ?? 20)
-            var difference = CGVector(
+            let difference = CGVector(
                 dx: otherBlackHole.position.x - blackHole.position.x,
                 dy: otherBlackHole.position.y - blackHole.position.y
             )
-            let distance = difference.length + 0.001
-            var magnitude = min(8, max(1, (otherSize - blackHoleSize) / 8))
-            if magnitude.isNaN { magnitude = 1 }
-            guard distance < otherSize * 2 + blackHoleSize * 2 + 64 else { continue }
-            difference = difference / distance * magnitude
-            if distance < otherSize + blackHoleSize {
-                difference.dx = -difference.dx - difference.dy * 0.25
-                difference.dy = -difference.dy - difference.dx * 0.25
-            }
-            velocity = velocity + difference
-            if velocity.length > maximumSpeed {
-                velocity = velocity.normalized * maximumSpeed
-            }
+            velocity = BlackHoleRule.mutuallyDeflectedVelocity(
+                velocity: velocity,
+                differenceToOther: difference,
+                ownSize: blackHoleSize,
+                otherSize: otherSize,
+                maximumSpeed: maximumSpeed
+            )
         }
     }
 
@@ -3724,7 +3782,11 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         let wasActive = (blackHole.userData?["blackHoleActive"] as? NSNumber)?.boolValue ?? false
         blackHole.userData?["blackHoleActive"] = true
         if !wasActive {
-            gridSimulation.push(at: blackHole.position, radiusInPoints: 6, amount: 1)
+            gridSimulation.push(
+                at: blackHole.position,
+                radiusInPoints: BlackHoleRule.activationPushRadius,
+                amount: 1
+            )
         }
         if let id = blackHole.userData?["enemyID"] as? String {
             audio.startBlackHoleLoop(
@@ -3738,19 +3800,21 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         let absorbed = (blackHole.userData?["absorbCount"] as? NSNumber)?.intValue ?? 0
         blackHole.userData?["absorbCount"] = absorbed + 1
 
-        if blackHoleSize > 64 {
+        if blackHoleSize > BlackHoleRule.maximumSize {
             let position = blackHole.position
             if let id = blackHole.userData?["enemyID"] as? String {
                 audio.stopBlackHoleLoop(id: id)
             }
             blackHole.removeFromParent()
             for index in 0..<16 {
-                let angle = CGFloat(index) * 22.5 * .pi / 180
                 let seeker = spawnEnemy(
                     kind: .seeker,
-                    at: CGPoint(
-                        x: CGFloat(Int(position.x + cos(angle) * 20)),
-                        y: CGFloat(Int(position.y + sin(angle) * 20))
+                    at: BlackHoleRule.explosionChildPosition(
+                        sceneCenter: position,
+                        arenaHeight: playfieldSize.height,
+                        index: index,
+                        angleStep: 22.5,
+                        radius: 20
                     ),
                     freezeFrames: 4,
                     closeToPlayer: true
@@ -3758,12 +3822,14 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 seeker?.userData?["seekerMean"] = 1
             }
             for index in 0..<18 {
-                let angle = CGFloat(index) * 20 * .pi / 180
                 spawnEnemy(
                     kind: .butterfly,
-                    at: CGPoint(
-                        x: CGFloat(Int(position.x + cos(angle) * 30)),
-                        y: CGFloat(Int(position.y + sin(angle) * 30))
+                    at: BlackHoleRule.explosionChildPosition(
+                        sceneCenter: position,
+                        arenaHeight: playfieldSize.height,
+                        index: index,
+                        angleStep: 20,
+                        radius: 30
                     ),
                     freezeFrames: 4,
                     closeToPlayer: true
@@ -3775,10 +3841,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 kind: .random,
                 color: colorPalette[.blackHole],
                 positionForIndex: { index in
-                    let angle = CGFloat(index * 10) * .pi / 180
-                    return CGPoint(
-                        x: position.x + sin(angle) * 20,
-                        y: position.y + cos(angle) * 20
+                    BlackHoleRule.explosionParticlePosition(
+                        sceneCenter: position,
+                        index: index
                     )
                 }
             )
@@ -4012,7 +4077,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             radiusSquared = 24 * 24
         case .blackHole:
             let blackHoleSize = CGFloat((enemy.userData?["blackHoleSize"] as? NSNumber)?.doubleValue ?? 20)
-            radiusSquared = pow(12 + blackHoleSize / 2, 2) + 12 * 12
+            radiusSquared = BlackHoleRule.playerCollisionThresholdSquared(size: blackHoleSize)
         }
         guard squaredDistance(enemy.position, player.position) < radiusSquared,
               hitPlayer(killer: enemy) else { return false }
@@ -4162,9 +4227,13 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             let wasActive = (enemy.userData?["blackHoleActive"] as? NSNumber)?.boolValue ?? false
             enemy.userData?["blackHoleActive"] = true
             if !wasActive {
-                gridSimulation.push(at: enemy.position, radiusInPoints: 6, amount: 1)
+                gridSimulation.push(
+                    at: enemy.position,
+                    radiusInPoints: BlackHoleRule.activationPushRadius,
+                    amount: 1
+                )
             }
-            blackHoleSize -= 0.75
+            blackHoleSize = BlackHoleRule.sizeAfterHit(size: blackHoleSize)
             enemy.userData?["blackHoleSize"] = blackHoleSize
             if let id = enemy.userData?["enemyID"] as? String {
                 audio.startBlackHoleLoop(
@@ -4175,13 +4244,17 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                     size: blackHoleSize
                 )
             }
-            if blackHoleSize < 4 {
-                gridSimulation.push(at: enemy.position, radiusInPoints: 8, amount: 2)
+            if blackHoleSize < BlackHoleRule.minimumSize {
+                gridSimulation.push(
+                    at: enemy.position,
+                    radiusInPoints: BlackHoleRule.finalPushRadius,
+                    amount: 2
+                )
                 let absorbed = (enemy.userData?["absorbCount"] as? NSNumber)?.intValue ?? 0
                 enemy.userData?["score"] = BlackHoleRule.destructionScore(absorbedEnemies: absorbed)
                 destroyEnemy(enemy, preHitParticlesEmitted: true)
             } else {
-                let rate = 1.1 + (64 - blackHoleSize) / 64
+                let rate = BlackHoleRule.shrinkSoundRate(size: blackHoleSize)
                 playSpatial(.blackHoleShrink, at: enemy.position, rate: rate)
             }
             return
@@ -4286,6 +4359,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 )
             }
             if awardPoints {
+                showFloatingScore(baseScore: score, at: position)
                 for event in session.registerEnemyDestroyed(baseScore: score) {
                     handleProgressionEvent(event)
                 }
@@ -4302,6 +4376,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 preHitParticlesEmitted: preHitParticlesEmitted
             )
             if awardPoints {
+                showFloatingScore(baseScore: score, at: position)
                 for event in session.registerEnemyDestroyed(baseScore: score) {
                     handleProgressionEvent(event)
                 }
@@ -4319,6 +4394,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             // Ordinary enemy Kill methods score first. Any threshold power-up
             // therefore consumes BRL.Random before kill particles and Cube splits.
             if awardPoints {
+                showFloatingScore(baseScore: score, at: position)
                 for event in session.registerEnemyDestroyed(baseScore: score) {
                     handleProgressionEvent(event)
                 }
@@ -4602,6 +4678,53 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         case .powerUpCollected:
             break
         }
+    }
+
+    private func showFloatingScore(baseScore: Int, at scenePosition: CGPoint) {
+        let state = OriginalFloatingScoreState(
+            text: String(baseScore * session.multiplier),
+            sourcePosition: CGPoint(
+                x: Int(scenePosition.x),
+                y: Int(playfieldSize.height - scenePosition.y)
+            )
+        )
+        let node = SKNode()
+        node.name = "floatingScore"
+        effectLayer.addChild(node)
+        floatingScores.append(FloatingScoreEffect(state: state, node: node))
+        renderFloatingScore(floatingScores.count - 1)
+    }
+
+    private func updateFloatingScores() {
+        for index in floatingScores.indices.reversed() {
+            guard floatingScores[index].node.parent != nil else {
+                floatingScores.remove(at: index)
+                continue
+            }
+            floatingScores[index].state.advance()
+            if floatingScores[index].state.life <= 0 {
+                floatingScores[index].node.removeFromParent()
+                floatingScores.remove(at: index)
+            } else {
+                renderFloatingScore(index)
+            }
+        }
+    }
+
+    private func renderFloatingScore(_ index: Int) {
+        guard floatingScores.indices.contains(index) else { return }
+        let effect = floatingScores[index]
+        let component = CGFloat(effect.state.colorComponent) / 255
+        effect.node.removeAllChildren()
+        effect.node.addChild(vectorFont.makeNode(
+            effect.state.text,
+            x: effect.state.drawX,
+            yFromTop: effect.state.drawY,
+            scale: effect.state.scale,
+            arenaHeight: playfieldSize.height,
+            color: SKColor(red: component, green: component, blue: 32 / 255, alpha: 1),
+            lineWidth: 2
+        ))
     }
 
     private func choosePowerUpKind() -> PowerUpKind {
@@ -5004,6 +5127,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             projectileLayer.removeAllChildren()
             pickupLayer.removeAllChildren()
             effectLayer.removeAllChildren()
+            floatingScores.removeAll()
             gridSimulation.reset()
             particleSimulation.reset()
         }

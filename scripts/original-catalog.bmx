@@ -4,6 +4,7 @@
 Function CaptureOriginalCatalog:Int(mode$, directory$)
 	Local entityKind:Int = -1
 	Local motionKind:Int = -1
+	Local blackHoleKind:Int = -1
 	Local generatorKind:Int = -1
 	Local powerKind:Int = -1
 	Local gridKind:Int = -1
@@ -36,6 +37,9 @@ Function CaptureOriginalCatalog:Int(mode$, directory$)
 		Case "motion-cube"; motionKind = 3
 		Case "motion-seeker"; motionKind = 4
 		Case "motion-butterfly"; motionKind = 9
+		Case "black-hole-motion"; blackHoleKind = 0
+		Case "black-hole-shrink"; blackHoleKind = 1
+		Case "black-hole-explosion"; blackHoleKind = 2
 
 		Case "generator-pinwheel"; generatorKind = 1
 		Case "generator-diamond"; generatorKind = 2
@@ -126,6 +130,7 @@ Function CaptureOriginalCatalog:Int(mode$, directory$)
 		If overview = True Then CaptureOriginalOverview()
 		If entityKind >= 0 Then CaptureOriginalEnemy(entityKind)
 		If motionKind >= 0 Then CaptureOriginalEnemyMotion(motionKind)
+		If blackHoleKind >= 0 Then CaptureOriginalBlackHole(blackHoleKind)
 		If generatorKind >= 0 Then ge.Create(SCREENW/2, SCREENH/2, generatorKind, 60, 24, 0)
 		If powerKind >= 0 Then pu.Create(SCREENW/2, SCREENH/2, powerKind, 0)
 
@@ -150,6 +155,44 @@ Function CaptureOriginalCatalog:Int(mode$, directory$)
 	SaveScreenshot(directory + "/" + mode + ".png")
 	Flip 1
 	Return True
+End Function
+
+Function CaptureOriginalBlackHole(kind:Int)
+	px = SCREENW/2
+	py = 100
+	Local centerX:Int = SCREENW/2
+	Local centerY:Int = SCREENH/2
+	Local blackHole:nme5
+
+	Select kind
+		Case 0
+			nme5.Create(centerX-18, centerY, 36, 0, 1)
+			nme5.Create(centerX+18, centerY, 28, 0, 1)
+			For blackHole = EachIn nme5_list
+				blackHole.active = True
+			Next
+			For Local frame:Int = 0 Until 30
+				For blackHole = EachIn nme5_list
+					blackHole.Update()
+					If frame < 29 Then blackHole.pulse:+blackHole.sz/2
+				Next
+			Next
+		Case 1
+			nme5.Create(centerX, centerY, 4.5, 0, 1)
+			For blackHole = EachIn nme5_list
+				blackHole.active = True
+				blackHole.absorbcount = 5
+				blackHole.Kill()
+				Exit
+			Next
+		Case 2
+			nme5.Create(centerX, centerY, 64.5, 0, 1)
+			For blackHole = EachIn nme5_list
+				blackHole.active = True
+				blackHole.Grow(1)
+				Exit
+			Next
+	End Select
 End Function
 
 Function CaptureOriginalEnemyMotion(kind:Int)

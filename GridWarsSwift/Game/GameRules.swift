@@ -1062,12 +1062,89 @@ enum SnakeSegmentRule {
 }
 
 enum BlackHoleRule {
+    static let activationPushRadius = 6
+    static let finalPushRadius = 8
+    static let shrinkPerHit: CGFloat = 0.75
+    static let minimumSize: CGFloat = 4
+    static let maximumSize: CGFloat = 64
+
     static func growthSpeedUp(frame: Int) -> CGFloat {
         min(5, 1 + CGFloat(frame / (50 * 60 * 6)))
     }
 
     static func destructionScore(absorbedEnemies: Int) -> Int {
         150 + absorbedEnemies * (absorbedEnemies + 1) / 3 * 5
+    }
+
+    static func sizeAfterHit(size: CGFloat, awardsPoints: Bool = true) -> CGFloat {
+        awardsPoints ? size - shrinkPerHit : 0
+    }
+
+    static func shrinkSoundRate(size: CGFloat) -> CGFloat {
+        1.1 + (maximumSize - size) / maximumSize
+    }
+
+    static func playerCollisionThresholdSquared(size: CGFloat) -> CGFloat {
+        pow(12 + size / 2, 2) + 12 * 12
+    }
+
+    static func pulledPlayerPosition(
+        player: CGPoint,
+        blackHole: CGPoint,
+        size: CGFloat
+    ) -> CGPoint {
+        let difference = CGVector(dx: blackHole.x - player.x, dy: blackHole.y - player.y)
+        let distance = difference.length
+        guard distance > 0, distance < size * 10 else { return player }
+        let pull = difference / distance * (size / 30)
+        return CGPoint(x: player.x + pull.dx, y: player.y + pull.dy)
+    }
+
+    static func explosionChildPosition(
+        sceneCenter: CGPoint,
+        arenaHeight: CGFloat,
+        index: Int,
+        angleStep: CGFloat,
+        radius: CGFloat
+    ) -> CGPoint {
+        let angle = CGFloat(index) * angleStep * .pi / 180
+        let sourceCenterY = arenaHeight - sceneCenter.y
+        let sourceX = Int(sceneCenter.x + cos(angle) * radius)
+        let sourceY = Int(sourceCenterY + sin(angle) * radius)
+        return CGPoint(x: sourceX, y: Int(arenaHeight) - sourceY)
+    }
+
+    static func explosionParticlePosition(
+        sceneCenter: CGPoint,
+        index: Int
+    ) -> CGPoint {
+        let angle = CGFloat(index * 10) * .pi / 180
+        return CGPoint(
+            x: sceneCenter.x + sin(angle) * 20,
+            y: sceneCenter.y - cos(angle) * 20
+        )
+    }
+
+    static func mutuallyDeflectedVelocity(
+        velocity: CGVector,
+        differenceToOther: CGVector,
+        ownSize: CGFloat,
+        otherSize: CGFloat,
+        maximumSpeed: CGFloat
+    ) -> CGVector {
+        let distance = differenceToOther.length + 0.001
+        guard distance < otherSize * 2 + ownSize * 2 + 64 else { return velocity }
+        let magnitude = min(8, max(1, (otherSize - ownSize) / 8))
+        var force = differenceToOther / distance * magnitude
+        if distance < otherSize + ownSize {
+            // Source Y is inverted. Preserve its sequential ddx-then-ddy update.
+            force.dx = -force.dx + force.dy * 0.25
+            force.dy = -force.dy + force.dx * 0.25
+        }
+        let result = velocity + force
+        return result.length > maximumSpeed
+            ? result.normalized * maximumSpeed
+            : result
     }
 
     static func deflectProjectile(
@@ -1090,6 +1167,21 @@ enum BlackHoleRule {
             dx: velocity.dx - (difference.dx == 0 ? 0 : copysign(1 / divisor, difference.dx)),
             dy: velocity.dy - (difference.dy == 0 ? 0 : copysign(1 / divisor, difference.dy))
         )
+    }
+}
+
+struct OriginalFloatingScoreState: Equatable {
+    let text: String
+    let sourcePosition: CGPoint
+    var life: Int = 30
+
+    var drawX: CGFloat { sourcePosition.x - CGFloat(life) }
+    var drawY: CGFloat { sourcePosition.y - 16 }
+    var scale: CGFloat { 1 + CGFloat(life) / 12 }
+    var colorComponent: Int { min(255, 75 + life * 10) }
+
+    mutating func advance() {
+        life -= 1
     }
 }
 

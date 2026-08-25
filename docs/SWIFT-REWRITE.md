@@ -81,6 +81,12 @@ stored in SpriteKit coordinates needs the Y-inverted equivalent
 black holes expose this difference clearly; copying the source signs verbatim
 makes their rotation run mirrored.
 
+Preserve sequential assignments while deriving those signs. Black Hole mutual
+repulsion first replaces source `ddx`, then computes source `ddy` using that
+new value. In scene coordinates its close-range pair becomes
+`dx = -dx + dy*0.25`, followed by `dy = -dy + dx*0.25`; calculating both from
+the old vector or copying the two source minus signs mirrors the orbit.
+
 Preserve first-draw edge cases. For example, the original Snake tail computes
 `ATan2(0,0)+90`, so a new zero-velocity segment is drawn at 90 degrees before
 its first update.
@@ -235,6 +241,12 @@ these type-specific sequences instead of routing all entities through one
 generic destruction order. Cubie also calls the degenerate integer range
 `Rand(-30,-30)` before its random Y offset for each child; the fixed X result
 still consumes generator state.
+
+Temporary score text is gameplay state too. The original retains each entry
+for 30 frames, draws at `(sourceX-life, sourceY-16)`, scales it by
+`1+life/12`, and clamps the colour component `75+life*10` to 255. Keep this as
+a fixed-step vector-font effect rather than a timed platform label; otherwise
+pausing, death frames, camera scrolling, and deterministic captures drift.
 
 Sample spawn coordinates in the source's top-left coordinate system, in X-then-Y
 call order, and only then convert `sceneY = playfieldHeight - sourceY`.

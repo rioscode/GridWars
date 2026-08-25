@@ -782,6 +782,91 @@ final class GameRulesTests: XCTestCase {
         XCTAssertEqual(deflected.dy, 4 - 1.0 / 21.0, accuracy: 0.0001)
     }
 
+    func testBlackHoleLifecycleRulesPreserveSourceGeometryAndThresholds() {
+        XCTAssertEqual(BlackHoleRule.sizeAfterHit(size: 4.5), 3.75)
+        XCTAssertEqual(BlackHoleRule.sizeAfterHit(size: 40, awardsPoints: false), 0)
+        XCTAssertEqual(BlackHoleRule.shrinkSoundRate(size: 32), 1.6, accuracy: 0.000_001)
+        XCTAssertEqual(
+            BlackHoleRule.playerCollisionThresholdSquared(size: 20),
+            628
+        )
+
+        XCTAssertEqual(
+            BlackHoleRule.pulledPlayerPosition(
+                player: CGPoint(x: 100, y: 100),
+                blackHole: CGPoint(x: 130, y: 100),
+                size: 30
+            ),
+            CGPoint(x: 101, y: 100)
+        )
+        XCTAssertEqual(
+            BlackHoleRule.pulledPlayerPosition(
+                player: CGPoint(x: 100, y: 100),
+                blackHole: CGPoint(x: 500, y: 100),
+                size: 30
+            ),
+            CGPoint(x: 100, y: 100)
+        )
+
+        let center = CGPoint(x: 512.25, y: 384.5)
+        XCTAssertEqual(
+            BlackHoleRule.explosionChildPosition(
+                sceneCenter: center,
+                arenaHeight: 768,
+                index: 0,
+                angleStep: 22.5,
+                radius: 20
+            ),
+            CGPoint(x: 532, y: 385)
+        )
+        XCTAssertEqual(
+            BlackHoleRule.explosionChildPosition(
+                sceneCenter: center,
+                arenaHeight: 768,
+                index: 4,
+                angleStep: 22.5,
+                radius: 20
+            ),
+            CGPoint(x: 512, y: 365)
+        )
+        XCTAssertEqual(
+            BlackHoleRule.explosionParticlePosition(sceneCenter: center, index: 0),
+            CGPoint(x: center.x, y: center.y - 20)
+        )
+
+        let mutual = BlackHoleRule.mutuallyDeflectedVelocity(
+            velocity: .zero,
+            differenceToOther: CGVector(dx: 10, dy: 5),
+            ownSize: 36,
+            otherSize: 28,
+            maximumSpeed: 2.5
+        )
+        let distance = sqrt(CGFloat(125)) + 0.001
+        let initialX = 10 / distance
+        let initialY = 5 / distance
+        let expectedX = -initialX + initialY * 0.25
+        let expectedY = -initialY + expectedX * 0.25
+        XCTAssertEqual(mutual.dx, expectedX, accuracy: 0.000_001)
+        XCTAssertEqual(mutual.dy, expectedY, accuracy: 0.000_001)
+    }
+
+    func testFloatingScoreStateMatchesOriginalVectorAnimation() {
+        var score = OriginalFloatingScoreState(
+            text: "200",
+            sourcePosition: CGPoint(x: 512, y: 384)
+        )
+        XCTAssertEqual(score.life, 30)
+        XCTAssertEqual(score.drawX, 482)
+        XCTAssertEqual(score.drawY, 368)
+        XCTAssertEqual(score.scale, 3.5)
+        XCTAssertEqual(score.colorComponent, 255)
+
+        score.advance()
+        XCTAssertEqual(score.life, 29)
+        XCTAssertEqual(score.drawX, 483)
+        XCTAssertEqual(score.colorComponent, 255)
+    }
+
     func testInterceptorShieldMatchesOriginalForwardTriangle() {
         let shield = InterceptorShieldGeometry(
             center: CGPoint(x: 100, y: 100),
@@ -1859,7 +1944,7 @@ final class GameRulesTests: XCTestCase {
 
     func testCaptureCatalogCoversEveryFidelityCategory() {
         let scenarios = OriginalCaptureScenario.all
-        XCTAssertEqual(scenarios.count, 94)
+        XCTAssertEqual(scenarios.count, 97)
         XCTAssertEqual(Set(scenarios.map(\.name)).count, scenarios.count)
         XCTAssertEqual(
             OriginalCaptureScenario(name: "power-up-message")?.subject,
@@ -1876,6 +1961,7 @@ final class GameRulesTests: XCTestCase {
 
         var enemies = 0
         var enemyMotions = 0
+        var blackHoleCaptures = 0
         var generators = 0
         var powerUps = 0
         var grids = 0
@@ -1887,6 +1973,7 @@ final class GameRulesTests: XCTestCase {
             switch scenario.subject {
             case .enemy: enemies += 1
             case .enemyMotion: enemyMotions += 1
+            case .blackHole: blackHoleCaptures += 1
             case .generator: generators += 1
             case .powerUp: powerUps += 1
             case .grid: grids += 1
@@ -1898,6 +1985,7 @@ final class GameRulesTests: XCTestCase {
         }
         XCTAssertEqual(enemies, OriginalEnemyKind.allCases.count)
         XCTAssertEqual(enemyMotions, 6)
+        XCTAssertEqual(blackHoleCaptures, OriginalBlackHoleCapture.allCases.count)
         XCTAssertEqual(generators, OriginalEnemyKind.allCases.count)
         XCTAssertEqual(powerUps, PowerUpKind.allCases.count)
         XCTAssertEqual(grids, 21)

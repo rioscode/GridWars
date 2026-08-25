@@ -54,6 +54,7 @@ enum OriginalCaptureSubject: Equatable {
     case gameplay
     case enemy(OriginalEnemyKind)
     case enemyMotion(OriginalEnemyKind)
+    case blackHole(OriginalBlackHoleCapture)
     case generator(OriginalEnemyKind)
     case powerUp(PowerUpKind)
     case grid(Int)
@@ -74,6 +75,12 @@ enum OriginalCaptureSubject: Equatable {
         default: false
         }
     }
+}
+
+enum OriginalBlackHoleCapture: String, CaseIterable {
+    case motion
+    case shrink
+    case explosion
 }
 
 struct OriginalCaptureScenario: Equatable {
@@ -119,6 +126,9 @@ struct OriginalCaptureScenario: Equatable {
         scenarios += enemies.map { .init("enemy-\($0.0)", .enemy($0.1)) }
         scenarios += enemies.prefix(5).map { .init("motion-\($0.0)", .enemyMotion($0.1)) }
         scenarios.append(.init("motion-butterfly", .enemyMotion(.butterfly)))
+        scenarios += OriginalBlackHoleCapture.allCases.map {
+            .init("black-hole-\($0.rawValue)", .blackHole($0))
+        }
         scenarios += enemies.map { .init("generator-\($0.0)", .generator($0.1)) }
 
         let powerUps: [(String, PowerUpKind)] = [
