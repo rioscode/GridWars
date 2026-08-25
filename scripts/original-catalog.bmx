@@ -8,6 +8,7 @@ Function CaptureOriginalCatalog:Int(mode$, directory$)
 	Local snakeKind:Int = -1
 	Local interceptorKind:Int = -1
 	Local triangleKind:Int = -1
+	Local playerKind:Int = -1
 	Local generatorKind:Int = -1
 	Local powerKind:Int = -1
 	Local gridKind:Int = -1
@@ -53,6 +54,14 @@ Function CaptureOriginalCatalog:Int(mode$, directory$)
 		Case "triangle-bond"; triangleKind = 1
 		Case "triangle-hit"; triangleKind = 2
 		Case "triangle-black-hole"; triangleKind = 3
+		Case "player-motion"; playerKind = 0
+		Case "player-boundary"; playerKind = 1
+		Case "player-shield"; playerKind = 2
+		Case "weapon-cannon-1"; playerKind = 3
+		Case "weapon-cannon-2"; playerKind = 4
+		Case "weapon-cannon-3"; playerKind = 5
+		Case "weapon-cannon-4"; playerKind = 6
+		Case "weapon-reverse-side"; playerKind = 7
 
 		Case "generator-pinwheel"; generatorKind = 1
 		Case "generator-diamond"; generatorKind = 2
@@ -147,6 +156,7 @@ Function CaptureOriginalCatalog:Int(mode$, directory$)
 		If snakeKind >= 0 Then CaptureOriginalSnake(snakeKind)
 		If interceptorKind >= 0 Then CaptureOriginalInterceptor(interceptorKind)
 		If triangleKind >= 0 Then CaptureOriginalTriangle(triangleKind)
+		If playerKind >= 0 Then CaptureOriginalPlayer(playerKind)
 		If generatorKind >= 0 Then ge.Create(SCREENW/2, SCREENH/2, generatorKind, 60, 24, 0)
 		If powerKind >= 0 Then pu.Create(SCREENW/2, SCREENH/2, powerKind, 0)
 
@@ -171,6 +181,125 @@ Function CaptureOriginalCatalog:Int(mode$, directory$)
 	SaveScreenshot(directory + "/" + mode + ".png")
 	Flip 1
 	Return True
+End Function
+
+Function CaptureOriginalPlayer(kind:Int)
+	px = SCREENW/2
+	py = SCREENH/2
+	oldmx = 0
+	oldmy = 0
+	inertia = .5
+
+	Select kind
+		Case 0
+			px = 360
+			For Local frame:Int = 0 Until 24
+				If frame < 12
+					CaptureOriginalPlayerStep(1, 0)
+				Else
+					CaptureOriginalPlayerStep(0, -1)
+				EndIf
+			Next
+		Case 1
+			px = 17
+			CaptureOriginalPlayerStep(-1, 0)
+		Case 2
+			player_shield = 20*upgradetime
+		Case 3, 4, 5, 6, 7
+			numshots = kind-2
+			If kind = 7 Then numshots = 1
+			pr = -90
+			CaptureOriginalNormalWeapon(numshots, kind = 7)
+	End Select
+End Function
+
+Function CaptureOriginalPlayerStep(moveX#, moveY#)
+	jdmx = moveX
+	jdmy = moveY
+	oldmx:*inertia
+	oldmy:*inertia
+	jdmx:+oldmx
+	jdmy:+oldmy
+	Local speed# = Sqr(jdmx*jdmx + jdmy*jdmy)
+	If speed > 1
+		jdmx = jdmx/speed
+		jdmy = jdmy/speed
+	EndIf
+	oldmx = jdmx
+	oldmy = jdmy
+
+	px:+jdmx*MAXPLAYERSPEED
+	If px < 16 Or px > PLAYFIELDW-16
+		px:-jdmx*MAXPLAYERSPEED
+		oldmx = -oldmx
+	EndIf
+	py:+jdmy*MAXPLAYERSPEED
+	If py < 16 Or py > PLAYFIELDH-16
+		py:-jdmy*MAXPLAYERSPEED
+		oldmy = -oldmy
+	EndIf
+	If jdmy <> 0 Or jdmx <> 0 Then pr = ATan2(jdmy,jdmx)-90
+
+	If Abs(jdmx) > .1 Or Abs(jdmy) > .1
+		For Local index:Int = 0 To 2
+			trail.Create(..
+				px-jdmx*12+Sin(gcount*12+index*45)*8,..
+				py-jdmy*12+Cos(gcount*12+index*45)*8,..
+				COL_TRAIL_R,COL_TRAIL_G,COL_TRAIL_B,-jdmx,-jdmy)
+		Next
+	EndIf
+	trail.UpdateTrail()
+	gcount:+1
+End Function
+
+Function CaptureOriginalNormalWeapon(cannons:Int, extras:Int)
+	Local aimX# = 1
+	Local aimY# = 0
+	Local xr#, yr#
+	Local angle:Int
+	Local speed# = shotspeed
+
+	If cannons Mod 2 = 1
+		xr = aimX*speed*3.2
+		yr = aimY*speed*3.2
+		shot.Create(px,py,xr,yr,speed*3.2)
+	EndIf
+	If cannons > 1
+		If cannons Mod 2 = 0 Then angle = 2 Else angle = 4
+		xr = aimX*speed*3.15;yr = aimY*speed*3.15
+		TFormR(0,0,angle,xr,yr)
+		shot.Create(px,py,xr,yr,speed*3.15)
+		xr = aimX*speed*3.15;yr = aimY*speed*3.15
+		TFormR(0,0,-angle,xr,yr)
+		shot.Create(px,py,xr,yr,speed*3.15)
+	EndIf
+	If cannons > 3
+		xr = aimX*speed*3.1;yr = aimY*speed*3.1
+		TFormR(0,0,5,xr,yr)
+		shot.Create(px,py,xr,yr,speed*3.1)
+		xr = aimX*speed*3.1;yr = aimY*speed*3.1
+		TFormR(0,0,-5,xr,yr)
+		shot.Create(px,py,xr,yr,speed*3.1)
+	EndIf
+	If extras
+		shot_back = 1
+		shot_side = 1
+		xr = aimX*speed*3;yr = aimY*speed*3
+		TFormR(0,0,-180,xr,yr)
+		shot.Create(px,py,xr,yr,speed*3)
+		xr = aimX*speed*3;yr = aimY*speed*3
+		TFormR(0,0,90,xr,yr)
+		shot.Create(px,py,xr,yr,speed*3)
+		xr = aimX*speed*3;yr = aimY*speed*3
+		TFormR(0,0,-90,xr,yr)
+		shot.Create(px,py,xr,yr,speed*3)
+	EndIf
+
+	For Local frame:Int = 0 Until 6
+		For Local projectile:shot = EachIn shot_list
+			projectile.Update()
+		Next
+	Next
 End Function
 
 Function CaptureOriginalTriangle(kind:Int)

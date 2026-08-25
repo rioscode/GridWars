@@ -74,6 +74,9 @@ else
     snake-motion snake-tail-hit snake-cascade \
   interceptor-motion interceptor-shield interceptor-block \
   triangle-motion triangle-bond triangle-hit triangle-black-hole \
+    player-motion player-boundary player-shield \
+    weapon-cannon-1 weapon-cannon-2 weapon-cannon-3 weapon-cannon-4 \
+    weapon-reverse-side \
     generator-pinwheel generator-diamond generator-green-square generator-cube \
     generator-seeker generator-black-hole generator-triangle generator-snake \
     generator-interceptor generator-butterfly \

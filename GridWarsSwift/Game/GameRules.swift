@@ -347,6 +347,101 @@ struct PlayerMotionState: Equatable {
     }
 }
 
+struct PlayerTrailState: Equatable {
+    static let activeFrames = 40
+    static let movementDelayFrames = 28
+    static let sourceScale: CGFloat = 2
+    static let sourceAlpha: CGFloat = 0.23
+
+    var position: CGPoint
+    var velocity: CGVector
+    var color: ParticleColor
+    private(set) var framesRemaining: Int
+
+    init(
+        playerPosition: CGPoint,
+        movement: CGVector,
+        frame: Int,
+        index: Int,
+        color: ParticleColor
+    ) {
+        let angle = CGFloat(frame * 12 + index * 45) * .pi / 180
+        position = CGPoint(
+            x: playerPosition.x - movement.dx * 12 + sin(angle) * 8,
+            // BlitzMax stores Y downward. Inverting the source
+            // `-jdmy*12 + Cos(angle)*8` expression changes the cosine sign.
+            y: playerPosition.y - movement.dy * 12 - cos(angle) * 8
+        )
+        velocity = CGVector(dx: -movement.dx * 1.5, dy: -movement.dy * 1.5)
+        self.color = color
+        framesRemaining = Self.activeFrames
+    }
+
+    init(
+        position: CGPoint,
+        velocity: CGVector,
+        color: ParticleColor,
+        framesRemaining: Int
+    ) {
+        self.position = position
+        self.velocity = velocity
+        self.color = color
+        self.framesRemaining = framesRemaining
+    }
+
+    @discardableResult
+    mutating func advance() -> Bool {
+        framesRemaining -= 1
+        if framesRemaining < Self.movementDelayFrames {
+            color.red = Int(CGFloat(color.red) * 0.91)
+            color.green = Int(CGFloat(color.green) * 0.88)
+            color.blue = Int(CGFloat(color.blue) * 0.86)
+            position.x += velocity.dx
+            position.y += velocity.dy
+            velocity = velocity * 0.999
+        }
+        return framesRemaining > 0
+    }
+}
+
+enum PlayerVisualRule {
+    static func sceneRotation(forMovement movement: CGVector) -> CGFloat {
+        guard movement.length > 0 else { return 0 }
+        // whiteplayer.png points down. Max2D rotates clockwise in its Y-down
+        // coordinate system; SpriteKit needs the algebraically inverted angle.
+        return atan2(movement.dy, movement.dx) + .pi / 2
+    }
+
+    static func projectileSceneRotation(forDirection direction: CGVector) -> CGFloat {
+        // yellowshot.png points up, while shot.DrawAllShots adds 90 degrees in
+        // Max2D. After Y inversion that is a -90-degree SpriteKit offset.
+        atan2(direction.dy, direction.dx) - .pi / 2
+    }
+
+    static func shieldIsVisible(frames: Int) -> Bool {
+        frames > 60 || frames % 15 > 7
+    }
+
+    static func shieldScale(frames: Int) -> CGFloat {
+        2.75 + CGFloat(frames) / 128
+    }
+
+    static func shieldPath() -> CGPath {
+        let path = CGMutablePath()
+        for index in 0..<18 {
+            let angle = CGFloat(index * 20) * .pi / 180
+            let point = CGPoint(x: cos(angle) * 8, y: -sin(angle) * 8)
+            if index == 0 {
+                path.move(to: point)
+            } else {
+                path.addLine(to: point)
+            }
+        }
+        path.closeSubpath()
+        return path
+    }
+}
+
 struct ProjectileLaunch: Equatable {
     let direction: CGVector
     let speed: CGFloat
@@ -473,7 +568,9 @@ enum PlayerWeaponRule {
     }
 
     private static func rotate(_ vector: CGVector, degrees: CGFloat) -> CGVector {
-        let angle = degrees * .pi / 180
+        // The requested angle comes from BlitzMax's Y-down source space.
+        // Negating it preserves the source turn direction in SpriteKit's Y-up scene.
+        let angle = -degrees * .pi / 180
         return CGVector(
             dx: vector.dx * cos(angle) - vector.dy * sin(angle),
             dy: vector.dx * sin(angle) + vector.dy * cos(angle)

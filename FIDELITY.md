@@ -6,13 +6,24 @@ the corresponding Swift implementation, and a test or visual/runtime check.
 
 ## Evidence in progress
 
-- Player motion and weapons: `gridwars.bmx:96, 5308-5347, 5443-5604` map to
-  `PlayerMotionState`, `PlayerWeaponRule`, and the player/shot update paths in
-  `GameScene`. `GameRulesTests` verifies inertia, the effective six-pixel
-  maximum speed caused by the original `Int = 6.5` declaration, boundary
-  reversal, cannon counts, timers, shot speeds, timed shooters, and shield
-  frames. Visual verification of trail, facing, and shield presentation is
-  still required before checking the corresponding items.
+- Player motion and weapons: `gridwars.bmx:96, 4982-5604, 5963-5988`,
+  `gridparttrail.bmx:2017-2080`, and `utils.bmx:178-191` map to
+  `PlayerMotionState`, `PlayerTrailState`, `PlayerVisualRule`,
+  `PlayerWeaponRule`, and the player/shot paths in `GameScene`. The port keeps
+  the effective six-pixel maximum speed caused by the original `Int = 6.5`,
+  inertia, axis-local boundary rollback and memory reversal. Facing and shot
+  artwork rotations account for both the scene-Y inversion and the source
+  images' opposite up/down orientation. Three trails per frame retain the
+  source sine/cosine offsets, scene-inverted cosine, delayed movement/fade,
+  doubled point-plus-particle composition, alpha, and additive layer order.
+  The shield uses the original 18-point path, blink rule, frame-based scale,
+  alpha blend, and draw order. One through four front-cannon formations,
+  reverse/side shooters, source-handed angle order, speeds, and timers are
+  preserved. Eight isolated references cover motion, boundary response,
+  shield, all four cannon counts, and reverse/side shooting; their normalized
+  differences are `0.00585720`, `0.00481007`, `0.00472743`, `0.00471062`,
+  `0.00471184`, `0.00471593`, `0.00471702`, and `0.00473237`. All 115 catalog
+  pairs pass, and two independent complete original runs are byte-identical.
 - Player lifecycle: `gridwars.bmx:4344-4503` maps to the frame-based death and
   Get Ready states in `GameScene`: 256 death particles, non-killer removal,
   100 death frames, 60 title frames, 40 contraction frames, delayed life loss,
@@ -314,12 +325,13 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   graphics-set captures to 0.01588–0.01620. The score, high score, multiplier,
   lives and bomb indicators use the original vector font, coordinates, alpha
   and icon frames. The isolated original
-  renderer now produces 107 valid full-frame 1024×768 attract, transition,
+  renderer now produces 115 valid full-frame 1024×768 attract, transition,
   gameplay, HUD, entity, enemy-motion/lifecycle, generator, power-up, grid,
-  particle, graphics-set, and menu references via `scripts/capture-original.sh`;
+  particle, player/weapon, graphics-set, and menu references via
+  `scripts/capture-original.sh`;
   capture mode bypasses all
   legacy configuration and high-score I/O. A persistence-free Swift catalog
-  covers the same 107 states via `scripts/capture-screens.sh`, and
+  covers the same 115 states via `scripts/capture-screens.sh`, and
   `scripts/compare-captures.sh` measures every matching pair. Two independent
   complete original runs produced byte-identical PNGs. Enemy
   pages reproduce the original individual rotation, pulse and squash rates,
@@ -368,7 +380,7 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   archived legacy `Language/Data types.bbdoc` documents the implicit numeric
   conversions used by the original. Swift random ranges and intentional
   integer truncations follow those references.
-- Build evidence (2026-08-25): the macOS unit-test action (103 tests) and generic
+- Build evidence (2026-08-25): the macOS unit-test action (106 tests) and generic
   iOS Simulator Debug build both pass. The rule suite
   covers initial difficulty, motion, weapons, scoring, upgrades, spawn timing,
   triangle bonds, snake following, black-hole integer conversions,
@@ -421,9 +433,9 @@ the corresponding Swift implementation, and a test or visual/runtime check.
 
 ## Player, weapons, and power-ups
 
-- [ ] Original inertia, maximum speed, boundary response, facing, and trail.
-- [ ] One through four front-cannon formations and original shot timers/speeds.
-- [ ] Reverse and side shooters with exact timed duration.
+- [x] Original inertia, maximum speed, boundary response, facing, and trail.
+- [x] One through four front-cannon formations and original shot timers/speeds.
+- [x] Reverse and side shooters with exact timed duration.
 - [ ] Super shots pierce; bouncy shots reflect; both retain black-hole
       interaction and their original particle colours.
 - [ ] All nine power-ups: reverse, side, extra cannon, faster shots, extra

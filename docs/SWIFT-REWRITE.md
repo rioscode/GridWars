@@ -91,6 +91,35 @@ Preserve first-draw edge cases. For example, the original Snake tail computes
 `ATan2(0,0)+90`, so a new zero-velocity segment is drawn at 90 degrees before
 its first update.
 
+Player-facing and projectile-facing angles need both coordinate and artwork
+orientation accounted for. The source stores player facing as
+`ATan2(jdmy,jdmx)-90`; after scene-Y conversion, `whiteplayer.png` points down,
+so its SpriteKit rotation is `atan2(sceneDY,sceneDX)+90 degrees`. The source
+draws the upward-pointing `yellowshot.png` at `ATan2(dy,dx)+90`; its SpriteKit
+equivalent is `atan2(sceneDY,sceneDX)-90 degrees`. Weapon spread angles are
+source-space angles too: negate them before rotating a scene-space direction.
+Symmetric pairs can hide this error visually, so test the sign and insertion
+order of the first positive-angle launch.
+
+Translate the player trail as its own fixed-frame state, not a generic particle.
+`UpdatePlayer` creates three entries before `UpdateAll` advances them in the
+same displayed frame. Each starts at source
+`player - movement*12 + (Sin(angle)*8, Cos(angle)*8)` with velocity
+`-movement*1.5`, remains fixed through frame 28, then moves and fades by
+`0.91/0.88/0.86` until removal at zero. Scene-Y inversion negates the cosine
+offset but not the sine offset. `DrawTrail` combines a doubled 1×1 point and
+the doubled particle image at alpha 0.23 under `LIGHTBLEND`; keep it in a
+dedicated layer before enemies/player instead of feeding it through the other
+particle styles.
+
+The player render order is also observable: trails and ordinary particles are
+behind enemies; power-ups and Triangle bonds are drawn before the player;
+shots are drawn after it. The shield is an 18-vertex, 20-degree-step circle,
+visible while `frames > 60 || frames % 15 > 7`, scaled by
+`2.75 + frames/128`, and drawn with alpha blend before the additive player
+sprite. Applying one global additive blend to the combined shield/player node
+changes both its alpha and overlap.
+
 Keep Snake's `rot` as a source-space heading even though positions and
 velocities live in SpriteKit space. Its steering vector therefore becomes
 `(cos(rot)*speed, -sin(rot)*speed)`. Boundary response still adds 90 source

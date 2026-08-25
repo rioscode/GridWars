@@ -116,6 +116,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
     private let worldLayer = SKNode()
     private let gridLayer = SKNode()
+    private let trailLayer = SKNode()
     private let gridRenderer = GridRenderer()
     private let particleRenderer = ParticleRenderer()
     private let screenRenderer = OriginalScreenRenderer()
@@ -134,7 +135,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private let optionsButton = SKShapeNode(circleOfRadius: 30)
     private let movementStick = VirtualStickNode()
     private let aimingStick = VirtualStickNode()
-    private let playerShield = SKShapeNode(circleOfRadius: 8)
+    private let playerShield = SKShapeNode(path: PlayerVisualRule.shieldPath())
     private let readyRings = (0..<3).map { _ in SKShapeNode(circleOfRadius: 1) }
 
     private var session = GameSession()
@@ -294,6 +295,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private func setupLayers() {
         addChild(worldLayer)
         worldLayer.addChild(gridLayer)
+        worldLayer.addChild(trailLayer)
         worldLayer.addChild(particleRenderer.node)
         worldLayer.addChild(enemyLayer)
         worldLayer.addChild(projectileLayer)
@@ -304,6 +306,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
         gridLayer.zPosition = -10
         gridLayer.addChild(gridRenderer.node)
+        trailLayer.zPosition = 4
         particleRenderer.node.zPosition = 5
         enemyLayer.zPosition = 10
         projectileLayer.zPosition = 20
@@ -334,7 +337,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         playerShield.fillColor = SKColor(red: 0.4, green: 0.8, blue: 1, alpha: 1)
         playerShield.strokeColor = .clear
         playerShield.alpha = 0.48
-        playerShield.zPosition = 4
+        playerShield.zPosition = 18
         playerShield.isHidden = true
         worldLayer.addChild(playerShield)
 
@@ -347,7 +350,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         player.blendMode = .add
         player.color = .white
         player.colorBlendFactor = 0
-        player.zPosition = 5
+        player.zPosition = 19
         player.physicsBody = SKPhysicsBody(circleOfRadius: 15)
         player.physicsBody?.affectedByGravity = false
         player.physicsBody?.allowsRotation = false
@@ -456,6 +459,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         enemyLayer.removeAllChildren()
         projectileLayer.removeAllChildren()
         pickupLayer.removeAllChildren()
+        trailLayer.removeAllChildren()
         effectLayer.removeAllChildren()
         floatingScores.removeAll()
 
@@ -508,6 +512,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         enemyLayer.removeAllChildren()
         projectileLayer.removeAllChildren()
         pickupLayer.removeAllChildren()
+        trailLayer.removeAllChildren()
         effectLayer.removeAllChildren()
         floatingScores.removeAll()
         particleSimulation.reset()
@@ -521,6 +526,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         cameraOffset = .zero
         updateWorldTransformAndStars()
         gridLayer.isHidden = true
+        trailLayer.isHidden = true
         enemyLayer.isHidden = true
         projectileLayer.isHidden = true
         pickupLayer.isHidden = true
@@ -543,7 +549,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
         let preparesOriginalState: Bool = switch captureRequest.scenario.subject {
         case .gameplay, .enemy, .enemyMotion, .blackHole, .snake, .interceptor,
-             .triangle,
+             .triangle, .player,
              .generator, .powerUp,
              .grid, .particleStyle,
              .graphicsSet, .getReady, .death, .gameOver, .highScoreEntry,
@@ -594,6 +600,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         case let .triangle(capture):
             prepareGameplayCapture()
             configureTriangleCapture(capture)
+        case let .player(capture):
+            prepareGameplayCapture()
+            configurePlayerCapture(capture)
         case let .generator(kind):
             prepareGameplayCapture()
             spawnGenerator(
@@ -1088,6 +1097,70 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         updateTrianglePairsAndBonds()
     }
 
+    private func configurePlayerCapture(_ capture: OriginalPlayerCapture) {
+        switch capture {
+        case .motion:
+            player.position = sourcePoint(CGPoint(x: 360, y: playfieldSize.height / 2))
+            playerMotion.reset()
+            for frame in 0..<24 {
+                let input = frame < 12
+                    ? CGVector(dx: 1, dy: 0)
+                    : CGVector(dx: 0, dy: 1)
+                advanceCapturedPlayer(input: input)
+            }
+        case .boundary:
+            player.position = sourcePoint(CGPoint(x: 17, y: playfieldSize.height / 2))
+            playerMotion.reset()
+            advanceCapturedPlayer(input: CGVector(dx: -1, dy: 0))
+        case .shield:
+            _ = session.collectPowerUp(.shield)
+            updatePlayerShield()
+        case .cannon1, .cannon2, .cannon3, .cannon4, .reverseSide:
+            let cannons: Int = switch capture {
+            case .cannon1, .reverseSide: 1
+            case .cannon2: 2
+            case .cannon3: 3
+            case .cannon4: 4
+            default: 1
+            }
+            let aim = CGVector(dx: 1, dy: 0)
+            player.zRotation = PlayerVisualRule.sceneRotation(forMovement: aim)
+            let launches = PlayerWeaponRule.launches(
+                aim: aim,
+                cannons: cannons,
+                shotSpeed: 3,
+                reverseShooter: capture == .reverseSide,
+                sideShooters: capture == .reverseSide
+            )
+            for launch in launches {
+                spawnProjectile(
+                    direction: launch.direction,
+                    speed: launch.speed,
+                    offset: launch.offset
+                )
+            }
+            for _ in 0..<6 { updateProjectiles() }
+        }
+    }
+
+    private func advanceCapturedPlayer(input: CGVector) {
+        let result = playerMotion.advance(
+            from: player.position,
+            input: input,
+            arenaSize: playfieldSize,
+            inertia: 0.5
+        )
+        player.position = result.position
+        if result.movement.length > 0 {
+            player.zRotation = PlayerVisualRule.sceneRotation(forMovement: result.movement)
+        }
+        if abs(result.movement.dx) > 0.1 || abs(result.movement.dy) > 0.1 {
+            createPlayerTrail(movement: result.movement)
+        }
+        updatePlayerTrails()
+        simulationFrame += 1
+    }
+
     private func configureMenuCapture(_ capture: OriginalMenuCapture) {
         menuModel.settings.windowed = true
         menuModel.settings.screenSizeIndex = 8
@@ -1232,6 +1305,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         particleSimulation.reset()
         particleRenderer.node.zPosition = 5
         gridLayer.isHidden = false
+        trailLayer.isHidden = false
         enemyLayer.isHidden = false
         projectileLayer.isHidden = false
         pickupLayer.isHidden = false
@@ -1562,11 +1636,13 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         enemyLayer.removeAllChildren()
         projectileLayer.removeAllChildren()
         pickupLayer.removeAllChildren()
+        trailLayer.removeAllChildren()
         effectLayer.removeAllChildren()
         floatingScores.removeAll()
         cameraOffset = .zero
         updateWorldTransformAndStars()
         gridLayer.isHidden = true
+        trailLayer.isHidden = true
         enemyLayer.isHidden = true
         projectileLayer.isHidden = true
         pickupLayer.isHidden = true
@@ -2154,8 +2230,13 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             sprite.texture = OriginalGraphics.texture(named: "yellowshot", setIndex: setIndex)
             sprite.size = sprite.texture?.size() ?? sprite.size
         }
-        for case let sprite as SKSpriteNode in effectLayer.children where sprite.name == "playerTrail" {
+        for case let sprite as SKSpriteNode in trailLayer.children where sprite.name == "playerTrail" {
             sprite.texture = OriginalGraphics.texture(named: "particle", setIndex: setIndex)
+            let textureSize = sprite.texture?.size() ?? CGSize(width: 15, height: 15)
+            sprite.size = CGSize(
+                width: textureSize.width * PlayerTrailState.sourceScale,
+                height: textureSize.height * PlayerTrailState.sourceScale
+            )
         }
         for case let sprite as SKSpriteNode in enemyLayer.children {
             if sprite.name == "snakeTail" {
@@ -2392,7 +2473,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         )
         player.position = result.position
         if result.movement.length > 0 {
-            player.zRotation = atan2(result.movement.dy, result.movement.dx) - .pi / 2
+            player.zRotation = PlayerVisualRule.sceneRotation(forMovement: result.movement)
         }
         if abs(result.movement.dx) > 0.1 || abs(result.movement.dy) > 0.1 {
             createPlayerTrail(movement: result.movement)
@@ -2402,74 +2483,89 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private func createPlayerTrail(movement: CGVector) {
         let trailColor = colorPalette[.trail]
         for index in 0..<3 {
-            let angle = CGFloat(simulationFrame * 12 + index * 45) * .pi / 180
+            let state = PlayerTrailState(
+                playerPosition: player.position,
+                movement: movement,
+                frame: simulationFrame,
+                index: index,
+                color: trailColor
+            )
             let trail = SKSpriteNode(texture: OriginalGraphics.texture(
                 named: "particle",
                 setIndex: activeGraphicsSetIndex
             ))
             trail.name = "playerTrail"
-            trail.color = SKColor(
-                red: CGFloat(trailColor.red) / 255,
-                green: CGFloat(trailColor.green) / 255,
-                blue: CGFloat(trailColor.blue) / 255,
-                alpha: 1
-            )
             trail.colorBlendFactor = 1
             trail.blendMode = .add
-            trail.alpha = 0.23
-            trail.size = CGSize(width: 30, height: 30)
-            trail.position = CGPoint(
-                x: player.position.x - movement.dx * 12 + sin(angle) * 8,
-                y: player.position.y - movement.dy * 12 + cos(angle) * 8
+            trail.alpha = OriginalBlendRule.spriteKitAdditiveNodeAlpha(
+                sourceAlpha: PlayerTrailState.sourceAlpha
             )
+            let textureSize = trail.texture?.size() ?? CGSize(width: 15, height: 15)
+            trail.size = CGSize(
+                width: textureSize.width * PlayerTrailState.sourceScale,
+                height: textureSize.height * PlayerTrailState.sourceScale
+            )
+            trail.position = state.position
+
+            let point = SKShapeNode(rectOf: CGSize(
+                width: PlayerTrailState.sourceScale,
+                height: PlayerTrailState.sourceScale
+            ))
+            point.name = "playerTrailPoint"
+            point.strokeColor = .clear
+            point.blendMode = .add
+            point.isAntialiased = false
+            point.zPosition = -1
+            trail.addChild(point)
+
             trail.userData = NSMutableDictionary(dictionary: [
-                "trailActive": 40,
-                "trailDX": -movement.dx * 1.5,
-                "trailDY": -movement.dy * 1.5,
-                "trailR": trailColor.red,
-                "trailG": trailColor.green,
-                "trailB": trailColor.blue,
+                "trailActive": state.framesRemaining,
+                "trailDX": state.velocity.dx,
+                "trailDY": state.velocity.dy,
+                "trailR": state.color.red,
+                "trailG": state.color.green,
+                "trailB": state.color.blue,
             ])
-            effectLayer.addChild(trail)
+            applyPlayerTrailColor(state.color, to: trail)
+            trailLayer.addChild(trail)
         }
     }
 
     private func updatePlayerTrails() {
-        for case let trail as SKSpriteNode in effectLayer.children where trail.name == "playerTrail" {
-            var active = (trail.userData?["trailActive"] as? NSNumber)?.intValue ?? 0
-            active -= 1
-            trail.userData?["trailActive"] = active
-            if active < 28 {
-                var red = (trail.userData?["trailR"] as? NSNumber)?.intValue ?? 0
-                var green = (trail.userData?["trailG"] as? NSNumber)?.intValue ?? 0
-                var blue = (trail.userData?["trailB"] as? NSNumber)?.intValue ?? 0
-                var dx = CGFloat((trail.userData?["trailDX"] as? NSNumber)?.doubleValue ?? 0)
-                var dy = CGFloat((trail.userData?["trailDY"] as? NSNumber)?.doubleValue ?? 0)
+        for case let trail as SKSpriteNode in trailLayer.children where trail.name == "playerTrail" {
+            var state = PlayerTrailState(
+                position: trail.position,
+                velocity: CGVector(
+                    dx: CGFloat((trail.userData?["trailDX"] as? NSNumber)?.doubleValue ?? 0),
+                    dy: CGFloat((trail.userData?["trailDY"] as? NSNumber)?.doubleValue ?? 0)
+                ),
+                color: ParticleColor(
+                    red: (trail.userData?["trailR"] as? NSNumber)?.intValue ?? 0,
+                    green: (trail.userData?["trailG"] as? NSNumber)?.intValue ?? 0,
+                    blue: (trail.userData?["trailB"] as? NSNumber)?.intValue ?? 0
+                ),
+                framesRemaining: (trail.userData?["trailActive"] as? NSNumber)?.intValue ?? 0
+            )
 
-                red = Int(CGFloat(red) * 0.91)
-                green = Int(CGFloat(green) * 0.88)
-                blue = Int(CGFloat(blue) * 0.86)
-                trail.position.x += dx
-                trail.position.y += dy
-                dx *= 0.999
-                dy *= 0.999
-
-                trail.userData?["trailR"] = red
-                trail.userData?["trailG"] = green
-                trail.userData?["trailB"] = blue
-                trail.userData?["trailDX"] = dx
-                trail.userData?["trailDY"] = dy
-                trail.color = SKColor(
-                    red: CGFloat(red) / 255,
-                    green: CGFloat(green) / 255,
-                    blue: CGFloat(blue) / 255,
-                    alpha: 1
-                )
-            }
-            if active <= 0 {
+            guard state.advance() else {
                 trail.removeFromParent()
+                continue
             }
+            trail.position = state.position
+            trail.userData?["trailActive"] = state.framesRemaining
+            trail.userData?["trailDX"] = state.velocity.dx
+            trail.userData?["trailDY"] = state.velocity.dy
+            trail.userData?["trailR"] = state.color.red
+            trail.userData?["trailG"] = state.color.green
+            trail.userData?["trailB"] = state.color.blue
+            applyPlayerTrailColor(state.color, to: trail)
         }
+    }
+
+    private func applyPlayerTrailColor(_ color: ParticleColor, to trail: SKSpriteNode) {
+        let resolved = skColor(color)
+        trail.color = resolved
+        (trail.childNode(withName: "playerTrailPoint") as? SKShapeNode)?.fillColor = resolved
     }
 
     private func updatePlayerShield() {
@@ -2478,8 +2574,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         if frames == 100 || frames == 70 || frames == 40 {
             audio.play(.shieldWarning)
         }
-        playerShield.isHidden = frames == 0 || (frames <= 60 && frames % 15 <= 7)
-        playerShield.setScale(2.75 + CGFloat(frames) / 128)
+        playerShield.isHidden = !PlayerVisualRule.shieldIsVisible(frames: frames)
+        playerShield.setScale(PlayerVisualRule.shieldScale(frames: frames))
         playerShield.fillColor = SKColor(
             red: CGFloat(cyclingRed) / 255,
             green: CGFloat(cyclingGreen) / 255,
@@ -2564,7 +2660,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             x: player.position.x + offset.dx,
             y: player.position.y + offset.dy
         )
-        projectile.zRotation = atan2(direction.dy, direction.dx)
+        projectile.zRotation = PlayerVisualRule.projectileSceneRotation(forDirection: direction)
         let velocity = direction * speed
         projectile.userData = NSMutableDictionary(dictionary: [
             "dx": velocity.dx,
@@ -4203,7 +4299,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             if projectile.parent != nil {
                 projectile.userData?["dx"] = velocity.dx
                 projectile.userData?["dy"] = velocity.dy
-                projectile.zRotation = atan2(velocity.dy, velocity.dx)
+                projectile.zRotation = PlayerVisualRule.projectileSceneRotation(
+                    forDirection: velocity
+                )
             }
         }
     }
@@ -5532,9 +5630,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         }
         projectileLayer.removeAllChildren()
         pickupLayer.removeAllChildren()
-        for node in effectLayer.children where node.name == "playerTrail" {
-            node.removeFromParent()
-        }
+        trailLayer.removeAllChildren()
         // RemoveAll(False) clears all four pending wave counters in the original.
         spawnDirector.reset()
     }

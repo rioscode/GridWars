@@ -299,6 +299,57 @@ final class GameRulesTests: XCTestCase {
         XCTAssertEqual(motion.memory.dx, 1, accuracy: 0.0001)
     }
 
+    func testPlayerTrailInvertsSourceCosineAndDelaysDecay() {
+        var trail = PlayerTrailState(
+            playerPosition: CGPoint(x: 100, y: 100),
+            movement: CGVector(dx: 1, dy: 0),
+            frame: 1,
+            index: 0,
+            color: ParticleColor(red: 240, green: 240, blue: 100)
+        )
+        let angle = CGFloat(12) * .pi / 180
+
+        XCTAssertEqual(trail.position.x, 100 - 12 + sin(angle) * 8, accuracy: 0.0001)
+        XCTAssertEqual(trail.position.y, 100 - cos(angle) * 8, accuracy: 0.0001)
+        XCTAssertEqual(trail.velocity, CGVector(dx: -1.5, dy: 0))
+
+        for _ in 0..<12 { XCTAssertTrue(trail.advance()) }
+        XCTAssertEqual(trail.framesRemaining, 28)
+        XCTAssertEqual(trail.position.x, 100 - 12 + sin(angle) * 8, accuracy: 0.0001)
+        XCTAssertTrue(trail.advance())
+        XCTAssertEqual(trail.framesRemaining, 27)
+        XCTAssertEqual(trail.position.x, 100 - 12 + sin(angle) * 8 - 1.5, accuracy: 0.0001)
+        XCTAssertEqual(trail.color, ParticleColor(red: 218, green: 211, blue: 86))
+    }
+
+    func testPlayerAndProjectileRotationsInvertMax2DArtworkOrientation() {
+        XCTAssertEqual(
+            PlayerVisualRule.sceneRotation(forMovement: CGVector(dx: 1, dy: 0)),
+            .pi / 2,
+            accuracy: 0.0001
+        )
+        XCTAssertEqual(
+            PlayerVisualRule.sceneRotation(forMovement: CGVector(dx: 0, dy: 1)),
+            .pi,
+            accuracy: 0.0001
+        )
+        XCTAssertEqual(
+            PlayerVisualRule.projectileSceneRotation(forDirection: CGVector(dx: 1, dy: 0)),
+            -.pi / 2,
+            accuracy: 0.0001
+        )
+    }
+
+    func testPlayerShieldUsesOriginalBlinkScaleAndEighteenPointPath() {
+        XCTAssertFalse(PlayerVisualRule.shieldIsVisible(frames: 0))
+        XCTAssertFalse(PlayerVisualRule.shieldIsVisible(frames: 52))
+        XCTAssertTrue(PlayerVisualRule.shieldIsVisible(frames: 53))
+        XCTAssertTrue(PlayerVisualRule.shieldIsVisible(frames: 61))
+        XCTAssertEqual(PlayerVisualRule.shieldScale(frames: 360), 5.5625, accuracy: 0.0001)
+        XCTAssertEqual(PlayerVisualRule.shieldPath().boundingBox.width, 16, accuracy: 0.0001)
+        XCTAssertEqual(PlayerVisualRule.shieldPath().boundingBox.height, 15.756_924, accuracy: 0.0001)
+    }
+
     func testKeyboardInputUsesEveryConfiguredOriginalKey() {
         var settings = OriginalRuntimeSettings()
         settings.controllerType = .keyboard
@@ -573,6 +624,8 @@ final class GameRulesTests: XCTestCase {
         XCTAssertEqual(four[0].speed, 15.75, accuracy: 0.0001)
         XCTAssertEqual(four[2].speed, 15.5, accuracy: 0.0001)
         XCTAssertEqual(four[4].direction.dx, -1, accuracy: 0.0001)
+        XCTAssertLessThan(four[0].direction.dy, 0)
+        XCTAssertGreaterThan(four[1].direction.dy, 0)
         XCTAssertEqual(PlayerWeaponRule.timerFrames(cannons: 1), 4)
         XCTAssertEqual(PlayerWeaponRule.timerFrames(cannons: 2), 5)
         XCTAssertEqual(PlayerWeaponRule.timerFrames(cannons: 4), 6)
@@ -2069,7 +2122,7 @@ final class GameRulesTests: XCTestCase {
 
     func testCaptureCatalogCoversEveryFidelityCategory() {
         let scenarios = OriginalCaptureScenario.all
-        XCTAssertEqual(scenarios.count, 107)
+        XCTAssertEqual(scenarios.count, 115)
         XCTAssertEqual(Set(scenarios.map(\.name)).count, scenarios.count)
         XCTAssertEqual(
             OriginalCaptureScenario(name: "power-up-message")?.subject,
@@ -2090,6 +2143,7 @@ final class GameRulesTests: XCTestCase {
         var snakeCaptures = 0
         var interceptorCaptures = 0
         var triangleCaptures = 0
+        var playerCaptures = 0
         var generators = 0
         var powerUps = 0
         var grids = 0
@@ -2105,6 +2159,7 @@ final class GameRulesTests: XCTestCase {
             case .snake: snakeCaptures += 1
             case .interceptor: interceptorCaptures += 1
             case .triangle: triangleCaptures += 1
+            case .player: playerCaptures += 1
             case .generator: generators += 1
             case .powerUp: powerUps += 1
             case .grid: grids += 1
@@ -2120,6 +2175,7 @@ final class GameRulesTests: XCTestCase {
         XCTAssertEqual(snakeCaptures, OriginalSnakeCapture.allCases.count)
         XCTAssertEqual(interceptorCaptures, OriginalInterceptorCapture.allCases.count)
         XCTAssertEqual(triangleCaptures, OriginalTriangleCapture.allCases.count)
+        XCTAssertEqual(playerCaptures, OriginalPlayerCapture.allCases.count)
         XCTAssertEqual(generators, OriginalEnemyKind.allCases.count)
         XCTAssertEqual(powerUps, PowerUpKind.allCases.count)
         XCTAssertEqual(grids, 21)
