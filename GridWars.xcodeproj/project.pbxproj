@@ -57,11 +57,6 @@
 		B20000000000000000000005 /* bluediamond.png in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000005 /* bluediamond.png */; };
 		B20000000000000000000006 /* whitestar.png in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000006 /* whitestar.png */; };
 		B20000000000000000000007 /* particle.png in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000007 /* particle.png */; };
-		B20000000000000000000008 /* shotborn.wav in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000008 /* shotborn.wav */; };
-		B20000000000000000000009 /* genhit1.wav in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000009 /* genhit1.wav */; };
-		B2000000000000000000000A /* Explo1.wav in Resources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000000A /* Explo1.wav */; };
-		B2000000000000000000000B /* bonus1.wav in Resources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000000B /* bonus1.wav */; };
-		B2000000000000000000000C /* gameover.wav in Resources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000000C /* gameover.wav */; };
 		B2000000000000000000000D /* pinkpinwheel.png in Resources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000000D /* pinkpinwheel.png */; };
 		B2000000000000000000000E /* purplesquare1.png in Resources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000000E /* purplesquare1.png */; };
 		B2000000000000000000000F /* purplesquare2.png in Resources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000000F /* purplesquare2.png */; };
@@ -73,16 +68,6 @@
 		B20000000000000000000015 /* indigotriangle.png in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000015 /* indigotriangle.png */; };
 		B20000000000000000000016 /* powerups.png in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000016 /* powerups.png */; };
 		B20000000000000000000017 /* icons.png in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000017 /* icons.png */; };
-		B20000000000000000000018 /* cat.wav in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000018 /* cat.wav */; };
-		B20000000000000000000019 /* sunhit1.wav in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000019 /* sunhit1.wav */; };
-		B2000000000000000000001A /* bonus2.wav in Resources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000001A /* bonus2.wav */; };
-		B2000000000000000000001B /* bonusborn.wav in Resources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000001B /* bonusborn.wav */; };
-		B2000000000000000000001C /* die1.wav in Resources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000001C /* die1.wav */; };
-		B2000000000000000000001D /* startup.wav in Resources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000001D /* startup.wav */; };
-		B2000000000000000000001E /* shotwall.wav in Resources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000001E /* shotwall.wav */; };
-		B2000000000000000000001F /* shield1.wav in Resources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000001F /* shield1.wav */; };
-		B20000000000000000000020 /* snakehit.wav in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000020 /* snakehit.wav */; };
-		B20000000000000000000021 /* tailhit.wav in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000021 /* tailhit.wav */; };
 		B20000000000000000000022 /* vectorfont.bmx in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000022 /* vectorfont.bmx */; };
 		B20000000000000000000023 /* colourpick.png in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000023 /* colourpick.png */; };
 		B20000000000000000000024 /* sounds in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000024 /* sounds */; };
@@ -95,11 +80,6 @@
 		B21000000000000000000005 /* bluediamond.png in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000005 /* bluediamond.png */; };
 		B21000000000000000000006 /* whitestar.png in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000006 /* whitestar.png */; };
 		B21000000000000000000007 /* particle.png in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000007 /* particle.png */; };
-		B21000000000000000000008 /* shotborn.wav in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000008 /* shotborn.wav */; };
-		B21000000000000000000009 /* genhit1.wav in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000009 /* genhit1.wav */; };
-		B2100000000000000000000A /* Explo1.wav in Resources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000000A /* Explo1.wav */; };
-		B2100000000000000000000B /* bonus1.wav in Resources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000000B /* bonus1.wav */; };
-		B2100000000000000000000C /* gameover.wav in Resources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000000C /* gameover.wav */; };
 		B2100000000000000000000D /* pinkpinwheel.png in Resources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000000D /* pinkpinwheel.png */; };
 		B2100000000000000000000E /* purplesquare1.png in Resources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000000E /* purplesquare1.png */; };
 		B2100000000000000000000F /* purplesquare2.png in Resources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000000F /* purplesquare2.png */; };
@@ -111,22 +91,22 @@
 		B21000000000000000000015 /* indigotriangle.png in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000015 /* indigotriangle.png */; };
 		B21000000000000000000016 /* powerups.png in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000016 /* powerups.png */; };
 		B21000000000000000000017 /* icons.png in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000017 /* icons.png */; };
-		B21000000000000000000018 /* cat.wav in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000018 /* cat.wav */; };
-		B21000000000000000000019 /* sunhit1.wav in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000019 /* sunhit1.wav */; };
-		B2100000000000000000001A /* bonus2.wav in Resources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000001A /* bonus2.wav */; };
-		B2100000000000000000001B /* bonusborn.wav in Resources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000001B /* bonusborn.wav */; };
-		B2100000000000000000001C /* die1.wav in Resources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000001C /* die1.wav */; };
-		B2100000000000000000001D /* startup.wav in Resources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000001D /* startup.wav */; };
-		B2100000000000000000001E /* shotwall.wav in Resources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000001E /* shotwall.wav */; };
-		B2100000000000000000001F /* shield1.wav in Resources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000001F /* shield1.wav */; };
-		B21000000000000000000020 /* snakehit.wav in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000020 /* snakehit.wav */; };
-		B21000000000000000000021 /* tailhit.wav in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000021 /* tailhit.wav */; };
 		B21000000000000000000022 /* vectorfont.bmx in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000022 /* vectorfont.bmx */; };
 		B21000000000000000000023 /* colourpick.png in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000023 /* colourpick.png */; };
 		B21000000000000000000024 /* sounds in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000024 /* sounds */; };
 		B21000000000000000000025 /* music in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000025 /* music */; };
 		B21000000000000000000026 /* gfx in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000026 /* gfx */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		X13000000000000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = P00000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = T11000000000000000000001;
+			remoteInfo = "GridWars-iOS";
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		F10000000000000000000001 /* GridWarsApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GridWarsApp.swift; sourceTree = "<group>"; };
@@ -180,32 +160,46 @@
 		F2000000000000000000001F /* shield1.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; name = shield1.wav; path = sounds/shield1.wav; sourceTree = SOURCE_ROOT; };
 		F20000000000000000000020 /* snakehit.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; name = snakehit.wav; path = sounds/snakehit.wav; sourceTree = SOURCE_ROOT; };
 		F20000000000000000000021 /* tailhit.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; name = tailhit.wav; path = sounds/tailhit.wav; sourceTree = SOURCE_ROOT; };
-		F20000000000000000000022 /* vectorfont.bmx */ = {isa = PBXFileReference; explicitFileType = text; name = vectorfont.bmx; path = vectorfont.bmx; sourceTree = SOURCE_ROOT; };
+		F20000000000000000000022 /* vectorfont.bmx */ = {isa = PBXFileReference; explicitFileType = text; path = vectorfont.bmx; sourceTree = SOURCE_ROOT; };
 		F20000000000000000000023 /* colourpick.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = colourpick.png; path = gfx/colourpick.png; sourceTree = SOURCE_ROOT; };
-		F20000000000000000000024 /* sounds */ = {isa = PBXFileReference; lastKnownFileType = folder; name = sounds; path = sounds; sourceTree = SOURCE_ROOT; };
-		F20000000000000000000025 /* music */ = {isa = PBXFileReference; lastKnownFileType = folder; name = music; path = music; sourceTree = SOURCE_ROOT; };
-		F20000000000000000000026 /* gfx */ = {isa = PBXFileReference; lastKnownFileType = folder; name = gfx; path = gfx; sourceTree = SOURCE_ROOT; };
+		F20000000000000000000024 /* sounds */ = {isa = PBXFileReference; lastKnownFileType = folder; path = sounds; sourceTree = SOURCE_ROOT; };
+		F20000000000000000000025 /* music */ = {isa = PBXFileReference; lastKnownFileType = folder; path = music; sourceTree = SOURCE_ROOT; };
+		F20000000000000000000026 /* gfx */ = {isa = PBXFileReference; lastKnownFileType = folder; path = gfx; sourceTree = SOURCE_ROOT; };
 		F30000000000000000000001 /* GridWars.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GridWars.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F30000000000000000000002 /* GridWars iOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "GridWars iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		F30000000000000000000003 /* GridWarsSwiftTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GridWarsSwiftTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		F30000000000000000000004 /* GridWarsSwiftUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GridWarsSwiftUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
-/* Begin PBXContainerItemProxy section */
-		X13000000000000000000001 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = P00000000000000000000001 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = T11000000000000000000001;
-			remoteInfo = "GridWars-iOS";
-		};
-/* End PBXContainerItemProxy section */
-
 /* Begin PBXFrameworksBuildPhase section */
-		P10000000000000000000002 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
-		P11000000000000000000002 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
-		P12000000000000000000002 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
-		P13000000000000000000002 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		P10000000000000000000002 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		P11000000000000000000002 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		P12000000000000000000002 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		P13000000000000000000002 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -306,13 +300,17 @@
 		};
 		G20000000000000000000001 /* GridWarsSwiftTests */ = {
 			isa = PBXGroup;
-			children = (F10000000000000000000005 /* GameRulesTests.swift */,);
+			children = (
+				F10000000000000000000005 /* GameRulesTests.swift */,
+			);
 			path = GridWarsSwiftTests;
 			sourceTree = "<group>";
 		};
 		G21000000000000000000001 /* GridWarsSwiftUITests */ = {
 			isa = PBXGroup;
-			children = (F13000000000000000000001 /* GridWarsPhysicalSmokeTests.swift */,);
+			children = (
+				F13000000000000000000001 /* GridWarsPhysicalSmokeTests.swift */,
+			);
 			path = GridWarsSwiftUITests;
 			sourceTree = "<group>";
 		};
@@ -333,9 +331,15 @@
 		T10000000000000000000001 /* GridWars-macOS */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = L10000000000000000000001 /* Build configuration list for PBXNativeTarget "GridWars-macOS" */;
-			buildPhases = (P10000000000000000000001 /* Sources */, P10000000000000000000002 /* Frameworks */, P10000000000000000000003 /* Resources */);
-			buildRules = ();
-			dependencies = ();
+			buildPhases = (
+				P10000000000000000000001 /* Sources */,
+				P10000000000000000000002 /* Frameworks */,
+				P10000000000000000000003 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
 			name = "GridWars-macOS";
 			productName = GridWars;
 			productReference = F30000000000000000000001 /* GridWars.app */;
@@ -344,9 +348,15 @@
 		T11000000000000000000001 /* GridWars-iOS */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = L11000000000000000000001 /* Build configuration list for PBXNativeTarget "GridWars-iOS" */;
-			buildPhases = (P11000000000000000000001 /* Sources */, P11000000000000000000002 /* Frameworks */, P11000000000000000000003 /* Resources */);
-			buildRules = ();
-			dependencies = ();
+			buildPhases = (
+				P11000000000000000000001 /* Sources */,
+				P11000000000000000000002 /* Frameworks */,
+				P11000000000000000000003 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
 			name = "GridWars-iOS";
 			productName = "GridWars iOS";
 			productReference = F30000000000000000000002 /* GridWars iOS.app */;
@@ -355,9 +365,15 @@
 		T12000000000000000000001 /* GridWarsSwiftTests */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = L12000000000000000000001 /* Build configuration list for PBXNativeTarget "GridWarsSwiftTests" */;
-			buildPhases = (P12000000000000000000001 /* Sources */, P12000000000000000000002 /* Frameworks */, P12000000000000000000003 /* Resources */);
-			buildRules = ();
-			dependencies = ();
+			buildPhases = (
+				P12000000000000000000001 /* Sources */,
+				P12000000000000000000002 /* Frameworks */,
+				P12000000000000000000003 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
 			name = GridWarsSwiftTests;
 			productName = GridWarsSwiftTests;
 			productReference = F30000000000000000000003 /* GridWarsSwiftTests.xctest */;
@@ -366,9 +382,16 @@
 		T13000000000000000000001 /* GridWarsSwiftUITests */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = L13000000000000000000001 /* Build configuration list for PBXNativeTarget "GridWarsSwiftUITests" */;
-			buildPhases = (P13000000000000000000001 /* Sources */, P13000000000000000000002 /* Frameworks */, P13000000000000000000003 /* Resources */);
-			buildRules = ();
-			dependencies = (D13000000000000000000001 /* PBXTargetDependency */,);
+			buildPhases = (
+				P13000000000000000000001 /* Sources */,
+				P13000000000000000000002 /* Frameworks */,
+				P13000000000000000000003 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				D13000000000000000000001 /* PBXTargetDependency */,
+			);
 			name = GridWarsSwiftUITests;
 			productName = GridWarsSwiftUITests;
 			productReference = F30000000000000000000004 /* GridWarsSwiftUITests.xctest */;
@@ -384,22 +407,39 @@
 				LastSwiftUpdateCheck = 2660;
 				LastUpgradeCheck = 2660;
 				TargetAttributes = {
-					T10000000000000000000001 = {CreatedOnToolsVersion = 26.6;};
-					T11000000000000000000001 = {CreatedOnToolsVersion = 26.6;};
-					T12000000000000000000001 = {CreatedOnToolsVersion = 26.6;};
-					T13000000000000000000001 = {CreatedOnToolsVersion = 26.6; TestTargetID = T11000000000000000000001;};
+					T10000000000000000000001 = {
+						CreatedOnToolsVersion = 26.6;
+					};
+					T11000000000000000000001 = {
+						CreatedOnToolsVersion = 26.6;
+					};
+					T12000000000000000000001 = {
+						CreatedOnToolsVersion = 26.6;
+					};
+					T13000000000000000000001 = {
+						CreatedOnToolsVersion = 26.6;
+						TestTargetID = T11000000000000000000001;
+					};
 				};
 			};
 			buildConfigurationList = L00000000000000000000001 /* Build configuration list for PBXProject "GridWars" */;
 			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
-			knownRegions = (en, Base);
+			knownRegions = (
+				en,
+				Base,
+			);
 			mainGroup = G00000000000000000000001;
 			productRefGroup = G30000000000000000000001 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
-			targets = (T10000000000000000000001 /* GridWars-macOS */, T11000000000000000000001 /* GridWars-iOS */, T12000000000000000000001 /* GridWarsSwiftTests */, T13000000000000000000001 /* GridWarsSwiftUITests */);
+			targets = (
+				T10000000000000000000001 /* GridWars-macOS */,
+				T11000000000000000000001 /* GridWars-iOS */,
+				T12000000000000000000001 /* GridWarsSwiftTests */,
+				T13000000000000000000001 /* GridWarsSwiftUITests */,
+			);
 		};
 /* End PBXProject section */
 
@@ -407,24 +447,151 @@
 		P10000000000000000000003 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
-			files = (B20000000000000000000001, B20000000000000000000002, B20000000000000000000003, B20000000000000000000004, B20000000000000000000005, B20000000000000000000006, B20000000000000000000007, B2000000000000000000000D, B2000000000000000000000E, B2000000000000000000000F, B20000000000000000000010, B20000000000000000000011, B20000000000000000000012, B20000000000000000000013, B20000000000000000000014, B20000000000000000000015, B20000000000000000000016, B20000000000000000000017, B20000000000000000000022, B20000000000000000000023, B20000000000000000000024, B20000000000000000000025, B20000000000000000000026);
+			files = (
+				B20000000000000000000001 /* whiteplayer.png in Resources */,
+				B20000000000000000000002 /* yellowshot.png in Resources */,
+				B20000000000000000000003 /* redcircle.png in Resources */,
+				B20000000000000000000004 /* greensquare.png in Resources */,
+				B20000000000000000000005 /* bluediamond.png in Resources */,
+				B20000000000000000000006 /* whitestar.png in Resources */,
+				B20000000000000000000007 /* particle.png in Resources */,
+				B2000000000000000000000D /* pinkpinwheel.png in Resources */,
+				B2000000000000000000000E /* purplesquare1.png in Resources */,
+				B2000000000000000000000F /* purplesquare2.png in Resources */,
+				B20000000000000000000010 /* bluecircle.png in Resources */,
+				B20000000000000000000011 /* orangetriangle.png in Resources */,
+				B20000000000000000000012 /* snakehead.png in Resources */,
+				B20000000000000000000013 /* snaketail.png in Resources */,
+				B20000000000000000000014 /* redclone.png in Resources */,
+				B20000000000000000000015 /* indigotriangle.png in Resources */,
+				B20000000000000000000016 /* powerups.png in Resources */,
+				B20000000000000000000017 /* icons.png in Resources */,
+				B20000000000000000000022 /* vectorfont.bmx in Resources */,
+				B20000000000000000000023 /* colourpick.png in Resources */,
+				B20000000000000000000024 /* sounds in Resources */,
+				B20000000000000000000025 /* music in Resources */,
+				B20000000000000000000026 /* gfx in Resources */,
+			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		P11000000000000000000003 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
-			files = (B21000000000000000000001, B21000000000000000000002, B21000000000000000000003, B21000000000000000000004, B21000000000000000000005, B21000000000000000000006, B21000000000000000000007, B2100000000000000000000D, B2100000000000000000000E, B2100000000000000000000F, B21000000000000000000010, B21000000000000000000011, B21000000000000000000012, B21000000000000000000013, B21000000000000000000014, B21000000000000000000015, B21000000000000000000016, B21000000000000000000017, B21000000000000000000022, B21000000000000000000023, B21000000000000000000024, B21000000000000000000025, B21000000000000000000026);
+			files = (
+				B21000000000000000000001 /* whiteplayer.png in Resources */,
+				B21000000000000000000002 /* yellowshot.png in Resources */,
+				B21000000000000000000003 /* redcircle.png in Resources */,
+				B21000000000000000000004 /* greensquare.png in Resources */,
+				B21000000000000000000005 /* bluediamond.png in Resources */,
+				B21000000000000000000006 /* whitestar.png in Resources */,
+				B21000000000000000000007 /* particle.png in Resources */,
+				B2100000000000000000000D /* pinkpinwheel.png in Resources */,
+				B2100000000000000000000E /* purplesquare1.png in Resources */,
+				B2100000000000000000000F /* purplesquare2.png in Resources */,
+				B21000000000000000000010 /* bluecircle.png in Resources */,
+				B21000000000000000000011 /* orangetriangle.png in Resources */,
+				B21000000000000000000012 /* snakehead.png in Resources */,
+				B21000000000000000000013 /* snaketail.png in Resources */,
+				B21000000000000000000014 /* redclone.png in Resources */,
+				B21000000000000000000015 /* indigotriangle.png in Resources */,
+				B21000000000000000000016 /* powerups.png in Resources */,
+				B21000000000000000000017 /* icons.png in Resources */,
+				B21000000000000000000022 /* vectorfont.bmx in Resources */,
+				B21000000000000000000023 /* colourpick.png in Resources */,
+				B21000000000000000000024 /* sounds in Resources */,
+				B21000000000000000000025 /* music in Resources */,
+				B21000000000000000000026 /* gfx in Resources */,
+			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		P12000000000000000000003 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
-		P13000000000000000000003 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		P12000000000000000000003 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		P13000000000000000000003 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		P10000000000000000000001 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (B10000000000000000000001, B10000000000000000000002, B10000000000000000000003, B10000000000000000000004, B10000000000000000000005, B10000000000000000000006, B10000000000000000000007, B10000000000000000000008, B10000000000000000000009, B1000000000000000000000A, B1000000000000000000000B, B1000000000000000000000C, B1000000000000000000000D, B1000000000000000000000E, B1000000000000000000000F, B10000000000000000000010); runOnlyForDeploymentPostprocessing = 0; };
-		P11000000000000000000001 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (B11000000000000000000001, B11000000000000000000002, B11000000000000000000003, B11000000000000000000004, B11000000000000000000005, B11000000000000000000006, B11000000000000000000007, B11000000000000000000008, B11000000000000000000009, B1100000000000000000000A, B1100000000000000000000B, B1100000000000000000000C, B1100000000000000000000D, B1100000000000000000000E, B1100000000000000000000F, B11000000000000000000010); runOnlyForDeploymentPostprocessing = 0; };
-		P12000000000000000000001 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (B12000000000000000000001, B12000000000000000000002, B12000000000000000000003, B12000000000000000000004, B12000000000000000000005, B12000000000000000000006, B12000000000000000000007, B12000000000000000000008, B12000000000000000000009, B1200000000000000000000A); runOnlyForDeploymentPostprocessing = 0; };
-		P13000000000000000000001 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (B13000000000000000000001,); runOnlyForDeploymentPostprocessing = 0; };
+		P10000000000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B10000000000000000000001 /* GridWarsApp.swift in Sources */,
+				B10000000000000000000002 /* GameView.swift in Sources */,
+				B10000000000000000000003 /* GameRules.swift in Sources */,
+				B10000000000000000000004 /* GameScene.swift in Sources */,
+				B10000000000000000000005 /* GridSimulation.swift in Sources */,
+				B10000000000000000000006 /* GridRenderer.swift in Sources */,
+				B10000000000000000000007 /* ParticleSimulation.swift in Sources */,
+				B10000000000000000000008 /* ParticleRenderer.swift in Sources */,
+				B10000000000000000000009 /* ScreenFlow.swift in Sources */,
+				B1000000000000000000000A /* OriginalVectorFont.swift in Sources */,
+				B1000000000000000000000B /* ScreenRenderer.swift in Sources */,
+				B1000000000000000000000C /* LegacyPersistence.swift in Sources */,
+				B1000000000000000000000D /* OriginalAudio.swift in Sources */,
+				B1000000000000000000000E /* OriginalInput.swift in Sources */,
+				B1000000000000000000000F /* OriginalGraphics.swift in Sources */,
+				B10000000000000000000010 /* OriginalHUDRenderer.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		P11000000000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B11000000000000000000001 /* GridWarsApp.swift in Sources */,
+				B11000000000000000000002 /* GameView.swift in Sources */,
+				B11000000000000000000003 /* GameRules.swift in Sources */,
+				B11000000000000000000004 /* GameScene.swift in Sources */,
+				B11000000000000000000005 /* GridSimulation.swift in Sources */,
+				B11000000000000000000006 /* GridRenderer.swift in Sources */,
+				B11000000000000000000007 /* ParticleSimulation.swift in Sources */,
+				B11000000000000000000008 /* ParticleRenderer.swift in Sources */,
+				B11000000000000000000009 /* ScreenFlow.swift in Sources */,
+				B1100000000000000000000A /* OriginalVectorFont.swift in Sources */,
+				B1100000000000000000000B /* ScreenRenderer.swift in Sources */,
+				B1100000000000000000000C /* LegacyPersistence.swift in Sources */,
+				B1100000000000000000000D /* OriginalAudio.swift in Sources */,
+				B1100000000000000000000E /* OriginalInput.swift in Sources */,
+				B1100000000000000000000F /* OriginalGraphics.swift in Sources */,
+				B11000000000000000000010 /* OriginalHUDRenderer.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		P12000000000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B12000000000000000000001 /* GameRules.swift in Sources */,
+				B12000000000000000000002 /* GameRulesTests.swift in Sources */,
+				B12000000000000000000003 /* GridSimulation.swift in Sources */,
+				B12000000000000000000004 /* ParticleSimulation.swift in Sources */,
+				B12000000000000000000005 /* ScreenFlow.swift in Sources */,
+				B12000000000000000000006 /* OriginalVectorFont.swift in Sources */,
+				B12000000000000000000007 /* LegacyPersistence.swift in Sources */,
+				B12000000000000000000008 /* OriginalAudio.swift in Sources */,
+				B12000000000000000000009 /* OriginalInput.swift in Sources */,
+				B1200000000000000000000A /* OriginalGraphics.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		P13000000000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B13000000000000000000001 /* GridWarsPhysicalSmokeTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -449,7 +616,10 @@
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_PREPROCESSOR_DEFINITIONS = ("DEBUG=1", "$(inherited)");
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
 				ONLY_ACTIVE_ARCH = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
@@ -482,7 +652,10 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = GridWars;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.action-games";
-				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/../Frameworks");
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = org.gridwars.swift.macos;
@@ -504,7 +677,10 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = GridWars;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.action-games";
-				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/../Frameworks");
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = org.gridwars.swift.macos;
@@ -533,7 +709,10 @@
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks");
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
 				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = org.gridwars.swift.ios;
 				PRODUCT_MODULE_NAME = GridWars;
@@ -563,7 +742,10 @@
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks");
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
 				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = org.gridwars.swift.ios;
 				PRODUCT_MODULE_NAME = GridWars;
@@ -651,11 +833,51 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		L00000000000000000000001 /* Build configuration list for PBXProject "GridWars" */ = {isa = XCConfigurationList; buildConfigurations = (C00000000000000000000001 /* Debug */, C00000000000000000000002 /* Release */); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
-		L10000000000000000000001 /* Build configuration list for PBXNativeTarget "GridWars-macOS" */ = {isa = XCConfigurationList; buildConfigurations = (C10000000000000000000001 /* Debug */, C10000000000000000000002 /* Release */); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
-		L11000000000000000000001 /* Build configuration list for PBXNativeTarget "GridWars-iOS" */ = {isa = XCConfigurationList; buildConfigurations = (C11000000000000000000001 /* Debug */, C11000000000000000000002 /* Release */); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
-		L12000000000000000000001 /* Build configuration list for PBXNativeTarget "GridWarsSwiftTests" */ = {isa = XCConfigurationList; buildConfigurations = (C12000000000000000000001 /* Debug */, C12000000000000000000002 /* Release */); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
-		L13000000000000000000001 /* Build configuration list for PBXNativeTarget "GridWarsSwiftUITests" */ = {isa = XCConfigurationList; buildConfigurations = (C13000000000000000000001 /* Debug */, C13000000000000000000002 /* Release */); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		L00000000000000000000001 /* Build configuration list for PBXProject "GridWars" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C00000000000000000000001 /* Debug */,
+				C00000000000000000000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		L10000000000000000000001 /* Build configuration list for PBXNativeTarget "GridWars-macOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C10000000000000000000001 /* Debug */,
+				C10000000000000000000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		L11000000000000000000001 /* Build configuration list for PBXNativeTarget "GridWars-iOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C11000000000000000000001 /* Debug */,
+				C11000000000000000000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		L12000000000000000000001 /* Build configuration list for PBXNativeTarget "GridWarsSwiftTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C12000000000000000000001 /* Debug */,
+				C12000000000000000000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		L13000000000000000000001 /* Build configuration list for PBXNativeTarget "GridWarsSwiftUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C13000000000000000000001 /* Debug */,
+				C13000000000000000000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 /* End XCConfigurationList section */
 	};
 	rootObject = P00000000000000000000001 /* Project object */;
