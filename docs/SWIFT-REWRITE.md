@@ -424,6 +424,39 @@ separate recipe every 60 rotations: eight type-7 particles at
 `center + (Sin(r)*size*1.15, Cos(r)*size*1.15)` plus a three-pixel 45-degree
 spoke, directed by `r+spoke`. Invert both cosine Y terms at the scene boundary.
 
+## Renderer reuse and allocation rules
+
+Performance work must preserve draw order and repeated additive coverage. The
+current SpriteKit implementation follows these reuse boundaries:
+
+- `OriginalGraphics` caches common textures, graphics-set textures and source
+  images, missing-image lookups, and frame subtextures. Resource lookup and
+  `CGImage` decoding must not return to the per-frame path.
+- `OriginalHUDRenderer` owns two persistent icon sprites and eight persistent
+  vector-text shape slots. Rebuild a text path only when its text or layout
+  changes; color, alpha, and visibility may still change every presentation.
+- `OriginalScreenRenderer` uses one ordered pool of shape and sprite nodes.
+  Reuse a node only when its type matches the next source draw, replace a type
+  mismatch in place, reset all mutable render state, and hide the unused tail.
+  This retains painter order without calling `removeAllChildren()` each frame.
+- `GridRenderer` reuses a style-stable ordered node pool and hides its unused
+  tail. Clearing the pool is reserved for a Grid-style switch, because different
+  selectors have incompatible topology and render state.
+- `ParticleRenderer` has separate, lazy, grow-only line-shape and texture-sprite
+  pools. It scans every active particle slot in source order, assigns one node
+  per active particle per required layer, and hides only the unused tail. It
+  incrementally prewarms at most 16 entries per pool per rendered frame toward
+  `min(capacity, 768)`; demand beyond that still grows the pool immediately.
+
+The SpriteKit particle change is pooling, not true batching: style 0/1 still
+uses one `SKShapeNode` per visible particle, style 2 one `SKSpriteNode`, and
+style 3 one of each. Every line node keeps a unit path and changes position,
+scale, and rotation instead of rebuilding its path. A compound-path batch was
+tested and rejected because overlapping additive lines must accumulate once
+per source draw. Style 3 also requires the complete line layer before the
+complete bloom-sprite layer; interleaving line and bloom nodes changes overlap
+pixels.
+
 ## Randomness and numeric conversions
 
 Use the archived BRL.Random algorithm for deterministic source parity. Swift's
@@ -541,6 +574,21 @@ only on screenshots.
 
 The original loop targets 50 Hz. Model source frames explicitly and do not
 derive authoritative gameplay timing from a variable display refresh rate.
+
+For smoother 60-Hz presentation, retain the previous and current state at each
+20-ms fixed step and render with
+`alpha = clamp(accumulator / fixedStep, 0...1)`. Interpolate positions linearly
+and rotations over the shortest angular delta. The current implementation does
+this for live scene nodes, camera/parallax stars, Grid points, and particle
+position and velocity; both SpriteKit and the optional Metal snapshots consume
+the same alpha.
+
+Presentation state is never gameplay state. Restore every node to its current
+authoritative position and rotation before reading input, running collision or
+fixed-step logic, changing presentation ownership, or taking another snapshot.
+Newly created nodes use their current state as both endpoints, and removed nodes
+are ignored. This keeps the 50-Hz source behavior deterministic while allowing
+the display callback to run at 60 Hz.
 
 Distinguish state before and after `Flip`. Several reference images are the
 front buffer from immediately before a source transition. Capture helpers must
@@ -665,6 +713,32 @@ Broad rendering switches are risky. During this rewrite, global pixel shifts,
 global line-antialias changes, wider lines, and universal alpha compensation
 all regressed valid selectors. Prefer a source-specific rule with a focused
 test and a catalog comparison.
+
+The optional Metal compositor follows the same rule. It is a macOS-only,
+default-off `MTKView`/`SKRenderer` host for Grid style 1 and particle style 1;
+iOS remains on the ordinary SpriteKit host. Its pass sequence is Metal Grid,
+SpriteKit stars/low effects/trails, Metal-or-SpriteKit particles, then the
+SpriteKit foreground. It uses `bgra8Unorm`, grow-only triple-buffered instance
+buffers, and automatic whole-frame or per-effect SpriteKit fallbacks. Gameplay,
+collisions, audio, and input are not Metal responsibilities.
+
+The current shader file is bundled as a text resource. The renderer first uses
+a default library only if both functions are present, otherwise it reads
+`GridWarsEffects.metal` and compiles that source at runtime. Do not describe the
+file as a compiled Sources-build-phase member or maintain a second embedded
+shader string unless the project integration actually changes.
+
+The final Release A/B was a single, vsync-limited run of the identical static
+Grid-1 plus 2,048-particle fixture. SpriteKit/Metal p95 present intervals were
+`17.6055/17.3597 ms`, CPU samples averaged `1.9069/1.6826 ms` per frame, and
+GPU spans averaged `0.6752/0.5713 ms`. This suggests modest average CPU/GPU
+savings but no material p95 frame-pacing win; GPU p95 was slightly worse at
+`1.2332/1.2986 ms`. Grid captures are extremely close; Metal particle lines
+have harder raster coverage and currently compare slightly worse with the
+original. Keep the prototype off and treat it as measurement infrastructure,
+not a completed renderer migration. Exact switches, capture commands,
+measurements, fallback behavior, and remaining gates are in
+`docs/METAL-PROTOTYPE.md`.
 
 ## Checklist for another rewrite
 

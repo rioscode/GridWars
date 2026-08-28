@@ -67,6 +67,30 @@ final class OriginalVectorFont {
         lineWidth: CGFloat = 2,
         smoothStrokes: Bool = false
     ) -> SKShapeNode {
+        let shape = SKShapeNode(path: makePath(
+            text,
+            x: x,
+            yFromTop: yFromTop,
+            scale: scale,
+            arenaHeight: arenaHeight
+        ))
+        shape.strokeColor = color
+        shape.fillColor = .clear
+        shape.lineWidth = lineWidth
+        shape.lineCap = smoothStrokes ? .round : .butt
+        shape.lineJoin = smoothStrokes ? .round : .miter
+        shape.isAntialiased = smoothStrokes
+        shape.blendMode = .add
+        return shape
+    }
+
+    func makePath(
+        _ text: String,
+        x: CGFloat,
+        yFromTop: CGFloat,
+        scale: CGFloat,
+        arenaHeight: CGFloat
+    ) -> CGPath {
         let path = CGMutablePath()
         for (index, scalar) in text.unicodeScalars.enumerated() {
             let ascii = Int(scalar.value)
@@ -82,14 +106,6 @@ final class OriginalVectorFont {
                 ))
             }
         }
-        let shape = SKShapeNode(path: path)
-        shape.strokeColor = color
-        shape.fillColor = .clear
-        shape.lineWidth = lineWidth
-        shape.lineCap = smoothStrokes ? .round : .butt
-        shape.lineJoin = smoothStrokes ? .round : .miter
-        shape.isAntialiased = smoothStrokes
-        shape.blendMode = .add
-        return shape
+        return path
     }
 }

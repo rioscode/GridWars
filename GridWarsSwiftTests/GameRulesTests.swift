@@ -8,6 +8,104 @@ final class GameRulesTests: XCTestCase {
         XCTAssertEqual(OriginalTimingRule.maximumAccumulatedTime, 0.1, accuracy: 0.000_001)
     }
 
+    func testPresentationInterpolationUsesTheFiftyHertzAccumulatorAndClamps() {
+        XCTAssertEqual(OriginalPresentationRule.interpolationAlpha(accumulator: -1), 0)
+        XCTAssertEqual(
+            OriginalPresentationRule.interpolationAlpha(accumulator: 0.01),
+            0.5,
+            accuracy: 0.000_001
+        )
+        XCTAssertEqual(OriginalPresentationRule.interpolationAlpha(accumulator: 1), 1)
+
+        let midpoint = OriginalPresentationRule.interpolate(
+            from: CGPoint(x: 10, y: 20),
+            to: CGPoint(x: 30, y: 60),
+            alpha: 0.5
+        )
+        XCTAssertEqual(midpoint, CGPoint(x: 20, y: 40))
+    }
+
+    func testPresentationRotationTakesTheShortestPathAcrossTwoPi() {
+        let almostFullTurn = CGFloat.pi * 2 - 0.1
+        let midpoint = OriginalPresentationRule.interpolateAngle(
+            from: almostFullTurn,
+            to: 0.1,
+            alpha: 0.5
+        )
+
+        XCTAssertEqual(midpoint, CGFloat.pi * 2, accuracy: 0.000_001)
+    }
+
+    func testInterpolatedCameraKeepsStarParallaxSmooth() {
+        let camera = OriginalPresentationRule.interpolate(
+            from: .zero,
+            to: CGPoint(x: 100, y: 40),
+            alpha: 0.25
+        )
+        let local = OriginalPresentationRule.starLocalPosition(
+            base: CGPoint(x: 100, y: 200),
+            cameraOffset: camera,
+            depth: 2
+        )
+        let worldPosition = CGPoint(x: local.x - camera.x, y: local.y - camera.y)
+
+        XCTAssertEqual(worldPosition.x, 87.5, accuracy: 0.000_001)
+        XCTAssertEqual(worldPosition.y, 195, accuracy: 0.000_001)
+    }
+
+    func testGridPresentationSnapshotDoesNotChangeAuthoritativePosition() {
+        var simulation = GridSimulation(arenaSize: CGSize(width: 96, height: 96))
+        simulation.pull(at: CGPoint(x: 48, y: 48), radiusInPoints: 3, amount: 4)
+        simulation.beginPresentationStep()
+        let before = simulation[3, 2].position
+        simulation.update()
+        let after = simulation[3, 2].position
+
+        XCTAssertNotEqual(before, after)
+        XCTAssertEqual(
+            simulation[3, 2].presentationPosition(interpolationAlpha: 0),
+            before
+        )
+        XCTAssertEqual(
+            simulation[3, 2].presentationPosition(interpolationAlpha: 1),
+            after
+        )
+        XCTAssertEqual(simulation[3, 2].position, after)
+    }
+
+    func testParticlePresentationInterpolatesPositionAndVelocityWithoutMutation() {
+        var simulation = ParticleSimulation(
+            arenaSize: CGSize(width: 1_024, height: 768),
+            capacity: 1,
+            particleLife: 40,
+            decay: 0.9
+        )
+        var random = BlitzMaxRandomNumberGenerator(seed: 3)
+        simulation.emit(
+            at: CGPoint(x: 100, y: 100),
+            kind: .directed,
+            color: ParticleColor(red: 255, green: 255, blue: 255),
+            rotationDegrees: 0,
+            using: &random
+        )
+        simulation.beginPresentationStep()
+        let before = simulation.particles[0]
+        simulation.update()
+        let after = simulation.particles[0]
+
+        let midpoint = after.presentationPosition(interpolationAlpha: 0.5)
+        let midpointVelocity = after.presentationVelocity(interpolationAlpha: 0.5)
+        XCTAssertEqual(midpoint.x, (before.position.x + after.position.x) / 2, accuracy: 0.000_001)
+        XCTAssertEqual(midpoint.y, (before.position.y + after.position.y) / 2, accuracy: 0.000_001)
+        XCTAssertEqual(
+            midpointVelocity.dx,
+            (before.velocity.dx + after.velocity.dx) / 2,
+            accuracy: 0.000_001
+        )
+        XCTAssertEqual(after.position, simulation.particles[0].position)
+        XCTAssertEqual(after.velocity, simulation.particles[0].velocity)
+    }
+
     func testCheatPauseRequiresHeldPAndOSingleStepsOnlyWhilePaused() {
         XCTAssertNil(OriginalCheatPauseRule.pauseState(
             keyCode: 35,
@@ -1974,6 +2072,50 @@ final class GameRulesTests: XCTestCase {
         XCTAssertEqual(OriginalGraphicsSet.high.iconFrameSize, CGSize(width: 64, height: 64))
         XCTAssertEqual(OriginalGraphicsSet.low.snakeFrameSize, CGSize(width: 32, height: 32))
         XCTAssertEqual(OriginalGraphicsSet.solid.snakeFrameSize, CGSize(width: 56, height: 56))
+    }
+
+    @MainActor
+    func testOriginalGraphicsReusesDecodedImagesAndTextures() {
+        let firstImage = OriginalGraphics.cgImage(named: "icons", setIndex: 0)
+        let secondImage = OriginalGraphics.cgImage(named: "icons", setIndex: 0)
+        XCTAssertEqual(firstImage == nil, secondImage == nil)
+        if let firstImage, let secondImage {
+            XCTAssertTrue(firstImage === secondImage)
+        }
+
+        let firstTexture = OriginalGraphics.texture(named: "icons", setIndex: 0)
+        let secondTexture = OriginalGraphics.texture(named: "icons", setIndex: 0)
+        XCTAssertTrue(firstTexture === secondTexture)
+
+        let firstFrame = OriginalGraphics.frameTexture(
+            sheet: "icons",
+            frame: 1,
+            columns: 1,
+            rows: 2,
+            setIndex: 0
+        )
+        let secondFrame = OriginalGraphics.frameTexture(
+            sheet: "icons",
+            frame: 1,
+            columns: 1,
+            rows: 2,
+            setIndex: 0
+        )
+        XCTAssertTrue(firstFrame === secondFrame)
+
+        let firstCommonFrame = OriginalGraphics.commonFrameTexture(
+            sheet: "colourpick",
+            frame: 2,
+            columns: 1,
+            rows: 3
+        )
+        let secondCommonFrame = OriginalGraphics.commonFrameTexture(
+            sheet: "colourpick",
+            frame: 2,
+            columns: 1,
+            rows: 3
+        )
+        XCTAssertTrue(firstCommonFrame === secondCommonFrame)
     }
 
     func testMenuMatchesOriginalHierarchyAndAdjustsSettings() {

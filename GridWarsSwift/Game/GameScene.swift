@@ -10,6 +10,22 @@ import AppKit
 
 @MainActor
 final class GameScene: SKScene, SKPhysicsContactDelegate {
+    private struct NodePresentationState {
+        let position: CGPoint
+        let rotation: CGFloat
+    }
+
+    private struct NodePresentationSnapshot {
+        let node: SKNode
+        let previous: NodePresentationState
+        let current: NodePresentationState
+    }
+
+    private struct NodeVisibilityState {
+        let node: SKNode
+        let isHidden: Bool
+    }
+
     private struct FloatingScoreEffect {
         var state: OriginalFloatingScoreState
         let node: SKNode
@@ -178,6 +194,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private var appliedGridColorPosition = 0
     private var appliedGraphicsSetIndex = -1
     private var cameraOffset = CGPoint.zero
+    private var previousCameraOffset = CGPoint.zero
     private var persistenceStore = GridWarsPersistenceStore.applicationDefault()
     private let audio = OriginalAudioEngine()
     private var colorPalette = OriginalColorPalette()
@@ -189,6 +206,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private var highlightedScorePosition: Int?
     private var unrankedScoreEntry: LegacyHighScoreEntry?
     private let captureRequest = CaptureRequest.commandLine
+    private let effectsBenchmarkEnabled = ProcessInfo.processInfo.arguments.contains(
+        "--effects-benchmark"
+    )
     private var captureWasWritten = false
 
     private var lastUpdateTime: TimeInterval = 0
@@ -197,6 +217,15 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private var getReadyFrame = -1
     private var destroyedEnemyCount = 0
     private var fixedTimeAccumulator: TimeInterval = 0
+    private var presentationSnapshots: [NodePresentationSnapshot] = []
+    private var previousPresentationStates: [ObjectIdentifier: NodePresentationState] = [:]
+    private var presentationNodeScratch: [SKNode] = []
+    private var presentationInterpolationAlpha: CGFloat = 1
+    private var isAdvancingFixedStep = false
+    private var isProcessingDisplayUpdate = false
+    private var metalMenuBackgroundCapture: (() -> CGImage?)?
+    private var metalOptionsOpenIsPending = false
+    private var metalVisibilityStates: [ObjectIdentifier: NodeVisibilityState]?
     private var simulationFrame = GameDifficulty.medium.initialFrame
     private var bombCooldownFrames = 20
     private var spawnDirector = SpawnDirector()
@@ -254,12 +283,25 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     override func didMove(to view: SKView) {
+        configureSceneIfNeeded(captureView: view)
+    }
+
+    internal func prepareForMetalRendering() {
+        configureSceneIfNeeded(captureView: nil)
+        backgroundColor = .clear
+    }
+
+    internal func setMetalMenuBackgroundCapture(_ capture: (() -> CGImage?)?) {
+        metalMenuBackgroundCapture = capture
+    }
+
+    private func configureSceneIfNeeded(captureView: SKView?) {
         guard !configured else { return }
         configured = true
 
         physicsWorld.gravity = .zero
         physicsWorld.contactDelegate = nil
-        if captureRequest == nil {
+        if captureRequest == nil, !effectsBenchmarkEnabled {
             loadPersistentState()
         }
         audio.configure(settings: menuModel.settings)
@@ -269,7 +311,11 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         setupHUD()
         applyRuntimeSettings()
         prepareAttractMode()
-        configureCaptureIfRequested(in: view)
+        if effectsBenchmarkEnabled {
+            configureEffectsBenchmark()
+        } else {
+            configureCaptureIfRequested(in: captureView)
+        }
     }
 
     private func loadPersistentState() {
@@ -287,7 +333,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     func persistState() {
-        guard captureRequest == nil, let persistenceStore else { return }
+        guard captureRequest == nil, !effectsBenchmarkEnabled, let persistenceStore else { return }
         let state = GridWarsPersistentState(
             settings: menuModel.settings,
             colours: colorPalette,
@@ -544,9 +590,11 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     private func centerPlayerAndCamera() {
+        prepareForExternalPresentationMutation()
         let arena = playfieldSize
         player.position = CGPoint(x: arena.width / 2, y: arena.height / 2)
         cameraOffset = OriginalCameraRule.centeredOffset(playfield: arena, viewport: size)
+        previousCameraOffset = cameraOffset
         updateWorldTransformAndStars()
     }
 
@@ -566,6 +614,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         clearScorePresentation()
         gameplayPaused = false
         cameraOffset = .zero
+        previousCameraOffset = cameraOffset
         updateWorldTransformAndStars()
         gridLayer.isHidden = true
         trailLayer.isHidden = true
@@ -581,7 +630,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         renderPresentation()
     }
 
-    private func configureCaptureIfRequested(in view: SKView) {
+    private func configureCaptureIfRequested(in view: SKView?) {
         guard let captureRequest else { return }
         audio.stopMusic()
         particleSimulation.reset()
@@ -785,6 +834,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             applyRuntimeSettings()
             player.position = sourcePoint(CGPoint(x: 16, y: 16))
             cameraOffset = CGPoint(x: -80, y: 272)
+            previousCameraOffset = cameraOffset
             updateWorldTransformAndStars()
             let samplePosition = sourcePoint(CGPoint(x: 160, y: 160))
             _ = spawnEnemy(
@@ -808,10 +858,46 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         }
 
         renderPresentation()
+        guard let view else { return }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self, weak view] in
             guard let self, let view else { return }
             self.writeCapture(from: view, to: captureRequest.outputPath, attempt: 0)
         }
+    }
+
+    private func configureEffectsBenchmark() {
+        audio.stopMusic()
+        spawnRandom = BlitzMaxRandomNumberGenerator(seed: 1)
+        captureRandom = BlitzMaxRandomNumberGenerator(seed: 1)
+        prepareGameplayCapture()
+        gridLayer.childNode(withName: "arenaBorder")?.isHidden = true
+        menuModel.settings.gridStyle = GridStyle.pointsCycling.rawValue
+        menuModel.settings.particleStyle = 1
+        menuModel.settings.starCount = 0
+        menuModel.settings.particleCount = 2_048
+        applyRuntimeSettings()
+        player.isHidden = true
+        hudLayer.isHidden = true
+
+        gridSimulation.pull(
+            at: CGPoint(x: playfieldSize.width / 2, y: playfieldSize.height / 2),
+            radiusInPoints: 18,
+            amount: 28
+        )
+        for _ in 0..<12 { gridSimulation.update() }
+
+        particleSimulation.reset()
+        for index in 0..<2_048 {
+            emitParticles(
+                count: 1,
+                at: CGPoint(x: playfieldSize.width / 2, y: playfieldSize.height / 2),
+                kind: .radialBomb,
+                color: ParticleColor(red: 255, green: 180, blue: 32),
+                rotation: { _ in CGFloat(index) * 360 / 2_048 }
+            )
+        }
+        for _ in 0..<5 { particleSimulation.update() }
+        renderPresentation()
     }
 
     private func prepareGameplayCapture(includeSamples: Bool = false) {
@@ -1492,6 +1578,24 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             return
         }
         let image = texture.cgImage()
+        writeCaptureImage(image, to: outputPath)
+        #endif
+    }
+
+    internal var pendingMetalCaptureOutputPath: String? {
+        guard !captureWasWritten else { return nil }
+        return captureRequest?.outputPath
+    }
+
+    internal func writeMetalCapture(_ image: CGImage, to outputPath: String) {
+        #if os(macOS)
+        guard !captureWasWritten else { return }
+        writeCaptureImage(image, to: outputPath)
+        #endif
+    }
+
+    #if os(macOS)
+    private func writeCaptureImage(_ image: CGImage, to outputPath: String) {
         let url = URL(fileURLWithPath: outputPath)
         try? FileManager.default.createDirectory(
             at: url.deletingLastPathComponent(),
@@ -1516,10 +1620,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             fputs("GridWars capture failed: \(error)\n", stderr)
         }
         NSApplication.shared.terminate(nil)
-        #endif
     }
 
-    #if os(macOS)
     private func normalizedCaptureImage(_ image: CGImage) -> CGImage? {
         let width = Int(size.width.rounded())
         let height = Int(size.height.rounded())
@@ -1540,6 +1642,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     #endif
 
     private func beginGame() {
+        prepareForExternalPresentationMutation()
         clearScorePresentation()
         menuModel.close()
         audio.stopMusic()
@@ -1560,7 +1663,10 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     override func update(_ currentTime: TimeInterval) {
-        if captureRequest != nil {
+        isProcessingDisplayUpdate = true
+        defer { isProcessingDisplayUpdate = false }
+        restoreAuthoritativePresentationState()
+        if captureRequest != nil || effectsBenchmarkEnabled {
             renderPresentation()
             return
         }
@@ -1578,6 +1684,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         lastUpdateTime = currentTime
         fixedTimeAccumulator += deltaTime
         while fixedTimeAccumulator >= OriginalTimingRule.fixedStep {
+            beginFixedPresentationStep()
             let gridIsAnimating = menuModel.page == .video && menuModel.isOpen
                 || (!menuModel.isOpen && !gameplayPaused && {
                     switch screenFlow.phase {
@@ -1627,9 +1734,90 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                     advanceGameOverFrame()
                 }
             }
+            finishFixedPresentationStep()
             fixedTimeAccumulator -= OriginalTimingRule.fixedStep
         }
-        renderPresentation()
+        let interpolationAlpha = OriginalPresentationRule.interpolationAlpha(
+            accumulator: fixedTimeAccumulator
+        )
+        applyPresentationState(interpolationAlpha: interpolationAlpha)
+        renderPresentation(interpolationAlpha: interpolationAlpha)
+    }
+
+    private func beginFixedPresentationStep() {
+        restoreAuthoritativePresentationState()
+        previousCameraOffset = cameraOffset
+        gridSimulation.beginPresentationStep()
+        particleSimulation.beginPresentationStep()
+        isAdvancingFixedStep = true
+        collectPresentationNodes()
+        previousPresentationStates.removeAll(keepingCapacity: true)
+        for node in presentationNodeScratch {
+            previousPresentationStates[ObjectIdentifier(node)] = nodePresentationState(node)
+        }
+    }
+
+    private func finishFixedPresentationStep() {
+        collectPresentationNodes()
+        presentationSnapshots.removeAll(keepingCapacity: true)
+        for node in presentationNodeScratch {
+            let current = nodePresentationState(node)
+            presentationSnapshots.append(NodePresentationSnapshot(
+                node: node,
+                previous: previousPresentationStates[ObjectIdentifier(node)] ?? current,
+                current: current
+            ))
+        }
+        isAdvancingFixedStep = false
+    }
+
+    private func collectPresentationNodes() {
+        presentationNodeScratch.removeAll(keepingCapacity: true)
+        presentationNodeScratch.append(contentsOf: [worldLayer, player, playerShield])
+        presentationNodeScratch.append(contentsOf: trailLayer.children)
+        presentationNodeScratch.append(contentsOf: enemyLayer.children)
+        presentationNodeScratch.append(contentsOf: projectileLayer.children)
+        presentationNodeScratch.append(contentsOf: pickupLayer.children)
+        presentationNodeScratch.append(contentsOf: effectLayer.children)
+    }
+
+    private func nodePresentationState(_ node: SKNode) -> NodePresentationState {
+        NodePresentationState(position: node.position, rotation: node.zRotation)
+    }
+
+    private func restoreAuthoritativePresentationState() {
+        guard !isAdvancingFixedStep else { return }
+        for snapshot in presentationSnapshots where snapshot.node.parent != nil {
+            snapshot.node.position = snapshot.current.position
+            snapshot.node.zRotation = snapshot.current.rotation
+        }
+        updateStarPositions(for: cameraOffset)
+        presentationInterpolationAlpha = 1
+    }
+
+    private func prepareForExternalPresentationMutation() {
+        restoreAuthoritativePresentationState()
+        presentationSnapshots.removeAll(keepingCapacity: true)
+    }
+
+    private func applyPresentationState(interpolationAlpha: CGFloat) {
+        for snapshot in presentationSnapshots where snapshot.node.parent != nil {
+            snapshot.node.position = OriginalPresentationRule.interpolate(
+                from: snapshot.previous.position,
+                to: snapshot.current.position,
+                alpha: interpolationAlpha
+            )
+            snapshot.node.zRotation = OriginalPresentationRule.interpolateAngle(
+                from: snapshot.previous.rotation,
+                to: snapshot.current.rotation,
+                alpha: interpolationAlpha
+            )
+        }
+        updateStarPositions(for: OriginalPresentationRule.interpolate(
+            from: previousCameraOffset,
+            to: cameraOffset,
+            alpha: interpolationAlpha
+        ))
     }
 
     private func advanceAttractFrame() {
@@ -1729,6 +1917,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     private func skipGameOverToScores() {
+        prepareForExternalPresentationMutation()
         guard screenFlow.phase == .gameOver else { return }
         screenFlow.skipGameOver()
         presentPostGameResult()
@@ -1823,7 +2012,164 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         highScoreInputFrameState = OriginalHighScoreInputFrameState()
     }
 
-    private func renderPresentation() {
+    internal func metalEffectsPresentation() -> MetalEffectsPresentation {
+        let isGameplayPresentation: Bool = switch screenFlow.phase {
+        case .playing, .gameOver: true
+        case .attract: false
+        }
+        guard configured, !menuModel.isOpen, isGameplayPresentation else {
+            return MetalEffectsPresentation(
+                effects: MetalEffectsFrame(
+                    coverage: [],
+                    gridInstances: [],
+                    particleInstances: []
+                ),
+                cameraOffset: CGPoint(
+                    x: -worldLayer.position.x,
+                    y: -worldLayer.position.y
+                )
+            )
+        }
+
+        let effects = MetalEffectsFrame.make(
+            pointsCyclingGrid: gridStyle == .pointsCycling ? gridSimulation : nil,
+            cyclingColor: MetalEffectColor(
+                red: cyclingRed,
+                green: cyclingGreen,
+                blue: cyclingBlue
+            ),
+            gridOpacity: menuModel.settings.gridOpacity,
+            particleLinesStyleOne: menuModel.settings.particleStyle == 1
+                ? particleSimulation
+                : nil,
+            interpolationAlpha: presentationInterpolationAlpha
+        )
+        return MetalEffectsPresentation(
+            effects: effects,
+            cameraOffset: CGPoint(
+                x: -worldLayer.position.x,
+                y: -worldLayer.position.y
+            )
+        )
+    }
+
+    internal func applyMetalSpriteKitPass(
+        _ pass: MetalSpriteKitPass,
+        coverage: MetalEffectsCoverage
+    ) {
+        if metalVisibilityStates == nil {
+            let nodes = metalCompositionNodes()
+            metalVisibilityStates = Dictionary(uniqueKeysWithValues: nodes.map { node in
+                (
+                    ObjectIdentifier(node),
+                    NodeVisibilityState(node: node, isHidden: node.isHidden)
+                )
+            })
+        }
+
+        let gridUsesMetal = coverage.contains(.pointsCyclingGrid)
+        let particlesUseMetal = coverage.contains(.particleLinesStyleOne)
+        switch pass {
+        case .background:
+            setMetalPassVisibility(gridRenderer.node, visible: !gridUsesMetal)
+            for star in starNodes { setMetalPassVisibility(star, visible: true) }
+            if let border = gridLayer.childNode(withName: "arenaBorder") {
+                setMetalPassVisibility(border, visible: false)
+            }
+            setMetalPassVisibility(trailLayer, visible: true)
+            setMetalPassVisibility(particleRenderer.node, visible: false)
+            setMetalForegroundVisibility(false)
+            setMetalLowEffectVisibility(lowVisible: true, highVisible: false)
+            for ring in readyRings { setMetalPassVisibility(ring, visible: true) }
+        case .particles:
+            setMetalPassVisibility(gridRenderer.node, visible: false)
+            for star in starNodes { setMetalPassVisibility(star, visible: false) }
+            if let border = gridLayer.childNode(withName: "arenaBorder") {
+                setMetalPassVisibility(border, visible: false)
+            }
+            setMetalPassVisibility(trailLayer, visible: false)
+            setMetalPassVisibility(particleRenderer.node, visible: !particlesUseMetal)
+            setMetalForegroundVisibility(false)
+            setMetalLowEffectVisibility(lowVisible: false, highVisible: false)
+            for ring in readyRings { setMetalPassVisibility(ring, visible: false) }
+        case .foreground:
+            setMetalPassVisibility(gridRenderer.node, visible: false)
+            for star in starNodes { setMetalPassVisibility(star, visible: false) }
+            if let border = gridLayer.childNode(withName: "arenaBorder") {
+                setMetalPassVisibility(border, visible: true)
+            }
+            setMetalPassVisibility(trailLayer, visible: false)
+            setMetalPassVisibility(particleRenderer.node, visible: false)
+            setMetalForegroundVisibility(true)
+            setMetalLowEffectVisibility(lowVisible: false, highVisible: true)
+            for ring in readyRings { setMetalPassVisibility(ring, visible: false) }
+        }
+    }
+
+    internal func restoreMetalSpriteKitVisibility() {
+        guard let metalVisibilityStates else { return }
+        for state in metalVisibilityStates.values {
+            state.node.isHidden = state.isHidden
+        }
+        self.metalVisibilityStates = nil
+    }
+
+    private func metalCompositionNodes() -> [SKNode] {
+        var nodes: [SKNode] = [gridRenderer.node]
+        nodes.append(contentsOf: starNodes)
+        if let border = gridLayer.childNode(withName: "arenaBorder") {
+            nodes.append(border)
+        }
+        nodes.append(contentsOf: [
+            trailLayer,
+            particleRenderer.node,
+            enemyLayer,
+            projectileLayer,
+            pickupLayer,
+            effectLayer,
+            player,
+            playerShield,
+            hudLayer,
+            screenRenderer.node,
+        ])
+        nodes.append(contentsOf: effectLayer.children)
+        nodes.append(contentsOf: readyRings)
+        return nodes
+    }
+
+    private func setMetalForegroundVisibility(_ visible: Bool) {
+        for node in [
+            enemyLayer,
+            projectileLayer,
+            pickupLayer,
+            player,
+            playerShield,
+            hudLayer,
+            screenRenderer.node,
+        ] {
+            setMetalPassVisibility(node, visible: visible)
+        }
+    }
+
+    private func setMetalLowEffectVisibility(lowVisible: Bool, highVisible: Bool) {
+        setMetalPassVisibility(effectLayer, visible: lowVisible || highVisible)
+        for child in effectLayer.children {
+            let isBelowParticles = effectLayer.zPosition + child.zPosition
+                < particleRenderer.node.zPosition
+            setMetalPassVisibility(
+                child,
+                visible: isBelowParticles ? lowVisible : highVisible
+            )
+        }
+    }
+
+    private func setMetalPassVisibility(_ node: SKNode, visible: Bool) {
+        guard let original = metalVisibilityStates?[ObjectIdentifier(node)] else { return }
+        node.isHidden = original.isHidden || !visible
+    }
+
+    private func renderPresentation(interpolationAlpha: CGFloat = 1) {
+        presentationInterpolationAlpha = interpolationAlpha
         applyGraphicsSetIfNeeded()
         let cyclingColor = SKColor(
             red: CGFloat(cyclingRed) / 255,
@@ -1840,7 +2186,11 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 difficulty: pendingHighScore.difficulty,
                 size: size
             )
-            particleRenderer.render(particleSimulation, style: menuModel.settings.particleStyle)
+            particleRenderer.render(
+                particleSimulation,
+                style: menuModel.settings.particleStyle,
+                interpolationAlpha: presentationInterpolationAlpha
+            )
             return
         }
         if menuModel.isOpen {
@@ -1866,7 +2216,11 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             )
             if showsVideoPreview {
                 renderGrid()
-                particleRenderer.render(particleSimulation, style: menuModel.settings.particleStyle)
+                particleRenderer.render(
+                    particleSimulation,
+                    style: menuModel.settings.particleStyle,
+                    interpolationAlpha: presentationInterpolationAlpha
+                )
             }
             return
         }
@@ -1899,23 +2253,38 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 unrankedEntry: unrankedScoreEntry,
                 showScoreSettings: pressedKeys.contains(35)
             )
-            particleRenderer.render(particleSimulation, style: menuModel.settings.particleStyle)
+            particleRenderer.render(
+                particleSimulation,
+                style: menuModel.settings.particleStyle,
+                interpolationAlpha: presentationInterpolationAlpha
+            )
         case .playing:
             particleRenderer.node.zPosition = 5
             screenRenderer.hide()
             renderGrid()
-            particleRenderer.render(particleSimulation, style: menuModel.settings.particleStyle)
+            particleRenderer.render(
+                particleSimulation,
+                style: menuModel.settings.particleStyle,
+                interpolationAlpha: presentationInterpolationAlpha
+            )
             renderHUD()
         case .gameOver:
             particleRenderer.node.zPosition = 5
             renderGrid()
-            particleRenderer.render(particleSimulation, style: menuModel.settings.particleStyle)
+            particleRenderer.render(
+                particleSimulation,
+                style: menuModel.settings.particleStyle,
+                interpolationAlpha: presentationInterpolationAlpha
+            )
             renderHUD()
             screenRenderer.renderGameOver(counter: 2 + screenFlow.frame * 2, size: size)
         }
     }
 
     private func enterAttractPresentation() {
+        if !isAdvancingFixedStep {
+            prepareForExternalPresentationMutation()
+        }
         audio.stopAllBlackHoleLoops()
         enemyLayer.removeAllChildren()
         projectileLayer.removeAllChildren()
@@ -1924,6 +2293,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         effectLayer.removeAllChildren()
         floatingScores.removeAll()
         cameraOffset = .zero
+        previousCameraOffset = cameraOffset
         updateWorldTransformAndStars()
         gridLayer.isHidden = true
         trailLayer.isHidden = true
@@ -2476,7 +2846,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 blue: CGFloat(cyclingBlue) / 255,
                 alpha: 1
             ),
-            opacity: menuModel.settings.gridOpacity
+            opacity: menuModel.settings.gridOpacity,
+            interpolationAlpha: presentationInterpolationAlpha
         )
     }
 
@@ -2657,14 +3028,19 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
     private func updateWorldTransformAndStars() {
         worldLayer.position = CGPoint(x: -cameraOffset.x, y: -cameraOffset.y)
+        updateStarPositions(for: cameraOffset)
+    }
+
+    private func updateStarPositions(for displayedCameraOffset: CGPoint) {
         for star in starNodes {
             guard let data = star.userData else { continue }
             let baseX = CGFloat((data["baseX"] as? NSNumber)?.doubleValue ?? Double(star.position.x))
             let baseY = CGFloat((data["baseY"] as? NSNumber)?.doubleValue ?? Double(star.position.y))
             let depth = max(1, CGFloat((data["depth"] as? NSNumber)?.doubleValue ?? 2))
-            star.position = CGPoint(
-                x: baseX + cameraOffset.x * (1 - 1 / depth),
-                y: baseY + cameraOffset.y * (1 - 1 / depth)
+            star.position = OriginalPresentationRule.starLocalPosition(
+                base: CGPoint(x: baseX, y: baseY),
+                cameraOffset: displayedCameraOffset,
+                depth: depth
             )
         }
     }
@@ -6113,6 +6489,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         isRepeat: Bool,
         characters: String? = nil
     ) {
+        restoreAuthoritativePresentationState()
         if pressed {
             pressedKeys.insert(keyCode)
         } else {
@@ -6191,8 +6568,10 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 isPlaying: screenFlow.phase == .playing,
                 isPaused: gameplayPaused
             ) {
+                beginFixedPresentationStep()
                 gridRenderer.advanceAnimation()
                 simulateFrame()
+                finishFixedPresentationStep()
                 gameplayPaused = OriginalCheatPauseRule.pauseStateAfterSingleFrame(
                     pauseKeyIsHeld: cheatPauseKeyIsHeld
                 )
@@ -6283,6 +6662,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     func setMouseButton(_ button: Int, pressed: Bool) {
+        restoreAuthoritativePresentationState()
         guard (1...3).contains(button) else { return }
         if pressed {
             mouseButtons.insert(button)
@@ -6346,6 +6726,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     func triggerBomb() {
+        prepareForExternalPresentationMutation()
         switch screenFlow.phase {
         case .attract:
             beginGame()
@@ -6404,8 +6785,24 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
     private func openOptions() {
         let duringGame = screenFlow.phase == .playing || screenFlow.phase == .gameOver
+        if duringGame,
+           view == nil,
+           metalMenuBackgroundCapture != nil,
+           isProcessingDisplayUpdate {
+            guard !metalOptionsOpenIsPending else { return }
+            metalOptionsOpenIsPending = true
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                self.metalOptionsOpenIsPending = false
+                self.openOptions()
+            }
+            return
+        }
+
         if duringGame, let view {
             screenRenderer.captureMenuBackground(from: self, view: view)
+        } else if duringGame, let image = metalMenuBackgroundCapture?() {
+            screenRenderer.captureMenuBackground(image: image)
         } else {
             screenRenderer.clearMenuBackground()
         }
@@ -6482,6 +6879,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
     #if os(iOS)
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        restoreAuthoritativePresentationState()
         if highScoreNameEntry != nil, let touch = touches.first {
             let location = touch.location(in: self)
             let control = min(4, max(0, Int(location.x / (size.width / 5))))

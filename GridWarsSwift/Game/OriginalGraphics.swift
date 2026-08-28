@@ -1,7 +1,7 @@
 @preconcurrency import SpriteKit
 import ImageIO
 
-enum OriginalGraphicsSet: Int, CaseIterable, Sendable, Equatable {
+enum OriginalGraphicsSet: Int, CaseIterable, Sendable, Equatable, Hashable {
     case solid
     case low
     case medium
@@ -38,8 +38,36 @@ enum OriginalGraphicsSet: Int, CaseIterable, Sendable, Equatable {
     }
 }
 
+@MainActor
 enum OriginalGraphics {
+    private struct TextureKey: Hashable {
+        let name: String
+        let set: OriginalGraphicsSet
+    }
+
+    private struct FrameTextureKey: Hashable {
+        let sheet: String
+        let frame: Int
+        let columns: Int
+        let rows: Int
+        let set: OriginalGraphicsSet?
+    }
+
+    private enum CachedImage {
+        case image(CGImage)
+        case missing
+    }
+
+    private static var commonTextures: [String: SKTexture] = [:]
+    private static var textures: [TextureKey: SKTexture] = [:]
+    private static var images: [TextureKey: CachedImage] = [:]
+    private static var frameTextures: [FrameTextureKey: SKTexture] = [:]
+
     static func commonTexture(named name: String) -> SKTexture {
+        if let cached = commonTextures[name] {
+            return cached
+        }
+
         let texture: SKTexture
         if let url = Bundle.main.url(
             forResource: name,
@@ -51,10 +79,19 @@ enum OriginalGraphics {
             texture = SKTexture(imageNamed: name)
         }
         texture.filteringMode = .linear
+        commonTextures[name] = texture
         return texture
     }
 
     static func texture(named name: String, setIndex: Int) -> SKTexture {
+        let key = TextureKey(
+            name: name,
+            set: OriginalGraphicsSet(index: setIndex)
+        )
+        if let cached = textures[key] {
+            return cached
+        }
+
         let texture: SKTexture
         if let image = cgImage(named: name, setIndex: setIndex) {
             texture = SKTexture(cgImage: image)
@@ -64,19 +101,36 @@ enum OriginalGraphics {
             texture = SKTexture(imageNamed: name)
         }
         texture.filteringMode = .linear
+        textures[key] = texture
         return texture
     }
 
     static func cgImage(named name: String, setIndex: Int) -> CGImage? {
         let set = OriginalGraphicsSet(index: setIndex)
+        let key = TextureKey(name: name, set: set)
+        if let cached = images[key] {
+            switch cached {
+            case let .image(image):
+                return image
+            case .missing:
+                return nil
+            }
+        }
+
         guard let url = Bundle.main.url(
             forResource: name,
             withExtension: "png",
             subdirectory: "gfx/\(set.folderName)"
         ), let source = CGImageSourceCreateWithURL(url as CFURL, nil) else {
+            images[key] = .missing
             return nil
         }
-        return CGImageSourceCreateImageAtIndex(source, 0, nil)
+        guard let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
+            images[key] = .missing
+            return nil
+        }
+        images[key] = .image(image)
+        return image
     }
 
     private static func loadTexture(contentsOf url: URL) -> SKTexture? {
@@ -94,6 +148,17 @@ enum OriginalGraphics {
         rows: Int,
         setIndex: Int
     ) -> SKTexture {
+        let key = FrameTextureKey(
+            sheet: name,
+            frame: frame,
+            columns: columns,
+            rows: rows,
+            set: OriginalGraphicsSet(index: setIndex)
+        )
+        if let cached = frameTextures[key] {
+            return cached
+        }
+
         let sheet = texture(named: name, setIndex: setIndex)
         let column = frame % columns
         let rowFromTop = frame / columns
@@ -107,6 +172,7 @@ enum OriginalGraphics {
             in: sheet
         )
         texture.filteringMode = .linear
+        frameTextures[key] = texture
         return texture
     }
 
@@ -116,6 +182,17 @@ enum OriginalGraphics {
         columns: Int,
         rows: Int
     ) -> SKTexture {
+        let key = FrameTextureKey(
+            sheet: name,
+            frame: frame,
+            columns: columns,
+            rows: rows,
+            set: nil
+        )
+        if let cached = frameTextures[key] {
+            return cached
+        }
+
         let sheet = commonTexture(named: name)
         let column = frame % columns
         let rowFromTop = frame / columns
@@ -129,6 +206,7 @@ enum OriginalGraphics {
             in: sheet
         )
         texture.filteringMode = .linear
+        frameTextures[key] = texture
         return texture
     }
 }

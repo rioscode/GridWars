@@ -7,6 +7,42 @@ enum OriginalTimingRule {
     static let maximumAccumulatedTime = fixedStep * 5
 }
 
+enum OriginalPresentationRule {
+    static func interpolationAlpha(accumulator: TimeInterval) -> CGFloat {
+        guard OriginalTimingRule.fixedStep > 0 else { return 1 }
+        return min(1, max(0, CGFloat(accumulator / OriginalTimingRule.fixedStep)))
+    }
+
+    static func interpolate(from start: CGPoint, to end: CGPoint, alpha: CGFloat) -> CGPoint {
+        let amount = min(1, max(0, alpha))
+        return CGPoint(
+            x: start.x + (end.x - start.x) * amount,
+            y: start.y + (end.y - start.y) * amount
+        )
+    }
+
+    static func interpolateAngle(from start: CGFloat, to end: CGFloat, alpha: CGFloat) -> CGFloat {
+        let amount = min(1, max(0, alpha))
+        let fullTurn = CGFloat.pi * 2
+        var delta = (end - start).truncatingRemainder(dividingBy: fullTurn)
+        if delta > .pi { delta -= fullTurn }
+        if delta < -.pi { delta += fullTurn }
+        return start + delta * amount
+    }
+
+    static func starLocalPosition(
+        base: CGPoint,
+        cameraOffset: CGPoint,
+        depth: CGFloat
+    ) -> CGPoint {
+        let safeDepth = max(1, depth)
+        return CGPoint(
+            x: base.x + cameraOffset.x * (1 - 1 / safeDepth),
+            y: base.y + cameraOffset.y * (1 - 1 / safeDepth)
+        )
+    }
+}
+
 enum OriginalCheatPauseRule {
     static func pauseState(
         keyCode: UInt16,

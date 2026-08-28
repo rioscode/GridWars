@@ -121,9 +121,27 @@ enum OriginalParticleKind: Int {
 
 struct ParticleState: Equatable {
     var position = CGPoint.zero
+    var previousPosition = CGPoint.zero
     var velocity = CGVector.zero
+    var previousVelocity = CGVector.zero
     var color = ParticleColor(red: 0, green: 0, blue: 0)
     var activeFrames = 0
+
+    func presentationPosition(interpolationAlpha: CGFloat) -> CGPoint {
+        OriginalPresentationRule.interpolate(
+            from: previousPosition,
+            to: position,
+            alpha: interpolationAlpha
+        )
+    }
+
+    func presentationVelocity(interpolationAlpha: CGFloat) -> CGVector {
+        let amount = min(1, max(0, interpolationAlpha))
+        return CGVector(
+            dx: previousVelocity.dx + (velocity.dx - previousVelocity.dx) * amount,
+            dy: previousVelocity.dy + (velocity.dy - previousVelocity.dy) * amount
+        )
+    }
 }
 
 struct ParticleSimulation: Equatable {
@@ -297,6 +315,8 @@ struct ParticleSimulation: Equatable {
         )
         particle.position.x += particle.velocity.dx * CGFloat(size)
         particle.position.y += particle.velocity.dy * CGFloat(size)
+        particle.previousPosition = particle.position
+        particle.previousVelocity = particle.velocity
         particles[nextSlot] = particle
         nextSlot += 1
         if nextSlot > capacity - 1 { nextSlot = 0 }
@@ -308,6 +328,13 @@ struct ParticleSimulation: Equatable {
 
     mutating func updateWide(screenSize: CGSize) {
         update(bounds: screenSize)
+    }
+
+    mutating func beginPresentationStep() {
+        for index in particles.indices where particles[index].activeFrames > 0 {
+            particles[index].previousPosition = particles[index].position
+            particles[index].previousVelocity = particles[index].velocity
+        }
     }
 
     private mutating func update(bounds: CGSize) {

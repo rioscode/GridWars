@@ -7,7 +7,13 @@ struct GameView: View {
 
     var body: some View {
         #if os(macOS)
-        PlatformGameView(scene: scene)
+        Group {
+            if MetalEffectsConfiguration.current.isEnabled {
+                MetalPlatformGameView(scene: scene)
+            } else {
+                PlatformGameView(scene: scene)
+            }
+        }
             .frame(width: 1_024, height: 768)
             .preferredColorScheme(.dark)
             .onChange(of: scenePhase) { _, phase in
@@ -55,7 +61,7 @@ private struct PlatformGameView: NSViewRepresentable {
     }
 }
 
-private final class KeyboardSKView: SKView {
+final class KeyboardSKView: SKView {
     weak var sceneController: GameScene?
     private var mouseTrackingArea: NSTrackingArea?
     private var originalKeysByPhysicalCode: [UInt16: Int] = [:]
@@ -174,7 +180,7 @@ private final class KeyboardSKView: SKView {
         )
     }
 
-    private static func modifier(for keyCode: UInt16) -> (flag: NSEvent.ModifierFlags, originalKey: Int)? {
+    static func modifier(for keyCode: UInt16) -> (flag: NSEvent.ModifierFlags, originalKey: Int)? {
         switch keyCode {
         case 56: (.shift, 160)
         case 60: (.shift, 161)
@@ -188,7 +194,7 @@ private final class KeyboardSKView: SKView {
         }
     }
 
-    private static func originalKeyCode(for event: NSEvent) -> Int? {
+    static func originalKeyCode(for event: NSEvent) -> Int? {
         let fixed: [UInt16: Int] = [
             51: 8, 48: 9, 71: 12, 36: 13, 76: 13, 53: 27, 49: 32,
             116: 33, 121: 34, 119: 35, 115: 36,

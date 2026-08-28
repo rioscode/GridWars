@@ -17,7 +17,10 @@ verified platform-specific equivalent.
 - macOS 14 or newer
 - iOS and iPadOS 17 or newer
 - Swift 6
-- SpriteKit for rendering, physics, particles, and audio playback
+- SpriteKit as the canonical/default renderer on macOS and iOS, and for the
+  scene, particles, physics, and audio playback
+- An opt-in, default-off macOS Metal prototype for Grid style 1 and Particle
+  style 1; iOS always uses SpriteKit
 - SwiftUI for the application shell and platform lifecycle
 
 ## Architecture
@@ -32,7 +35,12 @@ verified platform-specific equivalent.
 The game scene owns the real-time loop. Platform views translate mouse,
 keyboard, touch, and controller input into a small shared input state. Pure
 rules such as score thresholds and spawn pacing stay outside SpriteKit where
-they can be tested without rendering.
+they can be tested without rendering. The authoritative simulation remains a
+fixed 50-Hz step. Separate previous/current presentation snapshots interpolate
+visual transforms, Grid points, stars, and particle position/velocity between
+steps without feeding interpolated values back into gameplay. The optional
+Metal path is an effects renderer around the same SpriteKit scene; it does not
+own gameplay, collisions, audio, or input.
 
 ## Milestones
 
@@ -73,6 +81,28 @@ they can be tested without rendering.
 - Tune difficulty and spawn timing against side-by-side gameplay captures.
 - Complete every item in `FIDELITY.md` and attach authoritative verification.
 
+### 6. Rendering performance experiment
+
+- Phase 1 caches decoded `CGImage` values (including missing-image results),
+  complete `SKTexture` values, and animation-frame textures in
+  `OriginalGraphics`.
+- Phase 1 keeps the HUD and screen content alive, pools Grid and particle
+  nodes, resets reused node state, and hides unused pool entries instead of
+  rebuilding complete node trees each frame.
+- SpriteKit particles use pooled, reusable line and sprite geometry. They are
+  intentionally not combined into a single compound path: per-particle colour
+  and exact additive overlap/draw order require independently drawn geometry.
+- Phase 1 separates the fixed 50-Hz authority state from interpolated
+  presentation state, including camera-relative stars and particle velocity.
+- Phase 2 provides a default-off macOS Metal A/B prototype for only legacy
+  Grid style 1 and Particle style 1. It is enabled with
+  `GRIDWARS_METAL_EFFECTS=1` or `--metal-effects`; `--no-metal-effects` wins.
+  All other effects fall back to SpriteKit, and iOS remains entirely on the
+  SpriteKit path.
+- Keep the Metal prototype opt-in until measurements show a repeatable gain and
+  each effect passes the same screenshot-fidelity boundary. Do not move
+  gameplay logic, collisions, audio, or input to Metal.
+
 ## Definition of done for the first milestone
 
 - `xcodebuild` succeeds for the macOS scheme.
@@ -112,7 +142,8 @@ commit:
       plus iPhone persistence, lifecycle, and exit validation
 - [x] Physical iPhone 17 Pro Max gameplay, touch, menu, lifecycle, and
       persistence smoke test on iOS 26.6
-- [x] 127 gameplay, input, persistence, audio, and rendering-rule unit tests
+- [x] 139 gameplay, input, persistence, audio, rendering, interpolation, and
+      Metal-prototype unit tests
 - [x] macOS launch and rendering smoke test
 - [x] Deterministic 136-state Swift capture catalog at 1024×768
 - [x] Manual side-by-side review of all 136 Original/Swift capture pairs,
@@ -207,6 +238,16 @@ commit:
       eight-particle 60-frame ambient ring
 - [x] Point-grid major highlights begin at source row/column four rather than
       incorrectly treating index zero as a highlighted multiple
+- [x] Texture, decoded-image, missing-image, and animation-frame caches in
+      `OriginalGraphics`
+- [x] Persistent HUD content plus reusable screen, Grid, and particle node
+      pools with explicit reused-state reset and hidden inactive tails
+- [x] Presentation-only interpolation over the authoritative fixed 50-Hz
+      simulation, including camera-relative stars and particle velocity
+- [x] Pooled reusable SpriteKit particle geometry, retaining per-particle
+      colour and source-ordered additive overlap instead of compound batching
+- [x] Default-off macOS Metal prototype for Grid style 1 and Particle style 1,
+      with SpriteKit fallback and an unchanged SpriteKit-only iOS path
 
 `FIDELITY.md` is the acceptance ledger. The isolated BlitzMax harness and the
 Swift port now each capture the same 136 attract, transition, gameplay, HUD,
@@ -234,6 +275,37 @@ BOMB start, both virtual sticks, BOMB shockwave, OPT/Continue, Home/foreground,
 and cold relaunch all passed. Seven retained test screenshots were inspected,
 and the device app container held the expected 280-line `Config.txt`, 76-line
 `Colours.txt`, and 150-line `hiscores.dat`. A fresh post-runtime 136-state
-macOS catalog is byte-identical to the manually accepted catalog.
+macOS catalog was byte-identical to the manually accepted catalog. The later
+rendering-performance pass was also checked across all 136 states: 126 captures
+stayed byte-identical and the remaining ten showed only isolated
+raster/subpixel noise with normalized mean differences from `2.31e-9` through
+`3.12e-6`; no layout, state, or layer-order regression was visible.
 The complete visual review and the renderer-specific acceptance boundary are
 recorded in `docs/CAPTURE-REVIEW.md`.
+
+## Rendering-performance result (2026-08-26)
+
+Focused Phase-1 regression captures retained the previous Swift output: six
+representative persistent-screen/HUD captures were byte-identical, and pooled
+particle styles 0 through 3 measured normalized mean grayscale differences of
+`0`, `4.63e-9`, `0`, and `1.35e-8` from the preceding SpriteKit renderer.
+
+For the opt-in Metal prototype, `scripts/compare-captures.sh` measured a
+SpriteKit-to-Metal difference of `5.87151e-05` for Grid style 1 and `0.0016534`
+for Particle style 1. Against the original reference, the Grid measurements
+were `0.00198938` for Metal and `0.00205562` for SpriteKit; the particle
+measurements were `0.00322177` for Metal and `0.00272125` for SpriteKit. Metal
+Particle style 1 is therefore not fidelity-accepted and the prototype remains
+default-off.
+
+One final eight-second Release `Game Performance` Instruments run per renderer
+used the same static 1024×768/60-Hz benchmark (Grid style 1 plus 2,048 Particle
+style 1 particles). In the steady 3–8-second window, app-specific present
+request spacing was SpriteKit `n=290`, p50 `16.6771 ms`, p95 `17.6055 ms`;
+Metal was `n=293`, p50 `16.6548 ms`, p95 `17.3597 ms`. One-millisecond CPU
+sampling averaged `1.9069 ms/frame` for SpriteKit and `1.6826 ms/frame` for
+Metal. App-specific GPU-frame spans averaged `0.6752 ms` and `0.5713 ms`, while
+GPU p95 was `1.2332 ms` and `1.2986 ms` respectively. This single,
+vsync-limited run shows modest average CPU/GPU reductions but no material p95
+frame-pacing win; the GPU p95 did not improve. Maxima and display-wide FPS are
+not reliable decision inputs here.

@@ -139,6 +139,8 @@ final class OriginalScreenRenderer {
     private var menuBackgroundTexture: SKTexture?
     private var blitzFontTextures: [BlitzMaxFontTextureKey: SKTexture] = [:]
     private var blitzSolidTextures: [BlitzMaxFontColor: SKTexture] = [:]
+    private var pooledContentNodes: [SKNode] = []
+    private var nextPooledContentNodeIndex = 0
     private(set) var menuHitFrames: [CGRect] = []
 
     init() {
@@ -156,6 +158,12 @@ final class OriginalScreenRenderer {
 
     func captureMenuBackground(from scene: SKScene, view: SKView) {
         menuBackgroundTexture = view.texture(from: scene)
+    }
+
+    func captureMenuBackground(image: CGImage) {
+        let texture = SKTexture(cgImage: image)
+        texture.filteringMode = .linear
+        menuBackgroundTexture = texture
     }
 
     func clearMenuBackground() {
@@ -176,6 +184,7 @@ final class OriginalScreenRenderer {
         showScoreSettings: Bool
     ) {
         prepare(size: size, backgroundAlpha: 1)
+        defer { finishRendering() }
         switch page {
         case .title:
             renderTitle(frame: frame, titleFrame: persistentTitleFrame, size: size, color: cyclingColor)
@@ -233,6 +242,7 @@ final class OriginalScreenRenderer {
 
     func renderGameOver(counter: Int, size: CGSize) {
         prepare(size: size, backgroundAlpha: 0)
+        defer { finishRendering() }
         let pulse = abs(sin(CGFloat(counter) / 2 * .pi / 180))
         addText(
             "GAME OVER",
@@ -252,6 +262,7 @@ final class OriginalScreenRenderer {
         size: CGSize
     ) {
         prepare(size: size, backgroundAlpha: 1)
+        defer { finishRendering() }
         addText("Congratulations!", x: size.width / 2 - 250, y: size.height / 2 - 240, scale: 3, color: .white, size: size)
         addText("You are in the top 10.", x: size.width / 2 - 250, y: size.height / 2 - 200, scale: 3, color: .white, size: size)
         addText("Difficulty Level: \(difficulty.title)", x: size.width / 2 - 250, y: size.height / 2 - 160, scale: 3, color: .white, size: size)
@@ -271,13 +282,12 @@ final class OriginalScreenRenderer {
                 x: sceneStart.x + 12,
                 y: sceneStart.y
             )))
-            let underline = SKShapeNode(path: path)
+            let underline = nextShapeNode(path: path)
             underline.strokeColor = index == entry.selectedIndex ? .yellow : green
             underline.lineWidth = 2
             underline.lineCap = .butt
             underline.isAntialiased = false
             underline.blendMode = .add
-            content.addChild(underline)
         }
         addText("Up and Down to select letter,", x: size.width / 2 - 250, y: size.height / 2 + 80, scale: 3, color: .white, size: size)
         addText("Left and Right to select position.", x: size.width / 2 - 250, y: size.height / 2 + 120, scale: 3, color: .white, size: size)
@@ -294,6 +304,7 @@ final class OriginalScreenRenderer {
         capturePointerYFromTop: CGFloat? = nil
     ) {
         prepare(size: size, backgroundAlpha: 1)
+        defer { finishRendering() }
         renderCapturedMenuBackground(for: menu, size: size)
         if menu.page == .dualAnalog {
             renderDualAnalogMenu(menu, frame: frame, size: size)
@@ -371,10 +382,83 @@ final class OriginalScreenRenderer {
 
     private func prepare(size: CGSize, backgroundAlpha: CGFloat) {
         node.isHidden = false
-        content.removeAllChildren()
+        nextPooledContentNodeIndex = 0
         menuHitFrames = []
         background.path = CGPath(rect: CGRect(origin: .zero, size: size), transform: nil)
         background.alpha = backgroundAlpha
+    }
+
+    private func finishRendering() {
+        guard nextPooledContentNodeIndex < pooledContentNodes.count else { return }
+        for index in nextPooledContentNodeIndex..<pooledContentNodes.count {
+            pooledContentNodes[index].isHidden = true
+        }
+    }
+
+    private func nextPooledNode<Node: SKNode>(
+        ofType _: Node.Type,
+        makeNode: () -> Node
+    ) -> Node {
+        let index = nextPooledContentNodeIndex
+        nextPooledContentNodeIndex += 1
+
+        let result: Node
+        if index == pooledContentNodes.count {
+            result = makeNode()
+            pooledContentNodes.append(result)
+            content.addChild(result)
+        } else if let reusable = pooledContentNodes[index] as? Node {
+            result = reusable
+        } else {
+            let replacement = makeNode()
+            pooledContentNodes[index].removeFromParent()
+            pooledContentNodes[index] = replacement
+            content.insertChild(replacement, at: index)
+            result = replacement
+        }
+        result.isHidden = false
+        return result
+    }
+
+    private func nextShapeNode(path: CGPath) -> SKShapeNode {
+        let shape = nextPooledNode(ofType: SKShapeNode.self) { SKShapeNode() }
+        shape.path = path
+        shape.position = .zero
+        shape.zPosition = 0
+        shape.zRotation = 0
+        shape.xScale = 1
+        shape.yScale = 1
+        shape.alpha = 1
+        shape.fillColor = .clear
+        shape.strokeColor = .white
+        shape.lineWidth = 1
+        shape.glowWidth = 0
+        shape.lineCap = .butt
+        shape.lineJoin = .miter
+        shape.miterLimit = 10
+        shape.isAntialiased = true
+        shape.fillTexture = nil
+        shape.strokeTexture = nil
+        shape.blendMode = .alpha
+        return shape
+    }
+
+    private func nextSpriteNode(texture: SKTexture?) -> SKSpriteNode {
+        let sprite = nextPooledNode(ofType: SKSpriteNode.self) { SKSpriteNode() }
+        sprite.texture = texture
+        sprite.position = .zero
+        sprite.zPosition = 0
+        sprite.zRotation = 0
+        sprite.xScale = 1
+        sprite.yScale = 1
+        sprite.alpha = 1
+        sprite.anchorPoint = CGPoint(x: 0.5, y: 0.5)
+        sprite.size = texture?.size() ?? .zero
+        sprite.color = .white
+        sprite.colorBlendFactor = 0
+        sprite.blendMode = .alpha
+        sprite.shader = nil
+        return sprite
     }
 
     private func renderCapturedMenuBackground(for menu: OriginalMenuModel, size: CGSize) {
@@ -389,14 +473,13 @@ final class OriginalScreenRenderer {
         case .hybrid, .mouse, .keyboard, .joypad: 0.6
         case .dualAnalog: 1
         }
-        let sprite = SKSpriteNode(texture: menuBackgroundTexture)
+        let sprite = nextSpriteNode(texture: menuBackgroundTexture)
         sprite.position = CGPoint(x: size.width / 2, y: size.height / 2)
         sprite.size = CGSize(width: size.width * originalScale, height: size.height * originalScale)
         sprite.color = SKColor(red: 64 / 255, green: 64 / 255, blue: 128 / 255, alpha: 1)
         sprite.colorBlendFactor = 1
         sprite.blendMode = .replace
         sprite.zPosition = -1
-        content.addChild(sprite)
     }
 
     private func renderTitle(
@@ -571,19 +654,17 @@ final class OriginalScreenRenderer {
                 sprite = makeSprite(textureName, atTopLeftPosition: CGPoint(x: x, y: y), size: size)
                 sprite.zRotation = CGFloat(frame) * .pi / 180
             } else {
-                sprite = SKSpriteNode(texture: powerUpTexture(frame: entry.3))
+                sprite = nextSpriteNode(texture: powerUpTexture(frame: entry.3))
                 sprite.position = CGPoint(x: x, y: size.height - y)
                 sprite.size = CGSize(width: 64, height: 64)
                 sprite.blendMode = .add
             }
-            content.addChild(sprite)
             if entry.2 == nil {
                 let star = makeSprite("whitestar", atTopLeftPosition: CGPoint(x: x, y: y), size: size)
                 star.zRotation = CGFloat(frame * 6 + (index == 2 ? 45 : 0)) * .pi / 180
                 let trailIndex = OriginalFriendScreenRule.trailColorIndex(entryIndex: index)
                 star.color = friendTrailColors[trailIndex]
                 star.colorBlendFactor = 1
-                content.addChild(star)
             }
             addText(entry.1, x: size.width / 2 - 100, y: y - 10, scale: 3, color: skColor(entry.4), size: size)
         }
@@ -627,7 +708,6 @@ final class OriginalScreenRenderer {
                 case 9: sprite.zRotation = CGFloat(frame * 4) * .pi / 180
                 default: break
                 }
-                content.addChild(sprite)
             }
             addText(entry.1, x: size.width / 2 - 120, y: y - 10, scale: 3, color: skColor(entry.3), size: size)
         }
@@ -647,11 +727,10 @@ final class OriginalScreenRenderer {
                     setIndex: graphicsSetIndex
                 )
             }
-            let sprite = SKSpriteNode(texture: texture)
+            let sprite = nextSpriteNode(texture: texture)
             sprite.position = CGPoint(x: center.x - CGFloat(segment * 13), y: size.height - y)
             sprite.blendMode = .add
             sprite.zRotation = (90 - cos(CGFloat(segment * 30 + frame) * .pi / 180) * 20) * .pi / 180
-            content.addChild(sprite)
         }
     }
 
@@ -810,7 +889,7 @@ final class OriginalScreenRenderer {
     ) {
         let centerX = size.width / 2 + 74
         for (index, frame) in [(8, 1), (9, 0)] {
-            let sprite = SKSpriteNode(texture: OriginalGraphics.commonFrameTexture(
+            let sprite = nextSpriteNode(texture: OriginalGraphics.commonFrameTexture(
                 sheet: "colourpick",
                 frame: frame,
                 columns: 1,
@@ -818,9 +897,8 @@ final class OriginalScreenRenderer {
             ))
             sprite.position = CGPoint(x: centerX, y: size.height - lineYs[index] - 14)
             sprite.setScale(2)
-            content.addChild(sprite)
             if menu.selection == index {
-                let overlay = SKSpriteNode(texture: OriginalGraphics.commonFrameTexture(
+                let overlay = nextSpriteNode(texture: OriginalGraphics.commonFrameTexture(
                     sheet: "colourpick",
                     frame: 2,
                     columns: 1,
@@ -828,7 +906,6 @@ final class OriginalScreenRenderer {
                 ))
                 overlay.position = sprite.position
                 overlay.setScale(2)
-                content.addChild(overlay)
             }
         }
         let markerColor = SKColor(red: 100 / 255, green: 1, blue: 100 / 255, alpha: 1)
@@ -980,16 +1057,15 @@ final class OriginalScreenRenderer {
             let valueX = stick * 2
             rectangle(boxX + 42, 317, 16, 16, color: .green)
             rectangle(boxX, 275, 100, 100, color: white)
-            let dot = SKShapeNode(ellipseIn: sceneFrame(
+            let dot = nextShapeNode(path: CGPath(ellipseIn: sceneFrame(
                 boxX + 45 - centers[valueX] * 50,
                 320 - centers[valueX + 1] * 50,
                 10,
                 10
-            ))
+            ), transform: nil))
             dot.fillColor = SKColor(red: 185 / 255, green: 0, blue: 0, alpha: 1)
             dot.strokeColor = .clear
             dot.isAntialiased = false
-            content.addChild(dot)
             let valueXPosition = stick == 0 ? CGFloat(120) : 360
             textLine("DZ \(stick + 1)", valueXPosition, 270, color: .red)
             textLine("X: \(blitzMaxFloat(deadZones[valueX]))", valueXPosition, 290, color: .blue)
@@ -1062,15 +1138,14 @@ final class OriginalScreenRenderer {
         let sceneOrigin = filled
             ? sourceOrigin
             : OriginalLineRasterRule.scenePixelCenter(sourceOrigin)
-        let rectangle = SKShapeNode(rect: CGRect(
+        let rectangle = nextShapeNode(path: CGPath(rect: CGRect(
             origin: sceneOrigin,
             size: CGSize(width: width, height: height)
-        ))
+        ), transform: nil))
         rectangle.fillColor = filled ? color : .clear
         rectangle.strokeColor = filled ? .clear : color
         rectangle.lineWidth = lineWidth
         rectangle.isAntialiased = false
-        content.addChild(rectangle)
     }
 
     private func renderMenuMeters(
@@ -1139,14 +1214,13 @@ final class OriginalScreenRenderer {
             path.move(to: pivot)
             path.addLine(to: endpoint)
         }
-        let target = SKShapeNode(path: path)
+        let target = nextShapeNode(path: path)
         target.strokeColor = frame % 30 > 14
             ? SKColor(red: 1, green: 1, blue: 32 / 255, alpha: 1)
             : SKColor(red: 1, green: 32 / 255, blue: 32 / 255, alpha: 1)
         target.lineWidth = 2
         target.isAntialiased = false
         target.lineCap = .butt
-        content.addChild(target)
     }
 
     private func addText(
@@ -1169,15 +1243,19 @@ final class OriginalScreenRenderer {
         size: CGSize,
         smoothStrokes: Bool = false
     ) {
-        content.addChild(font.makeNode(
+        let shape = nextShapeNode(path: font.makePath(
             text,
             x: x,
             yFromTop: y,
             scale: scale,
-            arenaHeight: size.height,
-            color: color,
-            smoothStrokes: smoothStrokes
+            arenaHeight: size.height
         ))
+        shape.strokeColor = color
+        shape.lineWidth = 2
+        shape.lineCap = smoothStrokes ? .round : .butt
+        shape.lineJoin = smoothStrokes ? .round : .miter
+        shape.isAntialiased = smoothStrokes
+        shape.blendMode = .add
     }
 
     private func addBlitzMaxText(
@@ -1197,7 +1275,7 @@ final class OriginalScreenRenderer {
         } else {
             return
         }
-        let sprite = SKSpriteNode(texture: texture)
+        let sprite = nextSpriteNode(texture: texture)
         sprite.anchorPoint = CGPoint(x: 0, y: 1)
         sprite.position = CGPoint(x: x, y: size.height - y)
         sprite.size = CGSize(
@@ -1205,7 +1283,6 @@ final class OriginalScreenRenderer {
             height: CGFloat(BlitzMaxBitmapFont.glyphHeight)
         )
         sprite.blendMode = .alpha
-        content.addChild(sprite)
     }
 
     private func addBlitzMaxFilledRectangle(
@@ -1225,12 +1302,11 @@ final class OriginalScreenRenderer {
         } else {
             return
         }
-        let sprite = SKSpriteNode(texture: texture)
+        let sprite = nextSpriteNode(texture: texture)
         sprite.anchorPoint = CGPoint(x: 0, y: 1)
         sprite.position = CGPoint(x: x, y: size.height - y)
         sprite.size = CGSize(width: width, height: height)
         sprite.blendMode = .alpha
-        content.addChild(sprite)
     }
 
     private func blitzMaxFloat(_ value: CGFloat) -> String {
@@ -1242,7 +1318,7 @@ final class OriginalScreenRenderer {
         atTopLeftPosition position: CGPoint,
         size: CGSize
     ) -> SKSpriteNode {
-        let sprite = SKSpriteNode(texture: OriginalGraphics.texture(
+        let sprite = nextSpriteNode(texture: OriginalGraphics.texture(
             named: name,
             setIndex: graphicsSetIndex
         ))

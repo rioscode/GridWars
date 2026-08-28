@@ -23,6 +23,9 @@
 		B1000000000000000000000E /* OriginalInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1000000000000000000000F /* OriginalInput.swift */; };
 		B1000000000000000000000F /* OriginalGraphics.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000010 /* OriginalGraphics.swift */; };
 		B10000000000000000000010 /* OriginalHUDRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000011 /* OriginalHUDRenderer.swift */; };
+		B10000000000000000000011 /* MetalGameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000012 /* MetalGameView.swift */; };
+		B10000000000000000000012 /* MetalEffectsPrototype.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000013 /* MetalEffectsPrototype.swift */; };
+		B10000000000000000000013 /* GridWarsEffects.metal in Resources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000014 /* GridWarsEffects.metal */; };
 		B11000000000000000000001 /* GridWarsApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000001 /* GridWarsApp.swift */; };
 		B11000000000000000000002 /* GameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000002 /* GameView.swift */; };
 		B11000000000000000000003 /* GameRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000003 /* GameRules.swift */; };
@@ -39,6 +42,9 @@
 		B1100000000000000000000E /* OriginalInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1000000000000000000000F /* OriginalInput.swift */; };
 		B1100000000000000000000F /* OriginalGraphics.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000010 /* OriginalGraphics.swift */; };
 		B11000000000000000000010 /* OriginalHUDRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000011 /* OriginalHUDRenderer.swift */; };
+		B11000000000000000000011 /* MetalGameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000012 /* MetalGameView.swift */; };
+		B11000000000000000000012 /* MetalEffectsPrototype.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000013 /* MetalEffectsPrototype.swift */; };
+		B11000000000000000000013 /* GridWarsEffects.metal in Resources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000014 /* GridWarsEffects.metal */; };
 		B12000000000000000000001 /* GameRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000003 /* GameRules.swift */; };
 		B12000000000000000000002 /* GameRulesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000005 /* GameRulesTests.swift */; };
 		B12000000000000000000003 /* GridSimulation.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000006 /* GridSimulation.swift */; };
@@ -49,6 +55,9 @@
 		B12000000000000000000008 /* OriginalAudio.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1000000000000000000000E /* OriginalAudio.swift */; };
 		B12000000000000000000009 /* OriginalInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1000000000000000000000F /* OriginalInput.swift */; };
 		B1200000000000000000000A /* OriginalGraphics.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000010 /* OriginalGraphics.swift */; };
+		B1200000000000000000000B /* MetalEffectsPrototype.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000013 /* MetalEffectsPrototype.swift */; };
+		B1200000000000000000000C /* MetalEffectsPrototypeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000015 /* MetalEffectsPrototypeTests.swift */; };
+		B1200000000000000000000D /* GridWarsEffects.metal in Resources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000014 /* GridWarsEffects.metal */; };
 		B13000000000000000000001 /* GridWarsPhysicalSmokeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F13000000000000000000001 /* GridWarsPhysicalSmokeTests.swift */; };
 		B20000000000000000000001 /* whiteplayer.png in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000001 /* whiteplayer.png */; };
 		B20000000000000000000002 /* yellowshot.png in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000002 /* yellowshot.png */; };
@@ -126,6 +135,10 @@
 		F1000000000000000000000F /* OriginalInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OriginalInput.swift; sourceTree = "<group>"; };
 		F10000000000000000000010 /* OriginalGraphics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OriginalGraphics.swift; sourceTree = "<group>"; };
 		F10000000000000000000011 /* OriginalHUDRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OriginalHUDRenderer.swift; sourceTree = "<group>"; };
+		F10000000000000000000012 /* MetalGameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalGameView.swift; sourceTree = "<group>"; };
+		F10000000000000000000013 /* MetalEffectsPrototype.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalEffectsPrototype.swift; sourceTree = "<group>"; };
+		F10000000000000000000014 /* GridWarsEffects.metal */ = {isa = PBXFileReference; explicitFileType = text; path = GridWarsEffects.metal; sourceTree = "<group>"; };
+		F10000000000000000000015 /* MetalEffectsPrototypeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalEffectsPrototypeTests.swift; sourceTree = "<group>"; };
 		F13000000000000000000001 /* GridWarsPhysicalSmokeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GridWarsPhysicalSmokeTests.swift; sourceTree = "<group>"; };
 		F20000000000000000000001 /* whiteplayer.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = whiteplayer.png; sourceTree = "<group>"; };
 		F20000000000000000000002 /* yellowshot.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = yellowshot.png; sourceTree = "<group>"; };
@@ -228,6 +241,7 @@
 			children = (
 				F10000000000000000000001 /* GridWarsApp.swift */,
 				F10000000000000000000002 /* GameView.swift */,
+				F10000000000000000000012 /* MetalGameView.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -249,6 +263,8 @@
 				F1000000000000000000000F /* OriginalInput.swift */,
 				F10000000000000000000010 /* OriginalGraphics.swift */,
 				F10000000000000000000011 /* OriginalHUDRenderer.swift */,
+				F10000000000000000000013 /* MetalEffectsPrototype.swift */,
+				F10000000000000000000014 /* GridWarsEffects.metal */,
 			);
 			path = Game;
 			sourceTree = "<group>";
@@ -302,6 +318,7 @@
 			isa = PBXGroup;
 			children = (
 				F10000000000000000000005 /* GameRulesTests.swift */,
+				F10000000000000000000015 /* MetalEffectsPrototypeTests.swift */,
 			);
 			path = GridWarsSwiftTests;
 			sourceTree = "<group>";
@@ -448,6 +465,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B10000000000000000000013 /* GridWarsEffects.metal in Resources */,
 				B20000000000000000000001 /* whiteplayer.png in Resources */,
 				B20000000000000000000002 /* yellowshot.png in Resources */,
 				B20000000000000000000003 /* redcircle.png in Resources */,
@@ -478,6 +496,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B11000000000000000000013 /* GridWarsEffects.metal in Resources */,
 				B21000000000000000000001 /* whiteplayer.png in Resources */,
 				B21000000000000000000002 /* yellowshot.png in Resources */,
 				B21000000000000000000003 /* redcircle.png in Resources */,
@@ -508,6 +527,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B1200000000000000000000D /* GridWarsEffects.metal in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -527,6 +547,7 @@
 			files = (
 				B10000000000000000000001 /* GridWarsApp.swift in Sources */,
 				B10000000000000000000002 /* GameView.swift in Sources */,
+				B10000000000000000000011 /* MetalGameView.swift in Sources */,
 				B10000000000000000000003 /* GameRules.swift in Sources */,
 				B10000000000000000000004 /* GameScene.swift in Sources */,
 				B10000000000000000000005 /* GridSimulation.swift in Sources */,
@@ -541,6 +562,7 @@
 				B1000000000000000000000E /* OriginalInput.swift in Sources */,
 				B1000000000000000000000F /* OriginalGraphics.swift in Sources */,
 				B10000000000000000000010 /* OriginalHUDRenderer.swift in Sources */,
+				B10000000000000000000012 /* MetalEffectsPrototype.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -550,6 +572,7 @@
 			files = (
 				B11000000000000000000001 /* GridWarsApp.swift in Sources */,
 				B11000000000000000000002 /* GameView.swift in Sources */,
+				B11000000000000000000011 /* MetalGameView.swift in Sources */,
 				B11000000000000000000003 /* GameRules.swift in Sources */,
 				B11000000000000000000004 /* GameScene.swift in Sources */,
 				B11000000000000000000005 /* GridSimulation.swift in Sources */,
@@ -564,6 +587,7 @@
 				B1100000000000000000000E /* OriginalInput.swift in Sources */,
 				B1100000000000000000000F /* OriginalGraphics.swift in Sources */,
 				B11000000000000000000010 /* OriginalHUDRenderer.swift in Sources */,
+				B11000000000000000000012 /* MetalEffectsPrototype.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -581,6 +605,8 @@
 				B12000000000000000000008 /* OriginalAudio.swift in Sources */,
 				B12000000000000000000009 /* OriginalInput.swift in Sources */,
 				B1200000000000000000000A /* OriginalGraphics.swift in Sources */,
+				B1200000000000000000000B /* MetalEffectsPrototype.swift in Sources */,
+				B1200000000000000000000C /* MetalEffectsPrototypeTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

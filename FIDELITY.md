@@ -90,6 +90,24 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   `0.000187054...0.00272124`; point grids 0/1 measure `0.00281094` and
   `0.00205562`, and the new Black Hole particle state measures `0.0047782`.
   All 136 original/Swift pairs remain valid at 1024×768.
+- Rendering-performance preservation: the fixed-step rules above remain the
+  authority at 50 Hz. `GameScene`, `GridSimulation`, and
+  `ParticleSimulation` retain previous/current presentation snapshots and
+  interpolate only what is drawn: world/entity transforms, Grid points,
+  camera-relative stars, particle positions, and particle velocities. Current
+  authority values are restored before fixed-step logic and external input
+  mutations, so presentation values never participate in gameplay,
+  collisions, audio, or input decisions. `OriginalGraphics` caches decoded
+  `CGImage` values (including a negative cache for missing images), complete
+  `SKTexture` values, and frame textures keyed by sheet, frame layout, frame
+  index, and graphics set. `OriginalHUDRenderer` retains its icon and vector
+  text nodes. `ScreenRenderer` replaces pooled shape/sprite types and resets
+  their mutable state, `GridRenderer` keeps a style-local pool and clears it on
+  a style change, and all three pooled renderers hide their unused tails.
+  Particle lines reuse immutable unit geometry with per-node transforms, while
+  image particles reuse sprite nodes. This is deliberately not compound-path
+  batching: independently coloured particles and exact source-ordered
+  additive overlap cannot be collapsed without changing the result.
 - Player lifecycle: `gridwars.bmx:4344-4503` maps to the frame-based death and
   Get Ready states in `GameScene`: 256 death particles, non-killer removal,
   100 death frames, 60 title frames, 40 contraction frames, delayed life loss,
@@ -489,6 +507,48 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   tracker conversions, all five input modes, remapping, calibration, touch
   equivalence, graphics-set metadata, original menu text/controller direction,
   and fixed-frame capture selection.
+- Phase-1/2 build evidence (2026-08-26): the macOS Debug app build, generic iOS
+  Simulator Debug build, and macOS Release build pass, as do all 139 macOS
+  tests. The added presentation tests cover interpolation clamping, position,
+  velocity, star parallax, and shortest-angle behavior; the Metal tests cover
+  prototype configuration, effect eligibility, memory layout, viewport
+  mapping, and the packaged runtime shader source. The iOS build never selects
+  the Metal effects host and remains on the SpriteKit renderer.
+- Phase-1 rendering evidence (2026-08-26): representative Title, Scores,
+  Friends, Enemies, Options, and high-score-entry captures from the persistent
+  HUD/screen implementation are byte-identical to the preceding Swift
+  renderer. Comparing the pooled Particle renderer with that same preceding
+  Swift renderer gives normalized mean grayscale differences of `0`,
+  `4.63e-9`, `0`, and `1.35e-8` for styles 0 through 3 respectively. This is a
+  focused renderer-regression check. A subsequent complete 136-state
+  regeneration against the pre-optimization Swift catalog left 126 images
+  byte-identical. The other ten have normalized mean differences between
+  `2.31e-9` and `3.12e-6`; full-resolution diff inspection found only isolated
+  raster/subpixel pixels and no semantic, layout, or layer-order regression.
+- Metal A/B evidence (2026-08-26): the opt-in, default-off macOS prototype is
+  enabled by `GRIDWARS_METAL_EFFECTS=1` or `--metal-effects`, while
+  `--no-metal-effects` takes precedence. It covers only legacy Grid style 1
+  and Particle style 1; unsupported effects continue through SpriteKit, and
+  gameplay, collisions, audio, and input are unchanged. Using
+  `scripts/compare-captures.sh`'s normalized mean grayscale
+  difference, SpriteKit versus Metal measures `5.87151e-05` for Grid style 1
+  and `0.0016534` for Particle style 1. Original versus Metal measures
+  `0.00198938` for the Grid and `0.00322177` for the particle state, compared
+  with Original versus SpriteKit at `0.00205562` and `0.00272125`. The Metal
+  Grid result is within the established SpriteKit approximation, but Metal
+  Particle style 1 is worse than SpriteKit and is not fidelity-accepted.
+  One final eight-second Release `Game Performance` Instruments run per
+  renderer used the same static 1024×768/60-Hz benchmark with Grid style 1 and
+  2,048 Particle style 1 particles. In the 3–8-second steady window,
+  app-specific present-request spacing was SpriteKit `n=290`, p50
+  `16.6771 ms`, p95 `17.6055 ms`; Metal was `n=293`, p50 `16.6548 ms`, p95
+  `17.3597 ms`. One-millisecond CPU samples averaged `1.9069 ms/frame` for
+  SpriteKit and `1.6826 ms/frame` for Metal, with p95 `4 ms` for both.
+  App-specific GPU-frame spans averaged `0.6752 ms` and `0.5713 ms`; their p95
+  values were `1.2332 ms` and `1.2986 ms`. The single, vsync-limited run shows
+  modest average CPU/GPU reductions but no material p95 frame-pacing win, and
+  GPU p95 did not improve. Maxima and display-wide FPS are not robust decision
+  inputs. These results do not justify enabling the prototype by default.
 - Visual acceptance evidence (2026-08-25): all 136 fixed 1024×768
   Original/Swift pairs were inspected across 16 contact sheets. The five
   largest or most representative renderer deltas were also reviewed at full
@@ -603,6 +663,21 @@ the corresponding Swift implementation, and a test or visual/runtime check.
       blend modes, rotation, scale, and bloom appearance.
 - [x] Original vector font, HUD positions, score popups, shield, icons, target,
       playfield clipping, and scrolling camera.
+- [x] Decoded-image, missing-image, complete-texture, and animation-frame
+      caches avoid repeated asset decoding and texture slicing.
+- [x] Persistent HUD nodes and reusable screen, Grid, and particle pools reset
+      reused state and hide inactive entries without changing source draw
+      order.
+- [x] Presentation-only interpolation bridges the authoritative 50-Hz steps
+      for entities, Grid points, camera-relative stars, and particle position
+      and velocity.
+- [x] SpriteKit particles use pooled reusable line/sprite geometry; exact
+      per-particle colour and additive overlap remain independently rendered,
+      not compound-path batched.
+- [x] The default-off macOS Metal prototype is limited to Grid style 1 and
+      Particle style 1 with SpriteKit fallback. iOS remains SpriteKit-only,
+      and the Metal particle result is explicitly not accepted as a fidelity
+      replacement.
 
 ## Screens and interaction
 

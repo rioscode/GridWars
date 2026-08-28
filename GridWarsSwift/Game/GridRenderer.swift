@@ -37,6 +37,10 @@ final class GridRenderer {
     private let stretchBucketCount = 64
     private var animationFrame = 0
     private lazy var particleImage = OriginalGraphics.cgImage(named: "particle", setIndex: 0)
+    private var renderedStyle: GridStyle?
+    private var reusableNodes: [SKNode] = []
+    private var reusableNodeIndex = 0
+    private var presentationInterpolationAlpha: CGFloat = 1
 
     func advanceAnimation() {
         animationFrame = (animationFrame + 1) % 7_200
@@ -51,9 +55,11 @@ final class GridRenderer {
         style: GridStyle,
         solidColor: SKColor,
         cyclingColor: SKColor,
-        opacity: CGFloat
+        opacity: CGFloat,
+        interpolationAlpha: CGFloat = 1
     ) {
-        node.removeAllChildren()
+        beginFrame(style: style)
+        presentationInterpolationAlpha = interpolationAlpha
         let alpha = abs(opacity)
 
         switch style {
@@ -116,6 +122,23 @@ final class GridRenderer {
         case .none:
             break
         }
+        finishFrame()
+    }
+
+    private func beginFrame(style: GridStyle) {
+        if renderedStyle != style {
+            node.removeAllChildren()
+            reusableNodes.removeAll(keepingCapacity: true)
+            renderedStyle = style
+        }
+        reusableNodeIndex = 0
+    }
+
+    private func finishFrame() {
+        guard reusableNodeIndex < reusableNodes.count else { return }
+        for index in reusableNodeIndex..<reusableNodes.count {
+            reusableNodes[index].isHidden = true
+        }
     }
 
     private func addPointGrid(
@@ -134,7 +157,7 @@ final class GridRenderer {
         let rowHighlights = CGMutablePath()
         for column in 0..<grid.columns {
             for row in 0..<grid.rows {
-                let point = grid[column, row].position
+                let point = presentationPoint(grid, column: column, row: row)
                 base.addRect(OriginalDrawRectRule.sceneRect(at: point, width: 2, height: 2))
                 if column > 0, column.isMultiple(of: 4) {
                     columnHighlights.addRect(
@@ -183,7 +206,7 @@ final class GridRenderer {
         let particleSize: CGFloat = 22.5
         for column in 1..<grid.columns {
             for row in 1..<grid.rows {
-                let point = grid[column, row].position
+                let point = presentationPoint(grid, column: column, row: row)
                 let highlights = (column.isMultiple(of: 4) ? 1 : 0)
                     + (row.isMultiple(of: 4) ? 1 : 0)
                 context.setAlpha(min(1, alpha + CGFloat(highlights) * 0.25))
@@ -203,12 +226,15 @@ final class GridRenderer {
 
         let texture = SKTexture(cgImage: image)
         texture.filteringMode = .linear
-        let sprite = SKSpriteNode(texture: texture)
+        let sprite = reusableSpriteNode()
+        sprite.texture = texture
         sprite.anchorPoint = .zero
         sprite.position = .zero
         sprite.size = grid.arenaSize
+        sprite.color = .white
+        sprite.colorBlendFactor = 0
+        sprite.alpha = 1
         sprite.blendMode = .add
-        node.addChild(sprite)
     }
 
     private func coloredParticleImage(_ particle: CGImage, color: SKColor) -> CGImage? {
@@ -245,7 +271,7 @@ final class GridRenderer {
             appendLineStrip(
                 to: path,
                 points: stride(from: 0, through: grid.rows, by: 4).map {
-                    grid[column, $0].position
+                    presentationPoint(grid, column: column, row: $0)
                 }
             )
         }
@@ -253,7 +279,7 @@ final class GridRenderer {
             appendLineStrip(
                 to: path,
                 points: stride(from: 0, through: grid.columns, by: 4).map {
-                    grid[$0, row].position
+                    presentationPoint(grid, column: $0, row: row)
                 }
             )
         }
@@ -270,13 +296,17 @@ final class GridRenderer {
         for column in 0..<grid.columns {
             appendLineStrip(
                 to: column.isMultiple(of: 4) ? highlight : regular,
-                points: (0...grid.rows).map { grid[column, $0].position }
+                points: (0...grid.rows).map {
+                    presentationPoint(grid, column: column, row: $0)
+                }
             )
         }
         for row in 0..<grid.rows {
             appendLineStrip(
                 to: row.isMultiple(of: 4) ? highlight : regular,
-                points: (0...grid.columns).map { grid[$0, row].position }
+                points: (0...grid.columns).map {
+                    presentationPoint(grid, column: $0, row: row)
+                }
             )
         }
         addShape(path: regular, stroke: color, alpha: alpha, lineWidth: 1)
@@ -292,13 +322,17 @@ final class GridRenderer {
         for row in 0..<grid.rows {
             appendLineStrip(
                 to: orthogonal,
-                points: (0...grid.columns).map { grid[$0, row].position }
+                points: (0...grid.columns).map {
+                    presentationPoint(grid, column: $0, row: row)
+                }
             )
         }
         for column in 0..<grid.columns {
             appendLineStrip(
                 to: orthogonal,
-                points: (0...grid.rows).map { grid[column, $0].position }
+                points: (0...grid.rows).map {
+                    presentationPoint(grid, column: column, row: $0)
+                }
             )
         }
         addShape(path: orthogonal, stroke: color, alpha: alpha, lineWidth: 2)
@@ -560,7 +594,12 @@ final class GridRenderer {
         let path = CGMutablePath()
         guard grid.rows > 1 else { return }
         for row in 1..<grid.rows {
-            appendLineStrip(to: path, points: (0...grid.columns).map { grid[$0, row].position })
+            appendLineStrip(
+                to: path,
+                points: (0...grid.columns).map {
+                    presentationPoint(grid, column: $0, row: row)
+                }
+            )
         }
         addShape(path: path, stroke: color, alpha: alpha, lineWidth: 16)
     }
@@ -633,7 +672,7 @@ final class GridRenderer {
             var column = startColumn
             var row = 0
             while column <= grid.columns, row <= grid.rows {
-                points.append(grid[column, row].position)
+                points.append(presentationPoint(grid, column: column, row: row))
                 column += 1
                 row += 1
             }
@@ -645,7 +684,7 @@ final class GridRenderer {
                 var column = 0
                 var row = startRow
                 while column <= grid.columns, row <= grid.rows {
-                    points.append(grid[column, row].position)
+                    points.append(presentationPoint(grid, column: column, row: row))
                     column += 1
                     row += 1
                 }
@@ -657,7 +696,7 @@ final class GridRenderer {
             var column = startColumn
             var row = 0
             while column >= 0, row <= grid.rows {
-                points.append(grid[column, row].position)
+                points.append(presentationPoint(grid, column: column, row: row))
                 column -= 1
                 row += 1
             }
@@ -669,7 +708,7 @@ final class GridRenderer {
                 var column = grid.columns
                 var row = startRow
                 while column >= 0, row <= grid.rows {
-                    points.append(grid[column, row].position)
+                    points.append(presentationPoint(grid, column: column, row: row))
                     column -= 1
                     row += 1
                 }
@@ -692,7 +731,9 @@ final class GridRenderer {
         ) {
             let point = grid[column, row]
             result.append(RGBSpiralVertex(
-                position: point.position,
+                position: point.presentationPosition(
+                    interpolationAlpha: presentationInterpolationAlpha
+                ),
                 origin: point.origin,
                 redDisplacementAxis: axis
             ))
@@ -731,11 +772,21 @@ final class GridRenderer {
         row: Int
     ) -> [CGPoint] {
         [
-            grid[column, row].position,
-            grid[column + 1, row].position,
-            grid[column + 1, row + 1].position,
-            grid[column, row + 1].position,
+            presentationPoint(grid, column: column, row: row),
+            presentationPoint(grid, column: column + 1, row: row),
+            presentationPoint(grid, column: column + 1, row: row + 1),
+            presentationPoint(grid, column: column, row: row + 1),
         ]
+    }
+
+    private func presentationPoint(
+        _ grid: GridSimulation,
+        column: Int,
+        row: Int
+    ) -> CGPoint {
+        grid[column, row].presentationPosition(
+            interpolationAlpha: presentationInterpolationAlpha
+        )
     }
 
     private func stretchIntensity(_ points: [CGPoint], spacing: CGFloat) -> CGFloat {
@@ -810,7 +861,8 @@ final class GridRenderer {
         antialiased: Bool = true
     ) {
         guard !path.isEmpty else { return }
-        let shape = SKShapeNode(path: path)
+        let shape = reusableShapeNode()
+        shape.path = path
         shape.strokeColor = stroke
         shape.fillColor = fill
         shape.alpha = max(0, min(1, alpha))
@@ -818,9 +870,48 @@ final class GridRenderer {
         shape.glowWidth = glowWidth
         shape.isAntialiased = antialiased
         shape.blendMode = .add
-        if pixelAlignedStroke {
-            shape.position = OriginalLineRasterRule.scenePixelCenter(.zero)
+        shape.position = pixelAlignedStroke
+            ? OriginalLineRasterRule.scenePixelCenter(.zero)
+            : .zero
+    }
+
+    private func reusableShapeNode() -> SKShapeNode {
+        if reusableNodeIndex < reusableNodes.count,
+           let shape = reusableNodes[reusableNodeIndex] as? SKShapeNode {
+            reusableNodeIndex += 1
+            shape.isHidden = false
+            return shape
         }
-        node.addChild(shape)
+
+        let shape = SKShapeNode()
+        insertReusableNode(shape)
+        return shape
+    }
+
+    private func reusableSpriteNode() -> SKSpriteNode {
+        if reusableNodeIndex < reusableNodes.count,
+           let sprite = reusableNodes[reusableNodeIndex] as? SKSpriteNode {
+            reusableNodeIndex += 1
+            sprite.isHidden = false
+            return sprite
+        }
+
+        let sprite = SKSpriteNode()
+        insertReusableNode(sprite)
+        return sprite
+    }
+
+    private func insertReusableNode(_ child: SKNode) {
+        if reusableNodeIndex < reusableNodes.count {
+            // A style's node type/order is stable. This only handles a changed
+            // grid topology defensively without leaking the previous node's
+            // SpriteKit render state into the new slot.
+            let replaced = reusableNodes.remove(at: reusableNodeIndex)
+            replaced.removeFromParent()
+        }
+        reusableNodes.insert(child, at: reusableNodeIndex)
+        node.insertChild(child, at: reusableNodeIndex)
+        reusableNodeIndex += 1
+        child.isHidden = false
     }
 }

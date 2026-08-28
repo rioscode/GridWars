@@ -3,7 +3,28 @@ import CoreGraphics
 struct GridPointState: Equatable {
     let origin: CGPoint
     var position: CGPoint
+    var previousPosition: CGPoint
     var velocity = CGVector.zero
+
+    init(
+        origin: CGPoint,
+        position: CGPoint,
+        velocity: CGVector = .zero,
+        previousPosition: CGPoint? = nil
+    ) {
+        self.origin = origin
+        self.position = position
+        self.previousPosition = previousPosition ?? position
+        self.velocity = velocity
+    }
+
+    func presentationPosition(interpolationAlpha: CGFloat) -> CGPoint {
+        OriginalPresentationRule.interpolate(
+            from: previousPosition,
+            to: position,
+            alpha: interpolationAlpha
+        )
+    }
 }
 
 struct GridSimulation: Equatable {
@@ -66,7 +87,11 @@ struct GridSimulation: Equatable {
                         x: source.position.x + offset.x,
                         y: source.position.y + offset.y
                     ),
-                    velocity: source.velocity
+                    velocity: source.velocity,
+                    previousPosition: CGPoint(
+                        x: source.previousPosition.x + offset.x,
+                        y: source.previousPosition.y + offset.y
+                    )
                 ))
             }
         }
@@ -86,7 +111,14 @@ struct GridSimulation: Equatable {
     mutating func reset() {
         for index in points.indices {
             points[index].position = points[index].origin
+            points[index].previousPosition = points[index].origin
             points[index].velocity = .zero
+        }
+    }
+
+    mutating func beginPresentationStep() {
+        for index in points.indices {
+            points[index].previousPosition = points[index].position
         }
     }
 
