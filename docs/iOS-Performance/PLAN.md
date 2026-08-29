@@ -20,21 +20,27 @@ The immutable starting point is commit `aac3d9c`, tagged
 - [x] Five projectile-focused reference captures remain inside the accepted
       visual boundary (`0.00339833...0.00385059` normalized mean grayscale
       difference from the original).
-- [ ] Three Release measurements on the same physical iPhone.
+- [x] Three current-release measurements on the same physical iPhone.
+- [x] Representative one-millisecond Time Profiler samples and a separate
+      30-second Allocations trace.
 - [ ] Measured Phase 1 before/after CPU and allocation comparison.
 
-The benchmark launches successfully in Release, but no device performance
-number is recorded yet. LaunchServices selected an older registered macOS app
-during the first Instruments attempt, so that trace is not valid evidence for
-this phase. The physical-iPhone runs are the next measurement checkpoint.
+The three wired iPhone 17 Pro Max runs measure only 13.99–16.79 presentation
+updates per second. Median display spacing is about 66.7 ms, projectile work
+alone takes about 16.2–16.4 ms per fixed step, and almost every display update
+must catch up three or four fixed steps. The allocation trace records 1.22 GiB
+and 21.27 million heap allocations in 30.852 seconds. Full evidence is in
+`MEASUREMENTS-2026-08-30.md`. All runs remained at the same `Fair` thermal
+state; USB profiling did not return the device to `Nominal` after idle cooling.
 
 ## Observed scaling risks
 
-1. `GameScene.updateProjectiles()` advances as many as 500 projectiles twice per
-   fixed step. Each half-step currently rebuilds filtered enemy arrays for each
-   enemy kind, scans generators and Snake nodes, and filters Black Holes again
-   for deflection. In the stable worst case this can exceed 10,000 complete
-   enemy-list traversals and temporary arrays per fixed step.
+1. Phase 1 removed repeated enemy-list filtering, but the measured collision
+   path still processes every Green Square against every projectile in source
+   order. `runGreenSquare` repeatedly bridges velocity through
+   `NSMutableDictionary` and boxes `NSNumber` values. It accounts for 47.07%
+   of representative main-thread samples and 224.32 MB of allocations in the
+   30-second allocation trace.
 2. Each surviving projectile half-step calls `GridSimulation.push()`, which
    visits a 7x7 point neighborhood. Five hundred projectiles can therefore
    produce about 49,000 Grid-point checks per fixed step.
@@ -88,7 +94,16 @@ allocation rate, node count, and draw count.
 Verification: focused projectile tests, the full macOS test suite, both app
 builds, and the complete capture catalog where available.
 
-### Phase 2: Grid work
+### Phase 2: typed projectile and Green Square state
+
+- Load projectile velocity once per half-step and pass it into collision and
+  Black-Hole handling instead of reading and boxing dictionary values again.
+- Store projectile and Green Square live velocity in typed Swift state.
+- Add a source-equivalent predicted-danger distance gate before Green Square
+  velocity mutation while preserving projectile-list order.
+- Repeat the three physical-device traces and the focused projectile captures.
+
+### Phase 3: Grid and GPU work
 
 - Measure `GridSimulation.push()` separately from `GridRenderer` path creation.
 - Add a source-ordered batch API for projectile Grid impulses if simulation is
@@ -99,7 +114,7 @@ builds, and the complete capture catalog where available.
   narrowly scoped iOS Metal Grid pass. Do not adopt Metal without updating the
   architecture decision and passing the capture boundary.
 
-### Phase 3: particle presentation
+### Phase 4: particle presentation
 
 - Compare the current `SKShapeNode` line with a shared-texture
   `SKSpriteNode` strip while retaining individual colour, alpha, additive
@@ -108,7 +123,7 @@ builds, and the complete capture catalog where available.
 - Consider an instanced Metal particle pass only if the SpriteKit result is
   still outside the frame budget and visual parity can be demonstrated.
 
-### Phase 4: entity state and interpolation
+### Phase 5: entity state and interpolation
 
 - Move projectile velocity and previous/current transforms out of
   `NSMutableDictionary` into compact Swift value state.

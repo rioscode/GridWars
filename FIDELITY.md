@@ -617,8 +617,18 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   enemy-tree count changes. macOS Debug/Release and generic iOS Simulator Debug
   builds pass, as do all 141 macOS tests. The five focused projectile captures
   measure `0.00339833...0.00385059` normalized mean grayscale difference from
-  the original references. Physical-iPhone Release measurements are still
-  required, so no CPU or allocation improvement percentage is accepted yet.
+  the original references. Three wired iPhone 17 Pro Max Release runs now
+  measure 13.99–16.79 presentation updates per second, roughly 66.7-ms median
+  display spacing, and three to four fixed steps per display update.
+  Projectile work takes about 16.2–16.4 ms p50 per fixed step and accounts for
+  91.71% of the representative main-thread samples; Green Square avoidance
+  accounts for 47.07%. A 30.852-second Allocations trace records 1.22 GiB and
+  21.27 million heap allocations, with 224.32 MB below Green Square avoidance.
+  GPU-frame p95 is 30.1–30.8 ms. The device stayed at `Fair` thermal state
+  during all three USB runs. The current implementation therefore does not
+  meet the dynamic performance acceptance boundary. No Phase-1 improvement
+  percentage is accepted because the immutable baseline predates the benchmark
+  harness.
 
 ## Core loop and progression
 
@@ -754,8 +764,11 @@ the corresponding Swift implementation, and a test or visual/runtime check.
       persistence, checksums, and deterministic entity transitions.
 - [x] The macOS app/test action and generic iOS Simulator build pass with
       Swift 6 strict concurrency.
-- [ ] Three physical-iPhone Release benchmark runs establish p50/p95 display
-      intervals and Phase-1 CPU/allocation changes.
+- [x] Three physical-iPhone current-release benchmark runs establish p50/p95
+      display, fixed-step, main-thread CPU, and GPU intervals; a separate
+      Allocations trace establishes current heap churn.
+- [ ] A benchmark-compatible pre-Phase-1 build establishes the before/after
+      CPU and allocation change.
 - [x] Automated capture scenes cover each entity, grid style, power-up, HUD,
       and menu state.
 - [x] Interactive macOS smoke testing covers attract start, Get Ready, live

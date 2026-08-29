@@ -251,8 +251,9 @@ commit:
       signposts and optional SpriteKit FPS/node/draw/quad counters
 - [x] Projectile collision candidates classified once per update and reused
       across all projectile half-steps, preserving source kind and list order
-- [ ] Three physical-iPhone Release measurements and a measured Phase-1
-      before/after CPU and allocation comparison
+- [x] Three physical-iPhone current-release Game Performance measurements plus
+      a 30-second Allocations trace
+- [ ] Measured Phase-1 before/after CPU and allocation comparison
 - [x] Default-off macOS Metal prototype for Grid style 1 and Particle style 1,
       with SpriteKit fallback and an unchanged SpriteKit-only iOS path
 
@@ -337,7 +338,17 @@ unchanged.
 The macOS Debug and Release builds, generic iOS Simulator Debug build, and all
 141 macOS tests pass. Five focused projectile captures measure
 `0.00339833...0.00385059` normalized mean grayscale difference from the
-original references, within the established accepted boundary. Three physical
-iPhone Release runs and the before/after Instruments comparison remain open;
-no percentage improvement is claimed until those measurements exist. The
-detailed measurement and follow-up plan is in `docs/iOS-Performance/PLAN.md`.
+original references, within the established accepted boundary.
+
+Three wired iPhone 17 Pro Max Release runs now show 13.99–16.79 presentation
+updates per second, median display spacing near 66.7 ms, and three to four
+fixed simulation steps per display update. Projectile work measures about
+16.2–16.4 ms p50 per fixed step and accounts for 91.71% of representative
+main-thread samples; Green Square avoidance alone accounts for 47.07%. A
+separate 30.852-second Allocations trace records 1.22 GiB and 21.27 million
+heap allocations, including 224.32 MB below Green Square avoidance. GPU frame
+p95 is 30.1–30.8 ms. All three runs remained at the same `Fair` thermal state.
+The before/after percentage remains open because the immutable baseline
+predates the benchmark harness. Detailed evidence and the revised priority are
+in `docs/iOS-Performance/MEASUREMENTS-2026-08-30.md` and
+`docs/iOS-Performance/PLAN.md`.
