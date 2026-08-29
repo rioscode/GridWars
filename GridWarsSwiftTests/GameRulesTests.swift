@@ -688,6 +688,47 @@ final class GameRulesTests: XCTestCase {
         XCTAssertEqual(result.movementLimit, .unit)
     }
 
+    func testMobileTouchControlsUseWideIPhoneSideGutters() {
+        let layout = MobileTouchControlsLayout.resolve(
+            sceneSize: CGSize(width: 1_024, height: 768),
+            viewSize: CGSize(width: 2_868, height: 1_320)
+        )
+
+        XCTAssertTrue(layout.usesSideGutters)
+        XCTAssertLessThan(layout.movementStickCenter.x, 0)
+        XCTAssertGreaterThan(layout.aimingStickCenter.x, 1_024)
+        XCTAssertLessThan(layout.optionsButtonCenter.x, 0)
+        XCTAssertGreaterThan(layout.bombButtonCenter.x, 1_024)
+        XCTAssertEqual(
+            layout.stickSide(at: CGPoint(x: -10, y: 300), sceneWidth: 1_024),
+            .movement
+        )
+        XCTAssertEqual(
+            layout.stickSide(at: CGPoint(x: 1_034, y: 300), sceneWidth: 1_024),
+            .aiming
+        )
+        XCTAssertNil(layout.stickSide(at: CGPoint(x: 512, y: 300), sceneWidth: 1_024))
+    }
+
+    func testMobileTouchControlsKeepFloatingFallbackWithoutUsableGutters() {
+        let layout = MobileTouchControlsLayout.resolve(
+            sceneSize: CGSize(width: 1_024, height: 768),
+            viewSize: CGSize(width: 2_048, height: 1_536)
+        )
+
+        XCTAssertFalse(layout.usesSideGutters)
+        XCTAssertEqual(layout.optionsButtonCenter, CGPoint(x: 48, y: 716))
+        XCTAssertEqual(layout.bombButtonCenter, CGPoint(x: 962, y: 72))
+        XCTAssertEqual(
+            layout.stickSide(at: CGPoint(x: 400, y: 300), sceneWidth: 1_024),
+            .movement
+        )
+        XCTAssertEqual(
+            layout.stickSide(at: CGPoint(x: 600, y: 300), sceneWidth: 1_024),
+            .aiming
+        )
+    }
+
     func testControllerMenusCaptureKeysButtonsAndCalibrationValues() {
         var menu = OriginalMenuModel()
         menu.open(duringGame: false)

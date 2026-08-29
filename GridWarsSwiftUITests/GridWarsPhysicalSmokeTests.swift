@@ -13,25 +13,25 @@ final class GridWarsPhysicalSmokeTests: XCTestCase {
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 15))
         recordScreenshot(named: "01-attract")
 
-        let bomb = app.coordinate(withNormalizedOffset: CGVector(dx: 0.77, dy: 0.90))
+        let bomb = app.coordinate(withNormalizedOffset: CGVector(dx: 0.90, dy: 0.92))
         bomb.tap()
         Thread.sleep(forTimeInterval: 4)
         assertLandscapeScreen(named: "02-playing")
 
         drag(
             in: app,
-            from: CGVector(dx: 0.38, dy: 0.62),
-            to: CGVector(dx: 0.43, dy: 0.56)
+            from: CGVector(dx: 0.10, dy: 0.62),
+            to: CGVector(dx: 0.14, dy: 0.56)
         )
         drag(
             in: app,
-            from: CGVector(dx: 0.62, dy: 0.62),
-            to: CGVector(dx: 0.69, dy: 0.55)
+            from: CGVector(dx: 0.90, dy: 0.62),
+            to: CGVector(dx: 0.95, dy: 0.55)
         )
         bomb.tap()
         recordScreenshot(named: "03-touch-and-bomb")
 
-        app.coordinate(withNormalizedOffset: CGVector(dx: 0.22, dy: 0.07)).tap()
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.10, dy: 0.08)).tap()
         Thread.sleep(forTimeInterval: 1)
         recordScreenshot(named: "04-options")
         app.coordinate(withNormalizedOffset: CGVector(dx: 0.50, dy: 0.62)).tap()

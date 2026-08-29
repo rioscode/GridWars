@@ -29,6 +29,85 @@ struct OriginalResolvedInput: Equatable {
     var movementLimit = OriginalMovementLimit.unit
 }
 
+struct MobileTouchControlsLayout: Equatable {
+    static let minimumSideGutterWidth: CGFloat = 120
+
+    var usesSideGutters: Bool
+    var movementStickCenter: CGPoint
+    var aimingStickCenter: CGPoint
+    var optionsButtonCenter: CGPoint
+    var bombButtonCenter: CGPoint
+
+    static func resolve(sceneSize: CGSize, viewSize: CGSize) -> Self {
+        guard sceneSize.width > 0, sceneSize.height > 0,
+              viewSize.width > 0, viewSize.height > 0 else {
+            return fallback(sceneSize: sceneSize)
+        }
+
+        let scale = min(
+            viewSize.width / sceneSize.width,
+            viewSize.height / sceneSize.height
+        )
+        let visibleSceneWidth = viewSize.width / scale
+        let sideGutterWidth = max(0, (visibleSceneWidth - sceneSize.width) / 2)
+        guard sideGutterWidth >= minimumSideGutterWidth else {
+            return fallback(sceneSize: sceneSize)
+        }
+
+        let stickY = sceneSize.height * 0.38
+        return Self(
+            usesSideGutters: true,
+            movementStickCenter: CGPoint(x: -sideGutterWidth / 2, y: stickY),
+            aimingStickCenter: CGPoint(
+                x: sceneSize.width + sideGutterWidth / 2,
+                y: stickY
+            ),
+            optionsButtonCenter: CGPoint(
+                x: -sideGutterWidth / 2,
+                y: sceneSize.height - 64
+            ),
+            bombButtonCenter: CGPoint(
+                x: sceneSize.width + sideGutterWidth / 2,
+                y: 64
+            )
+        )
+    }
+
+    func stickSide(at location: CGPoint, sceneWidth: CGFloat) -> MobileTouchStickSide? {
+        if usesSideGutters {
+            if location.x < 0 { return .movement }
+            if location.x > sceneWidth { return .aiming }
+            return nil
+        }
+        return location.x < sceneWidth / 2 ? .movement : .aiming
+    }
+
+    private static func fallback(sceneSize: CGSize) -> Self {
+        Self(
+            usesSideGutters: false,
+            movementStickCenter: CGPoint(x: sceneSize.width * 0.25, y: sceneSize.height * 0.38),
+            aimingStickCenter: CGPoint(x: sceneSize.width * 0.75, y: sceneSize.height * 0.38),
+            optionsButtonCenter: CGPoint(x: 48, y: sceneSize.height - 52),
+            bombButtonCenter: CGPoint(x: sceneSize.width - 62, y: 72)
+        )
+    }
+}
+
+enum MobileTouchStickSide: Equatable {
+    case movement
+    case aiming
+}
+
+struct MobileTouchControlsPresentation: Equatable {
+    var layout: MobileTouchControlsLayout
+    var showsMovementStick: Bool
+    var showsAimingStick: Bool
+    var showsOptionsButton: Bool
+    var showsBombButton: Bool
+    var movementVector: CGVector
+    var aimingVector: CGVector
+}
+
 struct OriginalHighScoreControllerInput: Equatable {
     var moveX: CGFloat
     var moveY: CGFloat

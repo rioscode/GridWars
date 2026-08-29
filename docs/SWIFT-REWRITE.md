@@ -647,6 +647,17 @@ source key/button semantics; do not hard-code Space/Escape as the only BOMB or
 OPTION paths. iOS touch controls are a platform equivalent layered over the
 same shared actions.
 
+The 4:3 scene leaves horizontal aspect-fit gutters on widescreen iPhones. Use
+those gutters for fixed movement/aim sticks and BOMB/OPT whenever each side is
+at least 120 scene points wide; do not claim touches inside the playfield in
+that mode. Keep the floating half-screen sticks as the fallback for 4:3 iPads
+and narrower layouts. SpriteKit receives touches whose converted scene X lies
+outside `0...1024`, but clips nodes outside the scene frame. Therefore render
+the gutter controls in a touch-transparent UIKit overlay above `SKView`, while
+leaving input ownership and vector calculation in `GameScene`. Convert overlay
+positions with the same aspect-fit scale and invert scene Y only at the UIKit
+boundary.
+
 High-score input has its own legacy rules. Direct typing accepts the source
 key-code interval 48...90, lowercases A...Z unless Shift is held, and advances
 the selected slot. Movement Y cycles ASCII, movement X selects a slot, fire Y

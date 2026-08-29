@@ -120,7 +120,8 @@ commit:
 
 - [x] Shared SwiftUI/SpriteKit app sources
 - [x] macOS keyboard and mouse input
-- [x] iOS twin-stick touch input
+- [x] iOS twin-stick touch input, including fixed side-gutter controls on
+      widescreen iPhones and the floating 4:3 fallback
 - [x] All five original control modes and all three Hybrid configurations
 - [x] Apple controller ports, button remapping, axis mapping, and calibration
 - [x] Core combat, scoring, lives, bombs, enemies, and power-ups
@@ -142,7 +143,7 @@ commit:
       plus iPhone persistence, lifecycle, and exit validation
 - [x] Physical iPhone 17 Pro Max gameplay, touch, menu, lifecycle, and
       persistence smoke test on iOS 26.6
-- [x] 139 gameplay, input, persistence, audio, rendering, interpolation, and
+- [x] 141 gameplay, input, persistence, audio, rendering, interpolation, and
       Metal-prototype unit tests
 - [x] macOS launch and rendering smoke test
 - [x] Deterministic 136-state Swift capture catalog at 1024×768

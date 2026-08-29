@@ -479,8 +479,12 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   buttons, four-button/D-pad swap, axis formula, paired dead zones and port
   behavior. Apple GameController supplies 15 legacy axis slots and 16 button
   slots; macOS events translate to the original 8...255 key namespace; iOS
-  twin sticks feed the same movement/weapon rules. Nine focused rule tests
-  cover the modes, remapping, calibration, and touch equivalence.
+  twin sticks feed the same movement/weapon rules. Widescreen iPhones place
+  both fixed sticks plus BOMB and OPT in the aspect-fit side gutters through a
+  touch-transparent UIKit overlay, while 4:3 layouts retain floating SpriteKit
+  sticks. Touches inside the iPhone playfield no longer claim a stick. Eleven
+  focused rule tests cover the modes, remapping, calibration, touch
+  equivalence, and adaptive mobile layout.
 - Language semantics: `docs/bb/blitzmax-ng/brl/random.mod/random.bmx` confirms
   inclusive integer `Rand`, upper-exclusive floating-point `Rnd`, and the
   Park–Miller state plus two-state `RndDouble` construction. The Swift
@@ -596,6 +600,13 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   read-only CoreDevice check of the app container found the emitted 280-line
   `Config.txt`, 76-line `Colours.txt`, and 150-line `hiscores.dat` in
   `Library/Application Support/GridWars`.
+- Widescreen iPhone control evidence (2026-08-30): the iPhone 17 Pro simulator
+  completed the 24.307-second touch/lifecycle UI test with zero failures after
+  moving BOMB, OPT, movement, and aim input into the two aspect-fit side
+  gutters. Seven retained screenshots were inspected: attract mode shows BOMB
+  and OPT in the black bars, gameplay shows both fixed sticks outside the
+  1024×768 playfield, and the Options page hides the overlay. The generic iOS
+  Simulator build and all 141 macOS rule tests also pass.
 
 ## Core loop and progression
 
@@ -698,7 +709,8 @@ the corresponding Swift implementation, and a test or visual/runtime check.
 - [x] Autofire, remappable keys/buttons, axes, inversion, scale, center, dead
       zones, joystick port selection, and calibration.
 - [x] macOS keyboard/mouse/controller equivalents.
-- [x] iPhone/iPad touch equivalents without changing gameplay rules.
+- [x] iPhone/iPad touch equivalents without changing gameplay rules, including
+      fixed side-gutter controls on widescreen iPhones and floating 4:3 sticks.
 
 ## Persistence and data compatibility
 

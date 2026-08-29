@@ -264,6 +264,12 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private var aimingTouch: UITouch?
     private var movementTouchOrigin = CGPoint.zero
     private var aimingTouchOrigin = CGPoint.zero
+    private var touchAimDisplayVector = CGVector.zero
+    private var touchControlsLayout = MobileTouchControlsLayout.resolve(
+        sceneSize: CGSize(width: 1_024, height: 768),
+        viewSize: CGSize(width: 1_024, height: 768)
+    )
+    var mobileTouchControlsDidChange: ((MobileTouchControlsPresentation) -> Void)?
     #endif
 
     override init(size: CGSize) {
@@ -525,6 +531,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         aimingStick.isHidden = true
         bombButton.isHidden = !showsButtons
         optionsButton.isHidden = !showsButtons
+        publishMobileTouchControls()
         #else
         hudLayer.isHidden = true
         #endif
@@ -535,12 +542,45 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         hudLayer.zPosition = 100
         hudRenderer.node.isHidden = false
         #if os(iOS)
-        movementStick.isHidden = false
-        aimingStick.isHidden = false
+        movementStick.isHidden = !touchControlsLayout.usesSideGutters && movementTouch == nil
+        aimingStick.isHidden = !touchControlsLayout.usesSideGutters && aimingTouch == nil
         bombButton.isHidden = false
         optionsButton.isHidden = false
+        publishMobileTouchControls()
         #endif
     }
+
+    #if os(iOS)
+    func updateTouchControlLayout(viewSize: CGSize) {
+        let layout = MobileTouchControlsLayout.resolve(sceneSize: size, viewSize: viewSize)
+        guard layout != touchControlsLayout else { return }
+        touchControlsLayout = layout
+        movementStick.position = layout.movementStickCenter
+        aimingStick.position = layout.aimingStickCenter
+        optionsButton.position = layout.optionsButtonCenter
+        bombButton.position = layout.bombButtonCenter
+
+        if screenFlow.phase == .playing || screenFlow.phase == .gameOver {
+            movementStick.isHidden = !layout.usesSideGutters && movementTouch == nil
+            aimingStick.isHidden = !layout.usesSideGutters && aimingTouch == nil
+        }
+        publishMobileTouchControls()
+    }
+
+    func publishMobileTouchControls() {
+        mobileTouchControlsDidChange?(
+            MobileTouchControlsPresentation(
+                layout: touchControlsLayout,
+                showsMovementStick: !hudLayer.isHidden && !movementStick.isHidden,
+                showsAimingStick: !hudLayer.isHidden && !aimingStick.isHidden,
+                showsOptionsButton: !hudLayer.isHidden && !optionsButton.isHidden,
+                showsBombButton: !hudLayer.isHidden && !bombButton.isHidden,
+                movementVector: touchMovement,
+                aimingVector: touchAimDisplayVector
+            )
+        )
+    }
+    #endif
 
     private func restartGame() {
         enemyLayer.removeAllChildren()
@@ -582,6 +622,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         messageLabel.isHidden = true
         touchMovement = .zero
         touchAim = .zero
+        #if os(iOS)
+        touchAimDisplayVector = .zero
+        #endif
         relativeMouseMovement = .zero
         mouseButtons.removeAll()
         currentAim = CGVector(dx: 0, dy: 1)
@@ -6361,6 +6404,11 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             audio.play(.gameOver)
         } else {
             touchAim = .zero
+            #if os(iOS)
+            touchAimDisplayVector = .zero
+            aimingStick.update(vector: .zero)
+            publishMobileTouchControls()
+            #endif
             inputResolver.reset()
             frameInput = OriginalResolvedInput()
             startGetReadySequence()
@@ -6808,6 +6856,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         }
         menuModel.open(duringGame: duringGame)
         hudLayer.isHidden = true
+        #if os(iOS)
+        publishMobileTouchControls()
+        #endif
         menuPresentationPage = .options
         menuPresentationFrame = 0
         mouseButtons.removeAll()
@@ -6950,14 +7001,31 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 openOptions()
             } else if bombButton.contains(location) {
                 triggerBomb()
-            } else if location.x < size.width / 2, movementTouch == nil {
-                movementTouch = touch
-                movementTouchOrigin = location
-                movementStick.show(at: location)
-            } else if aimingTouch == nil {
-                aimingTouch = touch
-                aimingTouchOrigin = location
-                aimingStick.show(at: location)
+            } else {
+                switch touchControlsLayout.stickSide(at: location, sceneWidth: size.width) {
+                case .movement where movementTouch == nil:
+                    movementTouch = touch
+                    movementTouchOrigin = touchControlsLayout.usesSideGutters
+                        ? touchControlsLayout.movementStickCenter
+                        : location
+                    touchMovement = stickVector(from: movementTouchOrigin, to: location)
+                    movementStick.show(at: movementTouchOrigin)
+                    movementStick.update(vector: touchMovement)
+                    publishMobileTouchControls()
+                case .aiming where aimingTouch == nil:
+                    aimingTouch = touch
+                    aimingTouchOrigin = touchControlsLayout.usesSideGutters
+                        ? touchControlsLayout.aimingStickCenter
+                        : location
+                    let vector = stickVector(from: aimingTouchOrigin, to: location)
+                    touchAim = vector.normalized
+                    touchAimDisplayVector = vector
+                    aimingStick.show(at: aimingTouchOrigin)
+                    aimingStick.update(vector: vector)
+                    publishMobileTouchControls()
+                case .movement, .aiming, nil:
+                    break
+                }
             }
         }
     }
@@ -6968,9 +7036,13 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             if touch === movementTouch {
                 touchMovement = stickVector(from: movementTouchOrigin, to: location)
                 movementStick.update(vector: touchMovement)
+                publishMobileTouchControls()
             } else if touch === aimingTouch {
-                touchAim = stickVector(from: aimingTouchOrigin, to: location).normalized
-                aimingStick.update(vector: stickVector(from: aimingTouchOrigin, to: location))
+                let vector = stickVector(from: aimingTouchOrigin, to: location)
+                touchAim = vector.normalized
+                touchAimDisplayVector = vector
+                aimingStick.update(vector: vector)
+                publishMobileTouchControls()
             }
         }
     }
@@ -6988,13 +7060,15 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             if touch === movementTouch {
                 movementTouch = nil
                 touchMovement = .zero
-                movementStick.hide()
+                movementStick.reset(remainsVisible: touchControlsLayout.usesSideGutters)
             } else if touch === aimingTouch {
                 aimingTouch = nil
                 touchAim = .zero
-                aimingStick.hide()
+                touchAimDisplayVector = .zero
+                aimingStick.reset(remainsVisible: touchControlsLayout.usesSideGutters)
             }
         }
+        publishMobileTouchControls()
     }
 
     private func stickVector(from origin: CGPoint, to location: CGPoint) -> CGVector {
@@ -7038,8 +7112,8 @@ private final class VirtualStickNode: SKNode {
         knob.position = CGPoint(x: vector.dx * 42, y: vector.dy * 42)
     }
 
-    func hide() {
-        isHidden = true
+    func reset(remainsVisible: Bool) {
+        isHidden = !remainsVisible
         knob.position = .zero
     }
 }
