@@ -247,6 +247,12 @@ commit:
       simulation, including camera-relative stars and particle velocity
 - [x] Pooled reusable SpriteKit particle geometry, retaining per-particle
       colour and source-ordered additive overlap instead of compound batching
+- [x] Deterministic dynamic iOS performance benchmark with points-of-interest
+      signposts and optional SpriteKit FPS/node/draw/quad counters
+- [x] Projectile collision candidates classified once per update and reused
+      across all projectile half-steps, preserving source kind and list order
+- [ ] Three physical-iPhone Release measurements and a measured Phase-1
+      before/after CPU and allocation comparison
 - [x] Default-off macOS Metal prototype for Grid style 1 and Particle style 1,
       with SpriteKit fallback and an unchanged SpriteKit-only iOS path
 
@@ -310,3 +316,28 @@ GPU p95 was `1.2332 ms` and `1.2986 ms` respectively. This single,
 vsync-limited run shows modest average CPU/GPU reductions but no material p95
 frame-pacing win; the GPU p95 did not improve. Maxima and display-wide FPS are
 not reliable decision inputs here.
+
+## iOS dynamic-performance phase 1 (2026-08-30)
+
+The immutable pre-optimization baseline is commit `aac3d9c`, tagged
+`pre-ios-performance-optimization`. The first implementation phase adds a
+deterministic `--ios-performance-benchmark` with 500 projectiles, a stable
+dense enemy mix, a deforming Grid, 2,048 particles, and points-of-interest
+signposts for display update, fixed simulation, projectile work, Grid render,
+and presentation render. `--performance-stats` exposes SpriteKit's FPS, node,
+draw, and quad counters.
+
+Projectile collision candidates are now classified once at the start of an
+update and reused for both half-steps of every projectile. The classification
+is rebuilt after synchronous enemy-tree count changes; removed nodes are
+ignored, while children spawned by a Cube split are visible to the next
+half-step. The original collision-kind priority and child-list order remain
+unchanged.
+
+The macOS Debug and Release builds, generic iOS Simulator Debug build, and all
+141 macOS tests pass. Five focused projectile captures measure
+`0.00339833...0.00385059` normalized mean grayscale difference from the
+original references, within the established accepted boundary. Three physical
+iPhone Release runs and the before/after Instruments comparison remain open;
+no percentage improvement is claimed until those measurements exist. The
+detailed measurement and follow-up plan is in `docs/iOS-Performance/PLAN.md`.

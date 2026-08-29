@@ -1,6 +1,7 @@
 @preconcurrency import SpriteKit
 @preconcurrency import ImageIO
 @preconcurrency import GameController
+import os
 
 #if os(iOS)
 import UIKit
@@ -60,6 +61,60 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         let playTime: String
         let difficulty: GameDifficulty
         let settings: String
+    }
+
+    private struct ProjectileCollisionCandidates {
+        private(set) var childCount: Int
+        private(set) var blackHoles: [SKNode] = []
+        private(set) var greenSquares: [SKNode] = []
+        private(set) var pinwheels: [SKNode] = []
+        private(set) var diamonds: [SKNode] = []
+        private(set) var cubes: [SKNode] = []
+        private(set) var seekers: [SKNode] = []
+        private(set) var triangles: [SKNode] = []
+        private(set) var interceptors: [SKNode] = []
+        private(set) var butterflies: [SKNode] = []
+        private(set) var generators: [SKNode] = []
+        private(set) var snakeNodes: [SKNode] = []
+
+        init(children: [SKNode]) {
+            childCount = children.count
+            classify(children)
+        }
+
+        mutating func refreshIfNeeded(from layer: SKNode) {
+            let children = layer.children
+            guard children.count != childCount else { return }
+            self = ProjectileCollisionCandidates(children: children)
+        }
+
+        private mutating func classify(_ children: [SKNode]) {
+            for child in children {
+                if child.name == "generator" {
+                    generators.append(child)
+                    continue
+                }
+                if child.name == "snakeTail" {
+                    snakeNodes.append(child)
+                    continue
+                }
+                guard child.name == "enemy",
+                      let rawKind = child.userData?["kind"] as? String,
+                      let kind = EnemyKind(rawValue: rawKind) else { continue }
+                switch kind {
+                case .blackHole: blackHoles.append(child)
+                case .greenSquare: greenSquares.append(child)
+                case .pinwheel: pinwheels.append(child)
+                case .diamond: diamonds.append(child)
+                case .cube: cubes.append(child)
+                case .seeker: seekers.append(child)
+                case .triangle: triangles.append(child)
+                case .interceptor: interceptors.append(child)
+                case .butterfly: butterflies.append(child)
+                case .snake: snakeNodes.append(child)
+                }
+            }
+        }
     }
 
     private enum Category {
@@ -209,6 +264,13 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private let effectsBenchmarkEnabled = ProcessInfo.processInfo.arguments.contains(
         "--effects-benchmark"
     )
+    private let iosPerformanceBenchmarkEnabled = ProcessInfo.processInfo.arguments.contains(
+        "--ios-performance-benchmark"
+    )
+    private let performanceSignpostLog = OSLog(
+        subsystem: "GridWars",
+        category: .pointsOfInterest
+    )
     private var captureWasWritten = false
 
     private var lastUpdateTime: TimeInterval = 0
@@ -307,7 +369,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
         physicsWorld.gravity = .zero
         physicsWorld.contactDelegate = nil
-        if captureRequest == nil, !effectsBenchmarkEnabled {
+        if captureRequest == nil, !effectsBenchmarkEnabled, !iosPerformanceBenchmarkEnabled {
             loadPersistentState()
         }
         audio.configure(settings: menuModel.settings)
@@ -319,6 +381,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         prepareAttractMode()
         if effectsBenchmarkEnabled {
             configureEffectsBenchmark()
+        } else if iosPerformanceBenchmarkEnabled {
+            configureIOSPerformanceBenchmark()
         } else {
             configureCaptureIfRequested(in: captureView)
         }
@@ -339,7 +403,10 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     func persistState() {
-        guard captureRequest == nil, !effectsBenchmarkEnabled, let persistenceStore else { return }
+        guard captureRequest == nil,
+              !effectsBenchmarkEnabled,
+              !iosPerformanceBenchmarkEnabled,
+              let persistenceStore else { return }
         let state = GridWarsPersistentState(
             settings: menuModel.settings,
             colours: colorPalette,
@@ -940,6 +1007,84 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             )
         }
         for _ in 0..<5 { particleSimulation.update() }
+        renderPresentation()
+    }
+
+    private func configureIOSPerformanceBenchmark() {
+        audio.stopMusic()
+        spawnRandom = BlitzMaxRandomNumberGenerator(seed: 1)
+        captureRandom = BlitzMaxRandomNumberGenerator(seed: 1)
+        prepareGameplayCapture()
+
+        menuModel.settings.gridStyle = GridStyle.pointsCycling.rawValue
+        menuModel.settings.particleStyle = 1
+        menuModel.settings.starCount = 0
+        menuModel.settings.particleCount = 2_048
+        menuModel.settings.soundEffectsVolume = 0
+        menuModel.settings.musicVolume = 0
+        applyRuntimeSettings()
+        godMode = true
+        session.grantCheatUpgrade(.superShots, frames: 1_000_000)
+        session.grantCheatUpgrade(.bouncyShots, frames: 1_000_000)
+
+        gridSimulation.pull(
+            at: CGPoint(x: playfieldSize.width * 0.7, y: playfieldSize.height / 2),
+            radiusInPoints: 18,
+            amount: 28
+        )
+
+        let benchmarkKinds: [EnemyKind] = [
+            .greenSquare, .pinwheel, .diamond, .cube,
+            .seeker, .triangle, .interceptor, .butterfly,
+        ]
+        for index in 0..<80 {
+            let column = index % 10
+            let row = index / 10
+            let enemy = spawnEnemy(
+                kind: benchmarkKinds[index % benchmarkKinds.count],
+                at: CGPoint(
+                    x: 32 + CGFloat(column) * 26,
+                    y: 80 + CGFloat(row) * 76
+                ),
+                freezeFrames: 1_000_000,
+                closeToPlayer: true,
+                playBornSound: false
+            )
+            enemy?.userData?["health"] = 1_000_000
+        }
+        for index in 0..<3 {
+            let blackHole = spawnEnemy(
+                kind: .blackHole,
+                at: CGPoint(x: 70 + CGFloat(index) * 85, y: 700),
+                freezeFrames: 1_000_000,
+                closeToPlayer: true,
+                playBornSound: false
+            )
+            blackHole?.userData?["blackHoleActive"] = true
+            blackHole?.userData?["blackHoleSize"] = 20.0
+        }
+
+        for index in 0..<500 {
+            let column = index % 25
+            let row = index / 25
+            let direction = CGVector(dx: 0, dy: row.isMultiple(of: 2) ? 1 : -1)
+            let projectile = spawnProjectile(direction: direction, speed: 2)
+            projectile?.position = CGPoint(
+                x: 400 + CGFloat(column) * 24,
+                y: 24 + CGFloat(row) * 36
+            )
+        }
+
+        particleSimulation.reset()
+        for index in 0..<2_048 {
+            emitParticles(
+                count: 1,
+                at: CGPoint(x: playfieldSize.width * 0.7, y: playfieldSize.height / 2),
+                kind: .radialBomb,
+                color: ParticleColor(red: 255, green: 180, blue: 32),
+                rotation: { _ in CGFloat(index) * 360 / 2_048 }
+            )
+        }
         renderPresentation()
     }
 
@@ -1706,8 +1851,16 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     override func update(_ currentTime: TimeInterval) {
+        if iosPerformanceBenchmarkEnabled {
+            os_signpost(.begin, log: performanceSignpostLog, name: "Display Update")
+        }
         isProcessingDisplayUpdate = true
-        defer { isProcessingDisplayUpdate = false }
+        defer {
+            isProcessingDisplayUpdate = false
+            if iosPerformanceBenchmarkEnabled {
+                os_signpost(.end, log: performanceSignpostLog, name: "Display Update")
+            }
+        }
         restoreAuthoritativePresentationState()
         if captureRequest != nil || effectsBenchmarkEnabled {
             renderPresentation()
@@ -1772,7 +1925,11 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 case .attract:
                     advanceAttractFrame()
                 case .playing:
-                    simulateFrame()
+                    if iosPerformanceBenchmarkEnabled {
+                        simulateIOSPerformanceBenchmarkFrame()
+                    } else {
+                        simulateFrame()
+                    }
                 case .gameOver:
                     advanceGameOverFrame()
                 }
@@ -2212,6 +2369,14 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     private func renderPresentation(interpolationAlpha: CGFloat = 1) {
+        if iosPerformanceBenchmarkEnabled {
+            os_signpost(.begin, log: performanceSignpostLog, name: "Presentation Render")
+        }
+        defer {
+            if iosPerformanceBenchmarkEnabled {
+                os_signpost(.end, log: performanceSignpostLog, name: "Presentation Render")
+            }
+        }
         presentationInterpolationAlpha = interpolationAlpha
         applyGraphicsSetIfNeeded()
         let cyclingColor = SKColor(
@@ -2600,6 +2765,26 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         simulationFrame += 1
     }
 
+    private func simulateIOSPerformanceBenchmarkFrame() {
+        os_signpost(.begin, log: performanceSignpostLog, name: "Fixed Simulation")
+        defer {
+            os_signpost(.end, log: performanceSignpostLog, name: "Fixed Simulation")
+        }
+
+        emitParticles(
+            count: 52,
+            at: CGPoint(x: playfieldSize.width * 0.7, y: playfieldSize.height / 2),
+            kind: .random,
+            color: ParticleColor(red: 255, green: 180, blue: 32)
+        )
+        updateParticleSimulation()
+        cycleColors()
+        cycleColors()
+        gridSimulation.update()
+        updateProjectiles()
+        simulationFrame += 1
+    }
+
     private func stopGameplayFrameForDeath() -> Bool {
         guard deathFramesRemaining > 0 else { return false }
         simulationFrame += 1
@@ -2855,6 +3040,14 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     private func renderGrid() {
+        if iosPerformanceBenchmarkEnabled {
+            os_signpost(.begin, log: performanceSignpostLog, name: "Grid Render")
+        }
+        defer {
+            if iosPerformanceBenchmarkEnabled {
+                os_signpost(.end, log: performanceSignpostLog, name: "Grid Render")
+            }
+        }
         let simulation: GridSimulation
         if menuModel.isOpen, menuModel.page == .video {
             let sourceOffset = CGPoint(x: size.width / 8, y: size.height / 8)
@@ -5028,7 +5221,17 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     private func updateProjectiles() {
+        if iosPerformanceBenchmarkEnabled {
+            os_signpost(.begin, log: performanceSignpostLog, name: "Projectiles")
+        }
+        defer {
+            if iosPerformanceBenchmarkEnabled {
+                os_signpost(.end, log: performanceSignpostLog, name: "Projectiles")
+            }
+        }
+
         let arena = playfieldSize
+        var collisionCandidates = ProjectileCollisionCandidates(children: enemyLayer.children)
         for projectile in projectileLayer.children {
             guard projectile.parent != nil else { continue }
             if let sprite = projectile as? SKSpriteNode {
@@ -5057,14 +5260,22 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 projectile.userData?["dx"] = velocity.dx
                 projectile.userData?["dy"] = velocity.dy
                 if !shouldRemove {
-                    let collided = checkProjectileCollisions(projectile)
+                    collisionCandidates.refreshIfNeeded(from: enemyLayer)
+                    let collided = checkProjectileCollisions(
+                        projectile,
+                        candidates: collisionCandidates
+                    )
                     shouldRemove = ProjectileUpgradeRule.collisionRemovesProjectile(
                         collided: collided,
                         superShotFrames: session.superShotFrames
                     )
                 }
                 if !shouldRemove {
-                    applyBlackHoles(toProjectile: projectile, velocity: &velocity)
+                    applyBlackHoles(
+                        toProjectile: projectile,
+                        velocity: &velocity,
+                        candidates: collisionCandidates.blackHoles
+                    )
                 }
 
                 velocity = ProjectileUpdateRule.enforceSourceMinimumSpeed(
@@ -5130,49 +5341,55 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         )
     }
 
-    private func checkProjectileCollisions(_ projectile: SKNode) -> Bool {
+    private func checkProjectileCollisions(
+        _ projectile: SKNode,
+        candidates: ProjectileCollisionCandidates
+    ) -> Bool {
         let position = projectile.position
 
-        for blackHole in enemies(of: .blackHole) {
+        for blackHole in candidates.blackHoles where blackHole.parent != nil {
             let blackHoleSize = CGFloat((blackHole.userData?["blackHoleSize"] as? NSNumber)?.doubleValue ?? 20)
             if squaredDistance(position, blackHole.position) < pow(12 + blackHoleSize / 2, 2) {
                 damageEnemy(blackHole, projectile: projectile)
                 return true
             }
         }
-        for square in enemies(of: .greenSquare) {
+        for square in candidates.greenSquares where square.parent != nil {
             if squaredDistance(position, square.position) < 16 * 16 + 2 * 2 {
                 damageEnemy(square, projectile: projectile)
                 return true
             }
             runGreenSquare(square, awayFrom: projectile)
         }
-        for pinwheel in enemies(of: .pinwheel) where squaredDistance(position, pinwheel.position) < 16 * 16 + 2 * 2 {
+        for pinwheel in candidates.pinwheels where pinwheel.parent != nil
+            && squaredDistance(position, pinwheel.position) < 16 * 16 + 2 * 2 {
             damageEnemy(pinwheel, projectile: projectile)
             return true
         }
-        for diamond in enemies(of: .diamond) where squaredDistance(position, diamond.position) < 18 * 18 + 3 * 3 {
+        for diamond in candidates.diamonds where diamond.parent != nil
+            && squaredDistance(position, diamond.position) < 18 * 18 + 3 * 3 {
             damageEnemy(diamond, projectile: projectile)
             return true
         }
-        for cube in enemies(of: .cube) {
+        for cube in candidates.cubes where cube.parent != nil {
             let tier = (cube.userData?["cubeTier"] as? NSNumber)?.intValue ?? 0
             if squaredDistance(position, cube.position) < CGFloat(16 * 16 + 3 * 3 - tier * 3) {
                 damageEnemy(cube, projectile: projectile)
                 return true
             }
         }
-        for seeker in enemies(of: .seeker) where squaredDistance(position, seeker.position) < 12 * 12 + 2 * 2 {
+        for seeker in candidates.seekers where seeker.parent != nil
+            && squaredDistance(position, seeker.position) < 12 * 12 + 2 * 2 {
             damageEnemy(seeker, projectile: projectile)
             return true
         }
-        for triangle in enemies(of: .triangle) where
-            squaredDistance(position, triangle.position)
+        for triangle in candidates.triangles where triangle.parent != nil
+            && squaredDistance(position, triangle.position)
                 < TriangleRule.projectileCollisionThresholdSquared {
             damageEnemy(triangle, projectile: projectile)
             return true
         }
-        for generator in enemyLayer.children where generator.name == "generator" {
+        for generator in candidates.generators where generator.parent != nil {
             let generatorSize = CGFloat((generator.userData?["health"] as? NSNumber)?.doubleValue ?? 0)
             if squaredDistance(position, generator.position) < 12 * 12 + generatorSize {
                 damageEnemy(generator, projectile: projectile)
@@ -5180,11 +5397,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             }
         }
 
-        let snakeNodes = enemyLayer.children.filter {
-            $0.name == "snakeTail"
-                || ($0.name == "enemy" && $0.userData?["kind"] as? String == EnemyKind.snake.rawValue)
-        }
-        for snakeNode in snakeNodes {
+        for snakeNode in candidates.snakeNodes where snakeNode.parent != nil {
             let frame = snakeNode.name == "snakeTail"
                 ? ((snakeNode.userData?["originalFrame"] as? NSNumber)?.intValue ?? 0)
                 : 24
@@ -5195,7 +5408,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             }
         }
 
-        for interceptor in enemies(of: .interceptor) {
+        for interceptor in candidates.interceptors where interceptor.parent != nil {
             let distance = squaredDistance(position, interceptor.position)
             guard distance < InterceptorRule.shieldRangeSquared else { continue }
             let turnRemaining = (interceptor.userData?["interceptorTurnRemaining"] as? NSNumber)?.intValue ?? 0
@@ -5217,7 +5430,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 }
             }
         }
-        for butterfly in enemies(of: .butterfly) where squaredDistance(position, butterfly.position) < 10 * 10 + 2 * 2 {
+        for butterfly in candidates.butterflies where butterfly.parent != nil
+            && squaredDistance(position, butterfly.position) < 10 * 10 + 2 * 2 {
             damageEnemy(butterfly, projectile: projectile)
             return true
         }
@@ -5279,8 +5493,12 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         square.userData?["dy"] = avoidingVelocity.dy
     }
 
-    private func applyBlackHoles(toProjectile projectile: SKNode, velocity: inout CGVector) {
-        for blackHole in enemies(of: .blackHole) {
+    private func applyBlackHoles(
+        toProjectile projectile: SKNode,
+        velocity: inout CGVector,
+        candidates: [SKNode]
+    ) {
+        for blackHole in candidates where blackHole.parent != nil {
             guard (blackHole.userData?["blackHoleActive"] as? NSNumber)?.boolValue ?? false else { continue }
             let blackHoleSize = CGFloat((blackHole.userData?["blackHoleSize"] as? NSNumber)?.doubleValue ?? 20)
             velocity = BlackHoleRule.deflectProjectile(

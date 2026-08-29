@@ -607,6 +607,18 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   and OPT in the black bars, gameplay shows both fixed sticks outside the
   1024×768 playfield, and the Options page hides the overlay. The generic iOS
   Simulator build and all 141 macOS rule tests also pass.
+- iOS dynamic-performance Phase-1 evidence (2026-08-30): the immutable
+  baseline is commit `aac3d9c`, tagged `pre-ios-performance-optimization`.
+  The port now has a deterministic dynamic benchmark with 500 projectiles, a
+  dense stable enemy mix, a deforming Grid, 2,048 particles, points-of-interest
+  signposts, and optional SpriteKit counters. Projectile collision candidates
+  are classified once per update and reused across both half-steps, retaining
+  source kind priority and child-list order while refreshing after synchronous
+  enemy-tree count changes. macOS Debug/Release and generic iOS Simulator Debug
+  builds pass, as do all 141 macOS tests. The five focused projectile captures
+  measure `0.00339833...0.00385059` normalized mean grayscale difference from
+  the original references. Physical-iPhone Release measurements are still
+  required, so no CPU or allocation improvement percentage is accepted yet.
 
 ## Core loop and progression
 
@@ -689,6 +701,11 @@ the corresponding Swift implementation, and a test or visual/runtime check.
       Particle style 1 with SpriteKit fallback. iOS remains SpriteKit-only,
       and the Metal particle result is explicitly not accepted as a fidelity
       replacement.
+- [x] The dynamic iOS benchmark and signposts isolate fixed simulation,
+      projectile work, Grid rendering, and presentation rendering without
+      persistence, input, spawning, scoring progression, or audio noise.
+- [x] Projectile collision candidates are classified once per update and
+      reused without changing source collision priority or list order.
 
 ## Screens and interaction
 
@@ -737,6 +754,8 @@ the corresponding Swift implementation, and a test or visual/runtime check.
       persistence, checksums, and deterministic entity transitions.
 - [x] The macOS app/test action and generic iOS Simulator build pass with
       Swift 6 strict concurrency.
+- [ ] Three physical-iPhone Release benchmark runs establish p50/p95 display
+      intervals and Phase-1 CPU/allocation changes.
 - [x] Automated capture scenes cover each entity, grid style, power-up, HUD,
       and menu state.
 - [x] Interactive macOS smoke testing covers attract start, Get Ready, live

@@ -1,6 +1,14 @@
 import SpriteKit
 import SwiftUI
 
+private func configurePerformanceStatistics(on view: SKView) {
+    guard ProcessInfo.processInfo.arguments.contains("--performance-stats") else { return }
+    view.showsFPS = true
+    view.showsNodeCount = true
+    view.showsDrawCount = true
+    view.showsQuadCount = true
+}
+
 struct GameView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var scene = GameScene(size: CGSize(width: 1_024, height: 768))
@@ -43,6 +51,7 @@ private struct PlatformGameView: NSViewRepresentable {
         view.sceneController = scene
         view.preferredFramesPerSecond = 60
         view.ignoresSiblingOrder = true
+        configurePerformanceStatistics(on: view)
         view.presentScene(scene)
 
         DispatchQueue.main.async {
@@ -229,6 +238,7 @@ private struct PlatformGameView: UIViewRepresentable {
         view.isMultipleTouchEnabled = true
         view.preferredFramesPerSecond = 60
         view.ignoresSiblingOrder = true
+        configurePerformanceStatistics(on: view)
         view.presentScene(scene)
         view.connect(to: scene)
         view.updateTouchControlLayout()
