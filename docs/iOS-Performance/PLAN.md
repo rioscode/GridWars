@@ -29,6 +29,9 @@ The immutable starting point is commit `aac3d9c`, tagged
       verification.
 - [ ] Final post-Black-Hole follow-up CPU/allocation trace with the device
       unlocked.
+- [ ] Reproduce the reported many-enemy slowdown with active enemy AI; the
+      existing benchmark deliberately freezes its 83 enemies and does not call
+      `updateEnemies()`.
 
 The three wired iPhone 17 Pro Max runs measure only 13.99–16.79 presentation
 updates per second. Median display spacing is about 66.7 ms, projectile work
@@ -48,22 +51,38 @@ typed but still needs a final unlocked-device trace. Full evidence is in
 
 ## Observed scaling risks
 
-1. Phase 2 removes repeated Green Square and Black-Hole dictionary bridging
-   from the projectile path. Remaining projectile collision work still scales
-   with every candidate pair in source order, but now measures 5.1–5.6 ms p50
-   rather than 16.2–16.4 ms.
-2. Each surviving projectile half-step calls `GridSimulation.push()`, which
+1. The existing benchmark measures projectiles against 83 frozen enemies. Its
+   fixed-step function updates particles, Grid, and projectiles but skips live
+   enemy AI. It therefore cannot confirm or reject the reported many-enemy
+   slowdown.
+2. `updateEnemies()` filters the complete `enemyLayer.children` array once for
+   each requested kind. Each live enemy then runs separation across the whole
+   child array, so the current broad phase is quadratic even when only nearby
+   same-kind enemies can affect one another.
+3. Enemy Black-Hole influence repeatedly calls `enemies(of: .blackHole)`, and
+   triangle partner resolution repeatedly scans children by string ID.
+   Triangle pairing can nest those scans, while bond visuals are removed and
+   recreated as `SKShapeNode`/`CGPath` objects every fixed step.
+4. Phase 2 removes Green Square and Black-Hole dictionary bridging from the
+   projectile path, but projectile collision still checks ordered per-kind
+   arrays linearly. With many enemies and many shots, work still scales roughly
+   with projectile count times enemy count.
+5. Most enemy kinds still read and write velocity, rotation, freeze, and
+   type-specific state through `NSMutableDictionary`/`NSNumber` on every fixed
+   step.
+6. Presentation interpolation collects every live entity twice per fixed step
+   and builds an `ObjectIdentifier` dictionary plus snapshot arrays. This grows
+   linearly with enemies, projectiles, snake segments, bonds, trails, and
+   effects. The Phase-2 trace already assigns 740.07 MB to presentation.
+7. Each surviving projectile half-step calls `GridSimulation.push()`, which
    visits a 7x7 point neighborhood. Five hundred projectiles can therefore
    produce about 49,000 Grid-point checks per fixed step.
-3. `GridRenderer` rebuilds paths every displayed frame. Particle Grid styles
+8. `GridRenderer` rebuilds paths every displayed frame. Particle Grid styles
    additionally allocate an arena-sized bitmap, create a `CGImage`, and upload
    a new `SKTexture` every frame.
-4. `ParticleRenderer` pools allocations but still uses one `SKShapeNode` per
+9. `ParticleRenderer` pools allocations but still uses one `SKShapeNode` per
    line particle. Pool entries are grow-only and remain in SpriteKit's node
    tree after a burst.
-5. Presentation interpolation collects every live entity into scratch arrays
-   and an `ObjectIdentifier` dictionary on each fixed step. This scales with
-   projectile and enemy count.
 
 The existing `--effects-benchmark` is intentionally static and cannot validate
 these simulation costs.
@@ -88,6 +107,16 @@ Record three 30-second Release runs on the same physical iPhone from a cool
 thermal state. Capture Game Performance, Time Profiler, and Allocations data.
 Record p50/p95 display intervals, repeated 33-ms frames, main-thread CPU time,
 allocation rate, node count, and draw count.
+
+The next measurement pass must add a second deterministic scenario for active
+enemy scaling. First record the actual laggy gameplay state and its counts by
+kind, projectiles, snake segments, triangle bonds, particles, nodes, and fixed
+steps. Use those observed counts to define fixed 1x and 2x stress fixtures.
+Keep spawning, scoring, persistence, input, and audio disabled, but run the
+normal enemy update order. Add aggregate signposts for enemy classification,
+enemy AI, separation, Black-Hole influence, triangle pairing/bonds,
+presentation snapshots, Grid simulation, and particle simulation. Do not add
+per-entity signposts because their overhead would distort the result.
 
 ## Optimization order
 
@@ -118,32 +147,76 @@ builds, and the complete capture catalog where available.
   projectile captures.
 - [ ] Repeat the final CPU/allocation trace after the Black-Hole follow-up.
 
-### Phase 3: Grid and GPU work
+### Phase 3: active-enemy measurement and frame index
+
+- Add the active-enemy 1x/2x benchmark and aggregate signposts described above.
+- Build one source-ordered `EnemyFrameIndex` per fixed step with arrays by kind,
+  the small Black-Hole list, Snake nodes, Triangle nodes, and an enemy-ID map.
+- Pass that index through enemy, triangle, player-collision, and projectile
+  updates instead of repeatedly filtering `enemyLayer.children` or resolving
+  IDs with a linear scan.
+- Refresh only at explicit synchronous mutation boundaries such as Cube split,
+  Black-Hole absorption, Snake removal, or generator birth.
+- Preserve original child order inside every per-kind array. This phase changes
+  lookup cost only; it must not reorder updates or interactions.
+
+Verification: compare deterministic per-frame entity state before/after for at
+least 120 fixed steps, run all enemy/triangle/Black-Hole captures, then repeat
+1x/2x physical-device Release traces. Continue only if the profiler shows the
+remaining dominant function.
+
+### Phase 4: source-ordered spatial broad phase
+
+- If projectile-versus-enemy checks remain dominant, index enemies in uniform
+  cells and query only cells intersecting each collision/avoidance radius.
+  Return candidates in original child order and retain the existing kind
+  priority. Green Square queries use the projected danger point; Black Holes
+  remain in their tiny ordered list.
+- Reuse the spatial index for same-kind separation only if separation remains
+  dominant after Phase 3. Update a moved enemy's cell at the same point in the
+  source-ordered loop so later enemies observe the same current positions.
+- Add deterministic equivalence tests between naive and indexed candidate
+  selection for cell boundaries, equal positions, earlier/later moved enemies,
+  Cube split, and removed nodes.
+
+Stop condition: do not adopt the spatial path unless it materially lowers the
+1x and 2x enemy-load p50/p95 while every deterministic state comparison and
+focused capture remains accepted.
+
+### Phase 5: typed live enemy state and Triangle presentation
+
+- Move only profiler-proven hot fields first: enemy kind, velocity, rotation,
+  freeze frames, stable ID, and partner ID. Keep `userData` synchronized only
+  at spawn/capture and other low-frequency compatibility boundaries.
+- Migrate Snake/Interceptor/Triangle-specific fields incrementally, guided by
+  allocation call trees; avoid a single all-enemy rewrite.
+- Pool Triangle bond nodes and mutate their endpoints, color, and visibility
+  instead of removing and recreating `SKShapeNode`, `CGPath`, and dictionary
+  metadata every fixed step.
+- Verify all enemy lifecycle, Triangle, Snake, Interceptor, generator, and
+  Black-Hole deterministic tests and captures.
+
+### Phase 6: presentation snapshots
+
+- Store previous/current transforms on typed live nodes or in stable indexed
+  storage so the fixed step does not rebuild an `ObjectIdentifier` dictionary.
+- Track only nodes that actually interpolate; keep camera, Grid, particles, and
+  source layer order unchanged.
+- Measure allocation bytes/rate and presentation p50/p95 before considering
+  projectile sprite pooling.
+
+### Phase 7: Grid, GPU, and particles
 
 - Measure `GridSimulation.push()` separately from `GridRenderer` path creation.
-- Add a source-ordered batch API for projectile Grid impulses if simulation is
-  significant.
+- Add a source-ordered batch API for projectile Grid impulses only if simulation
+  is significant.
 - Remove per-frame bitmap allocation and texture creation from Particle Grid
   styles.
-- Compare 50-Hz Grid presentation, SpriteKit sprite/mesh approaches, and a
-  narrowly scoped iOS Metal Grid pass. Do not adopt Metal without updating the
-  architecture decision and passing the capture boundary.
-
-### Phase 4: particle presentation
-
-- Compare the current `SKShapeNode` line with a shared-texture
-  `SKSpriteNode` strip while retaining individual colour, alpha, additive
-  overlap, line width, pixel alignment, and style-3 layer order.
-- Retire excessive hidden pool nodes after large capacity/burst reductions.
-- Consider an instanced Metal particle pass only if the SpriteKit result is
-  still outside the frame budget and visual parity can be demonstrated.
-
-### Phase 5: entity state and interpolation
-
-- Move projectile velocity and previous/current transforms out of
-  `NSMutableDictionary` into compact Swift value state.
-- Pool projectile sprites as presentation objects.
-- Replace the per-step global interpolation dictionary with typed snapshots.
+- Compare SpriteKit Grid/particle representations before considering a narrowly
+  scoped iOS Metal pass. Do not adopt Metal without updating the architecture
+  decision and passing the full capture boundary.
+- Retire excessive hidden particle-pool nodes only after node-count evidence
+  shows they contribute to the remaining device cost.
 
 ## Acceptance criteria
 
@@ -151,8 +224,13 @@ builds, and the complete capture catalog where available.
   pattern during the benchmark.
 - The fixed-step accumulator normally consumes at most one 20-ms simulation
   step per display update.
-- Phase 1 materially lowers `updateProjectiles()` CPU time and allocation rate;
-  target at least a 70-percent reduction in the dense benchmark.
+- At the observed 1x live enemy load, Enemy AI plus projectile processing stays
+  inside a 12-ms p95 fixed-step CPU budget; the 2x fixture must not recreate a
+  recurring 33-ms pattern.
+- Doubling the enemy fixture must no longer cause approximately quadratic fixed
+  simulation growth.
+- No hot allocation call tree may terminate in `NSDictionary` string-key
+  bridging or `NSNumber` boxing for live entity state.
 - macOS Debug build, iOS Simulator Debug build, and macOS tests pass.
 - Deterministic gameplay tests and accepted captures show no rule, ordering,
   layer, or raster regression.

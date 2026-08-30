@@ -380,3 +380,25 @@ Debug build, and the signed physical-iPhone Release build pass. The five
 focused projectile captures remain exactly at their previously accepted
 `0.00339833...0.00385059` differences. Detailed evidence is in
 `docs/iOS-Performance/MEASUREMENTS-PHASE2-2026-08-30.md`.
+
+## Next iOS performance phase: active enemy scaling
+
+Physical-iPhone gameplay still lags in crowded waves. The current performance
+benchmark cannot measure that symptom because it freezes its 83 enemies and
+its timed fixed step does not call live enemy AI. The next phase therefore
+starts with a retained real-play trace and a deterministic active-enemy 1x/2x
+fixture before changing implementation.
+
+The first implementation candidate is one source-ordered enemy frame index
+with arrays by kind, a small Black-Hole list, and stable ID lookup. It should
+replace repeated child-list filtering and Triangle partner scans without
+changing update order. Only if the following trace still identifies pair
+checks as dominant should a source-ordered spatial broad phase be added for
+projectile collision and same-kind separation. Typed enemy state, pooled
+Triangle bonds, and stable presentation snapshots follow in separate measured
+steps. Grid/GPU/particle work remains later until active enemy simulation is
+inside budget.
+
+The executable plan is in `docs/iOS-Performance/PLAN.md`. Detailed technical,
+risk, and data-capture notes are in
+`docs/iOS-Performance/NEXT-STEPS-NOTES.md`.
