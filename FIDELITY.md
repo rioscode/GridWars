@@ -644,6 +644,21 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   `0.00339833...0.00385059` differences. Final three-run 60-Hz and post-follow-up
   allocation acceptance remain open; see
   `docs/iOS-Performance/MEASUREMENTS-PHASE2-2026-08-30.md`.
+- iOS dynamic-performance Phase-3 implementation (2026-08-30): the legacy
+  frozen `--ios-performance-benchmark` remains unchanged for Phase-1/2
+  comparisons. `--ios-active-enemy-benchmark` and its `-2x` variant add
+  deterministic live 1x/2x enemy fixtures with aggregate Enemy AI,
+  Triangle-Bond, and Black-Hole-AI points of interest. A source-ordered,
+  frame-local `EnemyFrameIndex` now provides per-kind nodes and Black Holes to
+  the regular enemy loop, same-kind separation, Black-Hole influence, and
+  mutual Black-Hole deflection; it refreshes on observed layer-count changes
+  and validates cached nodes still have parents. The change leaves the
+  original update order intact and defers Triangle stable-ID and Snake-tail
+  indexing until a measured follow-up. macOS Debug, generic iOS Simulator
+  Debug, and signed iPhone Release builds pass, as do all 143 macOS tests.
+  Active-fixture physical-device traces and full capture verification remain
+  open because the newly installed iPhone app could not launch while the
+  device was locked.
 
 ## Core loop and progression
 
@@ -785,6 +800,10 @@ the corresponding Swift implementation, and a test or visual/runtime check.
 - [x] Three physical-iPhone current-release benchmark runs establish p50/p95
       display, fixed-step, main-thread CPU, and GPU intervals; a separate
       Allocations trace establishes current heap churn.
+- [x] Active-enemy 1x/2x benchmark fixtures plus a source-ordered, frame-local
+      EnemyFrameIndex for regular enemy updates and Black-Hole lookups.
+- [ ] Physical-iPhone active-enemy 1x/2x measurements and full enemy-capture
+      regression.
 - [ ] A benchmark-compatible pre-Phase-1 build establishes the before/after
       CPU and allocation change.
 - [x] Automated capture scenes cover each entity, grid style, power-up, HUD,

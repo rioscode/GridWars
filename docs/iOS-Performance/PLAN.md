@@ -16,7 +16,7 @@ The immutable starting point is commit `aac3d9c`, tagged
 - [x] Phase 1 collision candidates classified once per projectile update and
       refreshed after synchronous enemy-tree count changes.
 - [x] macOS Debug and Release builds, generic iOS Simulator Debug build, and
-      all 141 macOS tests pass.
+      all 143 macOS tests pass.
 - [x] Five projectile-focused reference captures remain inside the accepted
       visual boundary (`0.00339833...0.00385059` normalized mean grayscale
       difference from the original).
@@ -29,9 +29,13 @@ The immutable starting point is commit `aac3d9c`, tagged
       verification.
 - [ ] Final post-Black-Hole follow-up CPU/allocation trace with the device
       unlocked.
-- [ ] Reproduce the reported many-enemy slowdown with active enemy AI; the
-      existing benchmark deliberately freezes its 83 enemies and does not call
-      `updateEnemies()`.
+- [x] Deterministic active-enemy fixtures: `--ios-active-enemy-benchmark`
+      (1x) and `--ios-active-enemy-benchmark-2x` (2x). They run live enemy
+      AI, Triangle bonds, Black-Hole AI, projectiles, particles, and Grid work.
+- [x] Frame-local source-ordered `EnemyFrameIndex` for the regular enemy loop,
+      same-kind separation peers, and the Black-Hole list. It refreshes at
+      observed layer-count mutations and keeps removed-node guards.
+- [ ] Three physical-device Release measurements for the active 1x/2x fixture.
 
 The three wired iPhone 17 Pro Max runs measure only 13.99–16.79 presentation
 updates per second. Median display spacing is about 66.7 ms, projectile work
@@ -55,10 +59,10 @@ typed but still needs a final unlocked-device trace. Full evidence is in
    fixed-step function updates particles, Grid, and projectiles but skips live
    enemy AI. It therefore cannot confirm or reject the reported many-enemy
    slowdown.
-2. `updateEnemies()` filters the complete `enemyLayer.children` array once for
-   each requested kind. Each live enemy then runs separation across the whole
-   child array, so the current broad phase is quadratic even when only nearby
-   same-kind enemies can affect one another.
+2. The first Phase-3 index removes the repeated complete-layer classification
+   in `updateEnemies()`, repeated Black-Hole filtering, and cross-kind scans in
+   separation. Same-kind separation remains quadratic and must be measured at
+   1x/2x before a spatial broad phase is justified.
 3. Enemy Black-Hole influence repeatedly calls `enemies(of: .blackHole)`, and
    triangle partner resolution repeatedly scans children by string ID.
    Triangle pairing can nest those scans, while bond visuals are removed and
@@ -108,15 +112,15 @@ thermal state. Capture Game Performance, Time Profiler, and Allocations data.
 Record p50/p95 display intervals, repeated 33-ms frames, main-thread CPU time,
 allocation rate, node count, and draw count.
 
-The next measurement pass must add a second deterministic scenario for active
-enemy scaling. First record the actual laggy gameplay state and its counts by
-kind, projectiles, snake segments, triangle bonds, particles, nodes, and fixed
-steps. Use those observed counts to define fixed 1x and 2x stress fixtures.
-Keep spawning, scoring, persistence, input, and audio disabled, but run the
-normal enemy update order. Add aggregate signposts for enemy classification,
-enemy AI, separation, Black-Hole influence, triangle pairing/bonds,
-presentation snapshots, Grid simulation, and particle simulation. Do not add
-per-entity signposts because their overhead would distort the result.
+The next measurement pass has a second deterministic scenario for active enemy
+scaling. `--ios-active-enemy-benchmark` runs 80 active regular enemies, three
+active Black Holes, and 500 moving projectiles. The `-2x` variant runs 160,
+six, and 1,000 respectively; population caps are bypassed only for this
+benchmark fixture. Both keep spawning, scoring, persistence, input, and audio
+disabled, but run the source-order enemy, Triangle-bond, Black-Hole, projectile,
+particle, and Grid paths. Aggregate `Enemy AI`, `Triangle Bonds`, and
+`Black Hole AI` signposts sit inside the existing fixed-simulation lane. Do not
+add per-entity signposts because their overhead would distort the result.
 
 ## Optimization order
 
@@ -149,16 +153,22 @@ builds, and the complete capture catalog where available.
 
 ### Phase 3: active-enemy measurement and frame index
 
-- Add the active-enemy 1x/2x benchmark and aggregate signposts described above.
-- Build one source-ordered `EnemyFrameIndex` per fixed step with arrays by kind,
-  the small Black-Hole list, Snake nodes, Triangle nodes, and an enemy-ID map.
-- Pass that index through enemy, triangle, player-collision, and projectile
-  updates instead of repeatedly filtering `enemyLayer.children` or resolving
-  IDs with a linear scan.
-- Refresh only at explicit synchronous mutation boundaries such as Cube split,
-  Black-Hole absorption, Snake removal, or generator birth.
-- Preserve original child order inside every per-kind array. This phase changes
-  lookup cost only; it must not reorder updates or interactions.
+- [x] Add active-enemy 1x/2x fixtures and aggregate `Enemy AI`, `Triangle
+  Bonds`, and `Black Hole AI` signposts while retaining the legacy frozen
+  `--ios-performance-benchmark` for Phase-2 comparisons.
+- [x] Build a source-ordered, frame-local `EnemyFrameIndex` for the regular
+  enemy loop. It contains per-kind arrays and the small Black-Hole list,
+  refreshes before each requested kind when the layer count changed, and keeps
+  `parent != nil` guards for stale references.
+- [x] Use that index for `updateEnemies`, same-kind separation peers,
+  Black-Hole influence, and mutual Black-Hole deflection. It changes lookup
+  cost only; it does not reorder updates or interactions.
+- [ ] Extend only after profiling: Snake-tail lookup and Triangle stable-ID
+  lookup remain separate because they have different mutation/lifecycle rules.
+- [ ] Add a deterministic 120-frame state digest before migrating further
+  lookup paths or pooling Triangle bonds.
+- [ ] Record the active 1x/2x physical-device Release traces and retain the
+  population counts after the warm-up window.
 
 Verification: compare deterministic per-frame entity state before/after for at
 least 120 fixed steps, run all enemy/triangle/Black-Hole captures, then repeat

@@ -143,7 +143,7 @@ commit:
       plus iPhone persistence, lifecycle, and exit validation
 - [x] Physical iPhone 17 Pro Max gameplay, touch, menu, lifecycle, and
       persistence smoke test on iOS 26.6
-- [x] 141 gameplay, input, persistence, audio, rendering, interpolation, and
+- [x] 143 gameplay, input, persistence, audio, rendering, interpolation, and
       Metal-prototype unit tests
 - [x] macOS launch and rendering smoke test
 - [x] Deterministic 136-state Swift capture catalog at 1024×768
@@ -258,6 +258,11 @@ commit:
 - [x] Three Phase-2 physical-iPhone Game Performance measurements and focused
       capture verification
 - [ ] Final post-Black-Hole CPU/allocation trace with the device unlocked
+- [x] Active-enemy 1x/2x benchmark fixtures with aggregate Enemy AI,
+      Triangle-Bond, and Black-Hole-AI signposts
+- [x] Source-ordered, frame-local EnemyFrameIndex for regular enemy updates,
+      same-kind separation, and Black-Hole lookups
+- [ ] Physical-iPhone active-enemy 1x/2x Release measurements
 - [x] Default-off macOS Metal prototype for Grid style 1 and Particle style 1,
       with SpriteKit fallback and an unchanged SpriteKit-only iOS path
 
@@ -389,10 +394,11 @@ its timed fixed step does not call live enemy AI. The next phase therefore
 starts with a retained real-play trace and a deterministic active-enemy 1x/2x
 fixture before changing implementation.
 
-The first implementation candidate is one source-ordered enemy frame index
-with arrays by kind, a small Black-Hole list, and stable ID lookup. It should
-replace repeated child-list filtering and Triangle partner scans without
-changing update order. Only if the following trace still identifies pair
+The first implementation now has a source-ordered, frame-local enemy index
+with arrays by kind and a small Black-Hole list. It removes repeated child-list
+filtering from regular enemy updates, same-kind separation, and Black-Hole
+influence without changing update order. Triangle stable-ID lookup is
+intentionally deferred. Only if physical 1x/2x traces still identify pair
 checks as dominant should a source-ordered spatial broad phase be added for
 projectile collision and same-kind separation. Typed enemy state, pooled
 Triangle bonds, and stable presentation snapshots follow in separate measured

@@ -1,6 +1,6 @@
 # iOS Performance: Next Steps
 
-Status: 2026-08-30, after commit `bb94fe1`
+Status: 2026-08-30, Phase-3 implementation checkpoint (device traces pending)
 
 This document is the long-form notebook for the next optimization phase. It is
 intentionally more detailed than `PLAN.md` so the reasoning does not have to be
@@ -29,8 +29,36 @@ must be instrumented before the next optimization.
   stayed near 5.6 ms.
 - The five focused projectile captures remained exactly at the accepted
   `0.00339833...0.00385059` normalized differences.
-- All 141 macOS tests and the required macOS/iOS builds passed.
+- All 143 macOS tests and the required macOS/iOS builds pass.
 - A user-visible many-enemy gameplay state still lags on the physical iPhone.
+
+## Phase-3 implementation checkpoint
+
+The blind spot is now executable rather than merely documented.
+
+- `--ios-performance-benchmark` stays unchanged as the frozen Phase-1/2
+  projectile comparison fixture.
+- `--ios-active-enemy-benchmark` starts 80 active mixed enemies, three active
+  Black Holes, and 500 moving projectiles.
+- `--ios-active-enemy-benchmark-2x` scales the same deterministic fixture to
+  160 active enemies, six Black Holes, and 1,000 projectiles. The fixture alone
+  bypasses normal population caps so its scale is not silently clipped.
+- The active path preserves the relevant source order: particle/Grid work,
+  Black-Hole player pull, Triangle-player collision, regular enemy AI,
+  Triangle bonds, Black-Hole AI, projectiles, then Interceptor shield cache.
+- Instruments now receives one aggregate lane each for `Enemy AI`, `Triangle
+  Bonds`, and `Black Hole AI`; no per-enemy signposts were added.
+- `EnemyFrameIndex` classifies the mixed SpriteKit enemy layer once per
+  `updateEnemies` call in existing child order. Its per-kind arrays now serve
+  regular updates, same-kind separation, enemy Black-Hole influence, and
+  Black-Hole mutual deflection. The index refreshes before each requested kind
+  if layer count changed, while stale cached nodes still require a live parent.
+
+This is deliberately a first lookup-cost change, not a spatial rewrite. Snake
+tails, Triangle stable-ID lookup, Triangle bond pooling, presentation snapshots,
+and projectile spatial queries remain separate measurable steps. The signed
+Release app was installed on the USB-connected iPhone; the next trace awaits an
+unlocked device.
 
 ## The benchmark blind spot
 

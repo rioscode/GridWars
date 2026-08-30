@@ -7,6 +7,42 @@ enum OriginalTimingRule {
     static let maximumAccumulatedTime = fixedStep * 5
 }
 
+enum IOSPerformanceBenchmarkProfile: Equatable {
+    case projectileCollision
+    case activeEnemies(multiplier: Int)
+
+    static func commandLine(arguments: [String]) -> IOSPerformanceBenchmarkProfile? {
+        if arguments.contains("--ios-active-enemy-benchmark-2x") {
+            return .activeEnemies(multiplier: 2)
+        }
+        if arguments.contains("--ios-active-enemy-benchmark") {
+            return .activeEnemies(multiplier: 1)
+        }
+        if arguments.contains("--ios-performance-benchmark") {
+            return .projectileCollision
+        }
+        return nil
+    }
+
+    var workloadMultiplier: Int {
+        switch self {
+        case .projectileCollision:
+            1
+        case let .activeEnemies(multiplier):
+            multiplier
+        }
+    }
+
+    var runsActiveEnemySimulation: Bool {
+        if case .activeEnemies = self { return true }
+        return false
+    }
+
+    var initialEnemyFreezeFrames: Int {
+        runsActiveEnemySimulation ? 0 : 1_000_000
+    }
+}
+
 enum OriginalPresentationRule {
     static func interpolationAlpha(accumulator: TimeInterval) -> CGFloat {
         guard OriginalTimingRule.fixedStep > 0 else { return 1 }

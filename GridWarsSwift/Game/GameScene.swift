@@ -124,6 +124,33 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         }
     }
 
+    private struct EnemyFrameIndex {
+        private(set) var childCount: Int
+        private var nodesByKind: [EnemyKind: [SKNode]] = [:]
+
+        init(children: [SKNode]) {
+            childCount = children.count
+            // The source owns one list per enemy type. Classifying SpriteKit's
+            // mixed layer once keeps that order without changing interactions.
+            for child in children {
+                guard child.name == "enemy",
+                      let rawKind = child.userData?["kind"] as? String,
+                      let kind = EnemyKind(rawValue: rawKind) else { continue }
+                nodesByKind[kind, default: []].append(child)
+            }
+        }
+
+        mutating func refreshIfNeeded(from layer: SKNode) {
+            let children = layer.children
+            guard children.count != childCount else { return }
+            self = EnemyFrameIndex(children: children)
+        }
+
+        func nodes(for kind: EnemyKind) -> [SKNode] {
+            nodesByKind[kind] ?? []
+        }
+    }
+
     private enum Category {
         static let player: UInt32 = 1 << 0
         static let projectile: UInt32 = 1 << 1
@@ -271,9 +298,15 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private let effectsBenchmarkEnabled = ProcessInfo.processInfo.arguments.contains(
         "--effects-benchmark"
     )
-    private let iosPerformanceBenchmarkEnabled = ProcessInfo.processInfo.arguments.contains(
-        "--ios-performance-benchmark"
+    private let iosPerformanceBenchmarkProfile = IOSPerformanceBenchmarkProfile.commandLine(
+        arguments: ProcessInfo.processInfo.arguments
     )
+    private var iosPerformanceBenchmarkEnabled: Bool {
+        iosPerformanceBenchmarkProfile != nil
+    }
+    private var activeEnemyBenchmarkEnabled: Bool {
+        iosPerformanceBenchmarkProfile?.runsActiveEnemySimulation ?? false
+    }
     private let performanceSignpostLog = OSLog(
         subsystem: "GridWars",
         category: .pointsOfInterest
@@ -1018,6 +1051,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     private func configureIOSPerformanceBenchmark() {
+        guard let profile = iosPerformanceBenchmarkProfile else { return }
         audio.stopMusic()
         spawnRandom = BlitzMaxRandomNumberGenerator(seed: 1)
         captureRandom = BlitzMaxRandomNumberGenerator(seed: 1)
@@ -1044,28 +1078,32 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             .greenSquare, .pinwheel, .diamond, .cube,
             .seeker, .triangle, .interceptor, .butterfly,
         ]
-        for index in 0..<80 {
-            let column = index % 10
-            let row = index / 10
+        let workloadMultiplier = profile.workloadMultiplier
+        let enemyColumns = 10 * workloadMultiplier
+        for index in 0..<(80 * workloadMultiplier) {
+            let column = index % enemyColumns
+            let row = index / enemyColumns
             let enemy = spawnEnemy(
                 kind: benchmarkKinds[index % benchmarkKinds.count],
                 at: CGPoint(
                     x: 32 + CGFloat(column) * 26,
                     y: 80 + CGFloat(row) * 76
                 ),
-                freezeFrames: 1_000_000,
+                freezeFrames: profile.initialEnemyFreezeFrames,
                 closeToPlayer: true,
-                playBornSound: false
+                playBornSound: false,
+                ignoringPopulationLimits: profile.runsActiveEnemySimulation
             )
             enemy?.userData?["health"] = 1_000_000
         }
-        for index in 0..<3 {
+        for index in 0..<(3 * workloadMultiplier) {
             let blackHole = spawnEnemy(
                 kind: .blackHole,
                 at: CGPoint(x: 70 + CGFloat(index) * 85, y: 700),
-                freezeFrames: 1_000_000,
+                freezeFrames: profile.initialEnemyFreezeFrames,
                 closeToPlayer: true,
-                playBornSound: false
+                playBornSound: false,
+                ignoringPopulationLimits: profile.runsActiveEnemySimulation
             )
             if let blackHole {
                 setBlackHoleActive(true, for: blackHole)
@@ -1073,7 +1111,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             }
         }
 
-        for index in 0..<500 {
+        for index in 0..<(500 * workloadMultiplier) {
             let column = index % 25
             let row = index / 25
             let direction = CGVector(dx: 0, dy: row.isMultiple(of: 2) ? 1 : -1)
@@ -1939,7 +1977,11 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                     advanceAttractFrame()
                 case .playing:
                     if iosPerformanceBenchmarkEnabled {
-                        simulateIOSPerformanceBenchmarkFrame()
+                        if activeEnemyBenchmarkEnabled {
+                            simulateIOSActiveEnemyBenchmarkFrame()
+                        } else {
+                            simulateIOSPerformanceBenchmarkFrame()
+                        }
                     } else {
                         simulateFrame()
                     }
@@ -2798,6 +2840,48 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         simulationFrame += 1
     }
 
+    private func simulateIOSActiveEnemyBenchmarkFrame() {
+        os_signpost(.begin, log: performanceSignpostLog, name: "Fixed Simulation")
+        defer {
+            os_signpost(.end, log: performanceSignpostLog, name: "Fixed Simulation")
+        }
+
+        emitParticles(
+            count: 52,
+            at: CGPoint(x: playfieldSize.width * 0.7, y: playfieldSize.height / 2),
+            kind: .random,
+            color: ParticleColor(red: 255, green: 180, blue: 32)
+        )
+        updateParticleSimulation()
+        cycleColors()
+        cycleColors()
+        gridSimulation.update()
+
+        // Preserve the source order for the live enemy paths while omitting
+        // player input, spawning, and pickups that the fixture does not create.
+        pullPlayerTowardBlackHoles()
+        checkTriangleBondPlayerCollision()
+
+        os_signpost(.begin, log: performanceSignpostLog, name: "Enemy AI")
+        updateEnemies(kinds: [
+            .greenSquare, .pinwheel, .diamond, .cube, .seeker,
+            .snake, .interceptor, .butterfly, .triangle,
+        ])
+        os_signpost(.end, log: performanceSignpostLog, name: "Enemy AI")
+
+        os_signpost(.begin, log: performanceSignpostLog, name: "Triangle Bonds")
+        updateTrianglePairsAndBonds()
+        os_signpost(.end, log: performanceSignpostLog, name: "Triangle Bonds")
+
+        os_signpost(.begin, log: performanceSignpostLog, name: "Black Hole AI")
+        updateEnemies(kinds: [.blackHole])
+        os_signpost(.end, log: performanceSignpostLog, name: "Black Hole AI")
+
+        updateProjectiles()
+        cacheInterceptorShieldCollisionGeometry()
+        simulationFrame += 1
+    }
+
     private func stopGameplayFrameForDeath() -> Bool {
         guard deathFramesRemaining > 0 else { return false }
         simulationFrame += 1
@@ -3644,7 +3728,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         at position: CGPoint,
         freezeFrames: Int,
         closeToPlayer: Bool = false,
-        playBornSound: Bool = true
+        playBornSound: Bool = true,
+        ignoringPopulationLimits: Bool = false
     ) -> SKNode? {
         let matchingEnemyCount = enemyLayer.children.filter {
             $0.name == "enemy" && $0.userData?["kind"] as? String == kind.rawValue
@@ -3653,23 +3738,25 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             position,
             minimumPlayerDistance: closeToPlayer ? 40 : 160
         )
-        switch kind {
-        case .cube where matchingEnemyCount > 100:
-            return nil
-        case .blackHole where matchingEnemyCount > 3:
-            return nil
-        case .snake:
-            let snakeNodeCount = matchingEnemyCount + enemyLayer.children.filter {
-                $0.name == "snakeTail"
-            }.count
-            if snakeNodeCount > 16 * 24 { return nil }
-        case .interceptor:
-            if matchingEnemyCount > 3, originalRandomInt(0...100) > 50 {
+        if !ignoringPopulationLimits {
+            switch kind {
+            case .cube where matchingEnemyCount > 100:
                 return nil
+            case .blackHole where matchingEnemyCount > 3:
+                return nil
+            case .snake:
+                let snakeNodeCount = matchingEnemyCount + enemyLayer.children.filter {
+                    $0.name == "snakeTail"
+                }.count
+                if snakeNodeCount > 16 * 24 { return nil }
+            case .interceptor:
+                if matchingEnemyCount > 3, originalRandomInt(0...100) > 50 {
+                    return nil
+                }
+                if matchingEnemyCount > 7 { return nil }
+            default:
+                break
             }
-            if matchingEnemyCount > 7 { return nil }
-        default:
-            break
         }
 
         let enemyTexture = OriginalGraphics.texture(
@@ -4158,14 +4245,15 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     private func updateEnemies(kinds: [EnemyKind]) {
+        var frameIndex = EnemyFrameIndex(children: enemyLayer.children)
         for requestedKind in kinds {
+            frameIndex.refreshIfNeeded(from: enemyLayer)
             if requestedKind == .snake {
                 updateDyingSnakeSegments(maximumSpeed: session.enemySpeeds[.snake])
                 if deathFramesRemaining > 0 { return }
             }
-            let enemies = enemyLayer.children.filter {
-                $0.name == "enemy" && $0.userData?["kind"] as? String == requestedKind.rawValue
-            }
+            let enemies = frameIndex.nodes(for: requestedKind)
+            let blackHoles = frameIndex.nodes(for: .blackHole)
             for enemy in enemies {
             guard enemy.parent != nil else { continue }
             let baseSpeed = session.enemySpeeds[requestedKind.original]
@@ -4228,33 +4316,64 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
             switch kind {
             case .pinwheel:
-                _ = applyBlackHoleInfluence(to: enemy, kind: kind, velocity: &velocity)
+                _ = applyBlackHoleInfluence(
+                    to: enemy,
+                    kind: kind,
+                    velocity: &velocity,
+                    blackHoles: blackHoles
+                )
             case .diamond:
                 consumeOriginalDiamondJitter()
-                _ = applyBlackHoleInfluence(to: enemy, kind: kind, velocity: &velocity)
+                _ = applyBlackHoleInfluence(
+                    to: enemy,
+                    kind: kind,
+                    velocity: &velocity,
+                    blackHoles: blackHoles
+                )
                 velocity = velocity + towardPlayer
                     * OriginalBasicEnemyRule.homingAcceleration(for: kind.original)
             case .greenSquare:
                 velocity = velocity + towardPlayer
                     * OriginalBasicEnemyRule.homingAcceleration(for: kind.original)
-                _ = applyBlackHoleInfluence(to: enemy, kind: kind, velocity: &velocity)
+                _ = applyBlackHoleInfluence(
+                    to: enemy,
+                    kind: kind,
+                    velocity: &velocity,
+                    blackHoles: blackHoles
+                )
             case .cube:
                 velocity = velocity + towardPlayer
                     * OriginalBasicEnemyRule.homingAcceleration(for: kind.original)
-                _ = applyBlackHoleInfluence(to: enemy, kind: kind, velocity: &velocity)
+                _ = applyBlackHoleInfluence(
+                    to: enemy,
+                    kind: kind,
+                    velocity: &velocity,
+                    blackHoles: blackHoles
+                )
             case .seeker:
                 velocity = velocity + towardPlayer
                     * OriginalBasicEnemyRule.homingAcceleration(for: kind.original)
-                _ = applyBlackHoleInfluence(to: enemy, kind: kind, velocity: &velocity)
+                _ = applyBlackHoleInfluence(
+                    to: enemy,
+                    kind: kind,
+                    velocity: &velocity,
+                    blackHoles: blackHoles
+                )
             case .blackHole:
                 updateBlackHole(
                     enemy,
                     velocity: &velocity,
                     maximumSpeed: maximumSpeed,
-                    rotation: rotation
+                    rotation: rotation,
+                    blackHoles: blackHoles
                 )
             case .triangle:
-                updateTriangleVelocity(enemy, towardPlayer: towardPlayer, velocity: &velocity)
+                updateTriangleVelocity(
+                    enemy,
+                    towardPlayer: towardPlayer,
+                    velocity: &velocity,
+                    blackHoles: blackHoles
+                )
             case .snake:
                 var heading = CGFloat((enemy.userData?["snakeHeading"] as? NSNumber)?.doubleValue ?? 0)
                 var turnDirection = (enemy.userData?["snakeTurnDirection"] as? NSNumber)?.intValue ?? 0
@@ -4272,7 +4391,12 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 )
                 enemy.userData?["snakeHeading"] = heading
                 enemy.userData?["snakeTurnDirection"] = turnDirection
-                _ = applyBlackHoleInfluence(to: enemy, kind: kind, velocity: &velocity)
+                _ = applyBlackHoleInfluence(
+                    to: enemy,
+                    kind: kind,
+                    velocity: &velocity,
+                    blackHoles: blackHoles
+                )
             case .interceptor:
                 var heading = CGFloat((enemy.userData?["interceptorHeading"] as? NSNumber)?.doubleValue ?? 0)
                 var turnRemaining = (enemy.userData?["interceptorTurnRemaining"] as? NSNumber)?.intValue ?? 0
@@ -4320,7 +4444,12 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             case .butterfly:
                 velocity = velocity + towardPlayer
                     * OriginalBasicEnemyRule.homingAcceleration(for: kind.original)
-                _ = applyBlackHoleInfluence(to: enemy, kind: kind, velocity: &velocity)
+                _ = applyBlackHoleInfluence(
+                    to: enemy,
+                    kind: kind,
+                    velocity: &velocity,
+                    blackHoles: blackHoles
+                )
             }
 
             guard enemy.parent != nil else { continue }
@@ -4338,11 +4467,21 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                     enemy.position.x -= velocity.dx
                     enemy.position.y -= velocity.dy
                 }
-                _ = applyBlackHoleInfluence(to: enemy, kind: kind, velocity: &velocity)
+                _ = applyBlackHoleInfluence(
+                    to: enemy,
+                    kind: kind,
+                    velocity: &velocity,
+                    blackHoles: blackHoles
+                )
                 guard enemy.parent != nil else { continue }
             }
 
-            applySeparation(to: enemy, kind: kind, velocity: &velocity)
+            applySeparation(
+                to: enemy,
+                kind: kind,
+                velocity: &velocity,
+                peers: enemies
+            )
             if velocity.length > maximumSpeed {
                 velocity = velocity.normalized * maximumSpeed
             }
@@ -4682,7 +4821,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private func updateTriangleVelocity(
         _ triangle: SKNode,
         towardPlayer: CGVector,
-        velocity: inout CGVector
+        velocity: inout CGVector,
+        blackHoles: [SKNode]? = nil
     ) {
         guard let partner = trianglePartner(of: triangle) else {
             triangle.userData?["trianglePartnerID"] = nil
@@ -4693,7 +4833,12 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             if distance < TriangleRule.playerHomingRange {
                 velocity = velocity + towardPlayer
             }
-            _ = applyBlackHoleInfluence(to: triangle, kind: .triangle, velocity: &velocity)
+            _ = applyBlackHoleInfluence(
+                to: triangle,
+                kind: .triangle,
+                velocity: &velocity,
+                blackHoles: blackHoles
+            )
             return
         }
 
@@ -4707,7 +4852,12 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         } else if distance < TriangleRule.partnerNearDistance {
             velocity = velocity - difference / distance * TriangleRule.partnerAcceleration
         }
-        _ = applyBlackHoleInfluence(to: triangle, kind: .triangle, velocity: &velocity)
+        _ = applyBlackHoleInfluence(
+            to: triangle,
+            kind: .triangle,
+            velocity: &velocity,
+            blackHoles: blackHoles
+        )
     }
 
     private func updateTrianglePairsAndBonds() {
@@ -4938,7 +5088,12 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         }
     }
 
-    private func applySeparation(to enemy: SKNode, kind: EnemyKind, velocity: inout CGVector) {
+    private func applySeparation(
+        to enemy: SKNode,
+        kind: EnemyKind,
+        velocity: inout CGVector,
+        peers: [SKNode]? = nil
+    ) {
         let cubeTier = (enemy.userData?["cubeTier"] as? NSNumber)?.intValue ?? 0
         let rule: OriginalEnemySeparationRule
         if let basicRule = OriginalBasicEnemyRule.separation(
@@ -4955,8 +5110,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             return
         }
 
-        for other in enemyLayer.children where other !== enemy && other.name == "enemy" {
-            guard other.userData?["kind"] as? String == kind.rawValue else { continue }
+        let sameKindPeers = peers ?? enemies(of: kind)
+        for other in sameKindPeers where other !== enemy && other.parent != nil {
             let difference = CGVector(
                 dx: other.position.x - enemy.position.x,
                 dy: other.position.y - enemy.position.y
@@ -4982,29 +5137,31 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private func applyBlackHoleInfluence(
         to enemy: SKNode,
         kind: EnemyKind,
-        velocity: inout CGVector
+        velocity: inout CGVector,
+        blackHoles: [SKNode]? = nil
     ) -> Bool {
+        let blackHoleCandidates = blackHoles ?? enemies(of: .blackHole)
         if kind == .triangle,
            let partner = trianglePartner(of: enemy) {
             let resists = (enemy.userData?["triangleResist"] as? NSNumber)?.boolValue ?? false
             guard !resists else { return false }
-            for blackHole in enemies(of: .blackHole) {
+            for blackHole in blackHoleCandidates where blackHole.parent != nil {
                 // BlackHole2 designates the opposite endpoint as the resistant
                 // spinner as soon as it visits any Black Hole, active or not.
                 partner.userData?["triangleResist"] = true
-                let blackHoleSize = CGFloat((blackHole.userData?["blackHoleSize"] as? NSNumber)?.doubleValue ?? 20)
+                let size = blackHoleSize(blackHole)
                 let difference = CGVector(
                     dx: blackHole.position.x - enemy.position.x,
                     dy: blackHole.position.y - enemy.position.y
                 )
                 let distance = difference.length + 0.001
-                if distance < 100 + blackHoleSize * 10 {
+                if distance < 100 + size * 10 {
                     velocity = velocity + difference / distance
                 }
                 let distanceSquared = difference.dx * difference.dx
                     + difference.dy * difference.dy
                 if distanceSquared
-                    < TriangleRule.bondBlackHoleCollisionThresholdSquared(size: blackHoleSize) {
+                    < TriangleRule.bondBlackHoleCollisionThresholdSquared(size: size) {
                     let rotation = CGFloat((blackHole.userData?["rotation"] as? NSNumber)?.doubleValue ?? 0)
                     var partnerVelocity = CGVector(
                         dx: CGFloat((partner.userData?["dx"] as? NSNumber)?.doubleValue ?? 0),
@@ -5033,9 +5190,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             return false
         }
 
-        for blackHole in enemies(of: .blackHole) {
-            guard (blackHole.userData?["blackHoleActive"] as? NSNumber)?.boolValue ?? false else { continue }
-            let blackHoleSize = CGFloat((blackHole.userData?["blackHoleSize"] as? NSNumber)?.doubleValue ?? 20)
+        for blackHole in blackHoleCandidates where blackHole.parent != nil {
+            guard isBlackHoleActive(blackHole) else { continue }
+            let size = blackHoleSize(blackHole)
             let difference = CGVector(
                 dx: blackHole.position.x - enemy.position.x,
                 dy: blackHole.position.y - enemy.position.y
@@ -5046,29 +5203,29 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             let absorbDistance: CGFloat
             switch kind {
             case .pinwheel, .diamond, .greenSquare, .cube:
-                pullRange = 75 + blackHoleSize * 8
+                pullRange = 75 + size * 8
                 pullStrength = (1_200 - distance) / 512
-                absorbDistance = 12 + blackHoleSize / 2
+                absorbDistance = 12 + size / 2
             case .seeker:
-                pullRange = 75 + blackHoleSize * 6
+                pullRange = 75 + size * 6
                 pullStrength = (700 - distance) / 1_024
-                absorbDistance = blackHoleSize / 2
+                absorbDistance = size / 2
             case .butterfly:
-                pullRange = 75 + blackHoleSize * 5
+                pullRange = 75 + size * 5
                 pullStrength = (500 - distance) / 2_048
-                absorbDistance = 12 + blackHoleSize
+                absorbDistance = 12 + size
             case .snake:
-                pullRange = 75 + blackHoleSize * 5
+                pullRange = 75 + size * 5
                 pullStrength = (1_200 - distance) / 1_024
-                absorbDistance = 12 + blackHoleSize / 2
+                absorbDistance = 12 + size / 2
             case .interceptor:
-                pullRange = 75 + blackHoleSize * 8
+                pullRange = 75 + size * 8
                 pullStrength = (1_200 - distance) / 512
-                absorbDistance = 16 + blackHoleSize / 2
+                absorbDistance = 16 + size / 2
             case .triangle:
-                pullRange = 25 + blackHoleSize * 5
+                pullRange = 25 + size * 5
                 pullStrength = (500 - distance) / 1_024
-                absorbDistance = blackHoleSize / 2
+                absorbDistance = size / 2
             case .blackHole:
                 continue
             }
@@ -5087,14 +5244,15 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         _ blackHole: SKNode,
         velocity: inout CGVector,
         maximumSpeed: CGFloat,
-        rotation: Int
+        rotation: Int,
+        blackHoles: [SKNode]? = nil
     ) {
-        let blackHoleSize = CGFloat((blackHole.userData?["blackHoleSize"] as? NSNumber)?.doubleValue ?? 20)
-        blackHole.setScale(max(0.25, 0.25 + blackHoleSize / 64))
-        if (blackHole.userData?["blackHoleActive"] as? NSNumber)?.boolValue ?? false {
+        let size = blackHoleSize(blackHole)
+        blackHole.setScale(max(0.25, 0.25 + size / 64))
+        if isBlackHoleActive(blackHole) {
             gridSimulation.pull(
                 at: blackHole.position,
-                radiusInPoints: 5 + Int(blackHoleSize / 2),
+                radiusInPoints: 5 + Int(size / 2),
                 amount: 4
             )
             if rotation.isMultiple(of: 25),
@@ -5104,15 +5262,15 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                     at: blackHole.position,
                     listener: player.position,
                     playfieldSize: playfieldSize,
-                    size: blackHoleSize
+                    size: size
                 )
             }
         }
 
-        for otherBlackHole in enemyLayer.children where otherBlackHole !== blackHole
-            && otherBlackHole.name == "enemy"
-            && otherBlackHole.userData?["kind"] as? String == EnemyKind.blackHole.rawValue {
-            let otherSize = CGFloat((otherBlackHole.userData?["blackHoleSize"] as? NSNumber)?.doubleValue ?? 20)
+        let blackHoleCandidates = blackHoles ?? enemies(of: .blackHole)
+        for otherBlackHole in blackHoleCandidates where otherBlackHole !== blackHole
+            && otherBlackHole.parent != nil {
+            let otherSize = blackHoleSize(otherBlackHole)
             let difference = CGVector(
                 dx: otherBlackHole.position.x - blackHole.position.x,
                 dy: otherBlackHole.position.y - blackHole.position.y
@@ -5120,13 +5278,13 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             velocity = BlackHoleRule.mutuallyDeflectedVelocity(
                 velocity: velocity,
                 differenceToOther: difference,
-                ownSize: blackHoleSize,
+                ownSize: size,
                 otherSize: otherSize,
                 maximumSpeed: maximumSpeed
             )
         }
 
-        if (blackHole.userData?["blackHoleActive"] as? NSNumber)?.boolValue ?? false,
+        if isBlackHoleActive(blackHole),
            rotation.isMultiple(of: OriginalBlackHoleParticleRule.cadence) {
             let color = ParticleColor(
                 red: cyclingRed,
@@ -5138,7 +5296,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                     count: 1,
                     at: OriginalBlackHoleParticleRule.scenePosition(
                         center: blackHole.position,
-                        size: blackHoleSize,
+                        size: size,
                         sourceRotation: rotation,
                         index: index
                     ),

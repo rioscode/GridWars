@@ -8,6 +8,50 @@ final class GameRulesTests: XCTestCase {
         XCTAssertEqual(OriginalTimingRule.maximumAccumulatedTime, 0.1, accuracy: 0.000_001)
     }
 
+    func testIOSPerformanceBenchmarkProfilesKeepTheLegacyFixtureAndEnableActiveScaling() {
+        XCTAssertEqual(
+            IOSPerformanceBenchmarkProfile.commandLine(arguments: ["GridWars", "--ios-performance-benchmark"]),
+            .projectileCollision
+        )
+        XCTAssertEqual(
+            IOSPerformanceBenchmarkProfile.commandLine(arguments: ["GridWars", "--ios-active-enemy-benchmark"]),
+            .activeEnemies(multiplier: 1)
+        )
+        XCTAssertEqual(
+            IOSPerformanceBenchmarkProfile.commandLine(
+                arguments: ["GridWars", "--ios-active-enemy-benchmark-2x"]
+            ),
+            .activeEnemies(multiplier: 2)
+        )
+        XCTAssertEqual(
+            IOSPerformanceBenchmarkProfile.commandLine(arguments: [
+                "GridWars",
+                "--ios-performance-benchmark",
+                "--ios-active-enemy-benchmark-2x",
+            ]),
+            .activeEnemies(multiplier: 2)
+        )
+        XCTAssertNil(IOSPerformanceBenchmarkProfile.commandLine(arguments: ["GridWars"]))
+    }
+
+    func testActiveEnemyBenchmarkProfileScalesTheWorkloadAndDoesNotFreezeEnemies() {
+        let legacy = IOSPerformanceBenchmarkProfile.projectileCollision
+        let active = IOSPerformanceBenchmarkProfile.activeEnemies(multiplier: 1)
+        let doubled = IOSPerformanceBenchmarkProfile.activeEnemies(multiplier: 2)
+
+        XCTAssertEqual(legacy.workloadMultiplier, 1)
+        XCTAssertEqual(legacy.initialEnemyFreezeFrames, 1_000_000)
+        XCTAssertFalse(legacy.runsActiveEnemySimulation)
+
+        XCTAssertEqual(active.workloadMultiplier, 1)
+        XCTAssertEqual(active.initialEnemyFreezeFrames, 0)
+        XCTAssertTrue(active.runsActiveEnemySimulation)
+
+        XCTAssertEqual(doubled.workloadMultiplier, 2)
+        XCTAssertEqual(doubled.initialEnemyFreezeFrames, 0)
+        XCTAssertTrue(doubled.runsActiveEnemySimulation)
+    }
+
     func testPresentationInterpolationUsesTheFiftyHertzAccumulatorAndClamps() {
         XCTAssertEqual(OriginalPresentationRule.interpolationAlpha(accumulator: -1), 0)
         XCTAssertEqual(
