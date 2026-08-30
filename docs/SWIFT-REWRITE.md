@@ -457,6 +457,17 @@ per source draw. Style 3 also requires the complete line layer before the
 complete bloom-sprite layer; interleaving line and bloom nodes changes overlap
 pixels.
 
+Live numeric state in a dense entity-pair loop must not use SpriteKit
+`userData` as its authoritative store. Swift/Objective-C bridging of string
+keys and `NSNumber` values produced millions of temporary allocations for
+projectile velocity, Green Square avoidance, and Black-Hole deflection. The
+port now keeps those values on a typed `SKSpriteNode` subclass and passes a
+projectile's velocity through the complete two-half-step update. `userData`
+remains only as synchronized compatibility metadata for low-frequency paths
+and deterministic fixtures. Any future typed-state migration must preserve
+the original child-list traversal and mutation order; replacing storage does
+not authorize batching or reordering entity interactions.
+
 ## Randomness and numeric conversions
 
 Use the archived BRL.Random algorithm for deterministic source parity. Swift's

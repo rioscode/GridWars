@@ -629,6 +629,21 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   meet the dynamic performance acceptance boundary. No Phase-1 improvement
   percentage is accepted because the immutable baseline predates the benchmark
   harness.
+- iOS dynamic-performance Phase-2 evidence (2026-08-30): projectile and Green
+  Square velocity now stays in typed live-node state through both projectile
+  half-steps. A source-equivalent predicted-danger radius gate avoids
+  unnecessary Green Square mutation without changing source list order. Three
+  wired iPhone Release traces reduce projectile p50 from 16.2–16.4 ms to
+  5.1–5.6 ms (65.7–68.3 percent); the first run sustains 59.99 Hz with zero
+  33-ms frames, while the two subsequent runs measure 53.25 and 49.69 Hz with
+  stable projectile CPU. The previous 224.32-MB Green Square allocation path
+  is absent. That trace exposed a separate 230.28-MB Black-Hole string-bridge
+  path, so active/size state is now typed as well while `userData` remains
+  synchronized at the compatibility boundary. All 141 tests and required
+  builds pass, and the five projectile captures retain their exact accepted
+  `0.00339833...0.00385059` differences. Final three-run 60-Hz and post-follow-up
+  allocation acceptance remain open; see
+  `docs/iOS-Performance/MEASUREMENTS-PHASE2-2026-08-30.md`.
 
 ## Core loop and progression
 
@@ -716,6 +731,9 @@ the corresponding Swift implementation, and a test or visual/runtime check.
       persistence, input, spawning, scoring progression, or audio noise.
 - [x] Projectile collision candidates are classified once per update and
       reused without changing source collision priority or list order.
+- [x] Projectile, Green Square, and Black-Hole live hot-path state avoids
+      `NSMutableDictionary`/`NSNumber` bridging while retaining compatibility
+      metadata and source behavior.
 
 ## Screens and interaction
 

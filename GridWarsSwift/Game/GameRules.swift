@@ -1403,6 +1403,27 @@ enum OriginalBoundaryRule {
 }
 
 enum OriginalGreenSquareRule {
+    private static let avoidanceRadius: CGFloat = 100
+    private static let distanceBias: CGFloat = 0.001
+
+    static func predictedDanger(
+        squarePosition: CGPoint,
+        projectilePosition: CGPoint,
+        projectileVelocity: CGVector
+    ) -> CGVector {
+        CGVector(
+            dx: projectilePosition.x - squarePosition.x + projectileVelocity.dx * 4,
+            dy: projectilePosition.y - squarePosition.y + projectileVelocity.dy * 4
+        )
+    }
+
+    static func isInsideAvoidanceRadius(_ predictedDanger: CGVector) -> Bool {
+        let sourceDistanceLimit = avoidanceRadius - distanceBias
+        return predictedDanger.dx * predictedDanger.dx
+            + predictedDanger.dy * predictedDanger.dy
+            < sourceDistanceLimit * sourceDistanceLimit
+    }
+
     static func velocityAvoidingProjectile(
         squarePosition: CGPoint,
         squareVelocity: CGVector,
@@ -1410,14 +1431,15 @@ enum OriginalGreenSquareRule {
         projectileVelocity: CGVector,
         maximumSpeed: CGFloat
     ) -> CGVector {
-        let danger = CGVector(
-            dx: projectilePosition.x - squarePosition.x + projectileVelocity.dx * 4,
-            dy: projectilePosition.y - squarePosition.y + projectileVelocity.dy * 4
+        let danger = predictedDanger(
+            squarePosition: squarePosition,
+            projectilePosition: projectilePosition,
+            projectileVelocity: projectileVelocity
         )
+        guard isInsideAvoidanceRadius(danger) else { return squareVelocity }
         let bulletBack = projectileVelocity * -1
-        let dangerDistance = danger.length + 0.001
-        let bulletDistance = bulletBack.length + 0.001
-        guard dangerDistance < 100 else { return squareVelocity }
+        let dangerDistance = danger.length + distanceBias
+        let bulletDistance = bulletBack.length + distanceBias
         var result = squareVelocity
             - danger / dangerDistance * 30
             + bulletBack / bulletDistance * 30

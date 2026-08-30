@@ -1808,6 +1808,13 @@ final class GameRulesTests: XCTestCase {
             maximumSpeed: 3.41
         )
         XCTAssertEqual(distant, CGVector(dx: 1, dy: 2))
+
+        XCTAssertTrue(OriginalGreenSquareRule.isInsideAvoidanceRadius(
+            CGVector(dx: 99.998, dy: 0)
+        ))
+        XCTAssertFalse(OriginalGreenSquareRule.isInsideAvoidanceRadius(
+            CGVector(dx: 99.999, dy: 0)
+        ))
     }
 
     func testSpawnDirectorUsesOriginalGeneratorRandomCallOrder() {

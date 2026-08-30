@@ -23,7 +23,12 @@ The immutable starting point is commit `aac3d9c`, tagged
 - [x] Three current-release measurements on the same physical iPhone.
 - [x] Representative one-millisecond Time Profiler samples and a separate
       30-second Allocations trace.
-- [ ] Measured Phase 1 before/after CPU and allocation comparison.
+- [x] Phase 2 typed projectile/Green Square state, source-equivalent avoidance
+      gate, and typed Black-Hole state in the projectile hot path.
+- [x] Three Phase-2 physical-device Release traces and focused capture
+      verification.
+- [ ] Final post-Black-Hole follow-up CPU/allocation trace with the device
+      unlocked.
 
 The three wired iPhone 17 Pro Max runs measure only 13.99–16.79 presentation
 updates per second. Median display spacing is about 66.7 ms, projectile work
@@ -33,14 +38,20 @@ and 21.27 million heap allocations in 30.852 seconds. Full evidence is in
 `MEASUREMENTS-2026-08-30.md`. All runs remained at the same `Fair` thermal
 state; USB profiling did not return the device to `Nominal` after idle cooling.
 
+Phase 2 reduces projectile p50 from 16.2–16.4 ms to 5.1–5.6 ms, or
+65.7–68.3 percent. The first run sustains 59.99 Hz; two immediately following
+runs measure 53.25 and 49.69 Hz while projectile CPU remains stable. Green
+Square allocation paths disappear completely. The first allocation trace then
+exposed a separate 230.28-MB Black-Hole string-bridging path, which is now also
+typed but still needs a final unlocked-device trace. Full evidence is in
+`MEASUREMENTS-PHASE2-2026-08-30.md`.
+
 ## Observed scaling risks
 
-1. Phase 1 removed repeated enemy-list filtering, but the measured collision
-   path still processes every Green Square against every projectile in source
-   order. `runGreenSquare` repeatedly bridges velocity through
-   `NSMutableDictionary` and boxes `NSNumber` values. It accounts for 47.07%
-   of representative main-thread samples and 224.32 MB of allocations in the
-   30-second allocation trace.
+1. Phase 2 removes repeated Green Square and Black-Hole dictionary bridging
+   from the projectile path. Remaining projectile collision work still scales
+   with every candidate pair in source order, but now measures 5.1–5.6 ms p50
+   rather than 16.2–16.4 ms.
 2. Each surviving projectile half-step calls `GridSimulation.push()`, which
    visits a 7x7 point neighborhood. Five hundred projectiles can therefore
    produce about 49,000 Grid-point checks per fixed step.
@@ -96,12 +107,16 @@ builds, and the complete capture catalog where available.
 
 ### Phase 2: typed projectile and Green Square state
 
-- Load projectile velocity once per half-step and pass it into collision and
+- [x] Load projectile velocity once per half-step and pass it into collision and
   Black-Hole handling instead of reading and boxing dictionary values again.
-- Store projectile and Green Square live velocity in typed Swift state.
-- Add a source-equivalent predicted-danger distance gate before Green Square
+- [x] Store projectile and Green Square live velocity in typed Swift state.
+- [x] Add a source-equivalent predicted-danger distance gate before Green Square
   velocity mutation while preserving projectile-list order.
-- Repeat the three physical-device traces and the focused projectile captures.
+- [x] Store active/size state for live Black Holes in the same typed boundary
+  after the allocation trace exposed repeated key bridging.
+- [x] Repeat three physical-device Game Performance traces and the focused
+  projectile captures.
+- [ ] Repeat the final CPU/allocation trace after the Black-Hole follow-up.
 
 ### Phase 3: Grid and GPU work
 

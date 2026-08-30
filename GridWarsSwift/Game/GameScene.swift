@@ -11,6 +11,13 @@ import AppKit
 
 @MainActor
 final class GameScene: SKScene, SKPhysicsContactDelegate {
+    private final class LiveVelocitySpriteNode: SKSpriteNode {
+        var liveVelocity = CGVector.zero
+        var launchSpeed: CGFloat?
+        var liveBlackHoleSize: CGFloat = 20
+        var isLiveBlackHoleActive = false
+    }
+
     private struct NodePresentationState {
         let position: CGPoint
         let rotation: CGFloat
@@ -1060,8 +1067,10 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 closeToPlayer: true,
                 playBornSound: false
             )
-            blackHole?.userData?["blackHoleActive"] = true
-            blackHole?.userData?["blackHoleSize"] = 20.0
+            if let blackHole {
+                setBlackHoleActive(true, for: blackHole)
+                setBlackHoleSize(20, for: blackHole)
+            }
         }
 
         for index in 0..<500 {
@@ -1185,8 +1194,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             playBornSound: false
         ) else { return }
         if kind == .blackHole {
-            enemy.userData?["blackHoleSize"] = 36.0
-            enemy.userData?["blackHoleActive"] = true
+            setBlackHoleSize(36, for: enemy)
+            setBlackHoleActive(true, for: enemy)
             var velocity = CGVector.zero
             updateBlackHole(
                 enemy,
@@ -1237,10 +1246,14 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 closeToPlayer: true,
                 playBornSound: false
             )
-            first?.userData?["blackHoleSize"] = 36.0
-            first?.userData?["blackHoleActive"] = true
-            second?.userData?["blackHoleSize"] = 28.0
-            second?.userData?["blackHoleActive"] = true
+            if let first {
+                setBlackHoleSize(36, for: first)
+                setBlackHoleActive(true, for: first)
+            }
+            if let second {
+                setBlackHoleSize(28, for: second)
+                setBlackHoleActive(true, for: second)
+            }
             for _ in 0..<30 {
                 updateEnemies(kinds: [.blackHole])
             }
@@ -1252,8 +1265,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 closeToPlayer: true,
                 playBornSound: false
             ) else { return }
-            blackHole.userData?["blackHoleSize"] = 4.5
-            blackHole.userData?["blackHoleActive"] = true
+            setBlackHoleSize(4.5, for: blackHole)
+            setBlackHoleActive(true, for: blackHole)
             blackHole.userData?["absorbCount"] = 5
             let projectile = SKNode()
             projectile.userData = NSMutableDictionary(dictionary: ["dx": 0.0, "dy": 0.0])
@@ -1266,8 +1279,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 closeToPlayer: true,
                 playBornSound: false
             ) else { return }
-            blackHole.userData?["blackHoleSize"] = 64.5
-            blackHole.userData?["blackHoleActive"] = true
+            setBlackHoleSize(64.5, for: blackHole)
+            setBlackHoleActive(true, for: blackHole)
             growBlackHole(blackHole, amount: 1)
         case .particles:
             guard let blackHole = spawnEnemy(
@@ -1277,8 +1290,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 closeToPlayer: true,
                 playBornSound: false
             ) else { return }
-            blackHole.userData?["blackHoleSize"] = 20.0
-            blackHole.userData?["blackHoleActive"] = true
+            setBlackHoleSize(20, for: blackHole)
+            setBlackHoleActive(true, for: blackHole)
             blackHole.userData?["rotation"] = 59
             updateEnemies(kinds: [.blackHole])
         }
@@ -1456,8 +1469,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             blackHole.userData?["dx"] = 0.0
             blackHole.userData?["dy"] = 0.0
             blackHole.userData?["rotation"] = 45
-            blackHole.userData?["blackHoleSize"] = 20.0
-            blackHole.userData?["blackHoleActive"] = false
+            setBlackHoleSize(20, for: blackHole)
+            setBlackHoleActive(false, for: blackHole)
             // Reproduce the live frame order: bond visuals already exist when
             // the later enemy update snaps the bond.
             updateTrianglePairsAndBonds()
@@ -1564,8 +1577,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 closeToPlayer: true,
                 playBornSound: false
             ) else { return }
-            blackHole.userData?["blackHoleSize"] = 20.0
-            blackHole.userData?["blackHoleActive"] = true
+            setBlackHoleSize(20, for: blackHole)
+            setBlackHoleActive(true, for: blackHole)
             updateEnemyVisual(
                 blackHole,
                 kind: .blackHole,
@@ -1640,8 +1653,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 closeToPlayer: true,
                 playBornSound: false
             ) else { return }
-            blackHole.userData?["blackHoleSize"] = 20.0
-            blackHole.userData?["blackHoleActive"] = true
+            setBlackHoleSize(20, for: blackHole)
+            setBlackHoleActive(true, for: blackHole)
             let powerUp = spawnPowerUp(
                 at: CGPoint(x: center.x + 20, y: center.y),
                 kind: .extraCannon,
@@ -3605,7 +3618,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         offset: CGVector = .zero
     ) -> SKSpriteNode? {
         guard projectileLayer.children.count < 500 else { return nil }
-        let projectile = SKSpriteNode(texture: OriginalGraphics.texture(
+        let projectile = LiveVelocitySpriteNode(texture: OriginalGraphics.texture(
             named: "yellowshot",
             setIndex: activeGraphicsSetIndex
         ))
@@ -3619,11 +3632,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         )
         projectile.zRotation = PlayerVisualRule.projectileSceneRotation(forDirection: direction)
         let velocity = direction * speed
-        projectile.userData = NSMutableDictionary(dictionary: [
-            "dx": velocity.dx,
-            "dy": velocity.dy,
-            "speed": speed,
-        ])
+        projectile.liveVelocity = velocity
+        projectile.launchSpeed = speed
         projectileLayer.addChild(projectile)
         return projectile
     }
@@ -3662,10 +3672,13 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             break
         }
 
-        let enemy = SKSpriteNode(texture: OriginalGraphics.texture(
+        let enemyTexture = OriginalGraphics.texture(
             named: kind.textureName,
             setIndex: activeGraphicsSetIndex
-        ))
+        )
+        let enemy: SKSpriteNode = kind == .greenSquare || kind == .blackHole
+            ? LiveVelocitySpriteNode(texture: enemyTexture)
+            : SKSpriteNode(texture: enemyTexture)
         enemy.name = "enemy"
         enemy.blendMode = .add
         enemy.color = .white
@@ -3685,6 +3698,11 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             dx: cos(initialAngle) * initialState.magnitude,
             dy: -sin(initialAngle) * initialState.magnitude
         )
+        (enemy as? LiveVelocitySpriteNode)?.liveVelocity = initialVelocity
+        if let liveEnemy = enemy as? LiveVelocitySpriteNode, kind == .blackHole {
+            liveEnemy.liveBlackHoleSize = 20
+            liveEnemy.isLiveBlackHoleActive = false
+        }
         let interceptorTurn = InterceptorRule.sourceTurnToFace(
             sceneVelocity: initialVelocity,
             sceneTarget: CGVector(
@@ -4131,8 +4149,8 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 )
             )
             if kind == .blackHole {
-                born?.userData?["blackHoleSize"] = 10.0
                 if let born {
+                    setBlackHoleSize(10, for: born)
                     updateEnemyVisual(born, kind: .blackHole, rotation: 0)
                 }
             }
@@ -4172,10 +4190,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             }
 
             let kind = EnemyKind(rawValue: enemy.userData?["kind"] as? String ?? "") ?? .pinwheel
-            var velocity = CGVector(
-                dx: CGFloat((enemy.userData?["dx"] as? NSNumber)?.doubleValue ?? 0),
-                dy: CGFloat((enemy.userData?["dy"] as? NSNumber)?.doubleValue ?? 0)
-            )
+            var velocity = enemyVelocity(enemy)
             var rotation = (enemy.userData?["rotation"] as? NSNumber)?.intValue ?? 0
             rotation = switch kind {
             case .interceptor: (rotation + 16) % 360
@@ -4364,8 +4379,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 continue
             }
 
-            enemy.userData?["dx"] = velocity.dx
-            enemy.userData?["dy"] = velocity.dy
+            setEnemyVelocity(velocity, for: enemy)
             enemy.userData?["rotation"] = rotation
             updateEnemyVisual(enemy, kind: kind, rotation: rotation)
             if kind == .interceptor { updateInterceptorShieldVisual(enemy) }
@@ -5142,12 +5156,12 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     private func growBlackHole(_ blackHole: SKNode, amount: CGFloat) {
-        var blackHoleSize = CGFloat((blackHole.userData?["blackHoleSize"] as? NSNumber)?.doubleValue ?? 20)
+        var blackHoleSize = blackHoleSize(blackHole)
         let speedUp = BlackHoleRule.growthSpeedUp(frame: simulationFrame)
         blackHoleSize += amount * speedUp
-        blackHole.userData?["blackHoleSize"] = blackHoleSize
-        let wasActive = (blackHole.userData?["blackHoleActive"] as? NSNumber)?.boolValue ?? false
-        blackHole.userData?["blackHoleActive"] = true
+        setBlackHoleSize(blackHoleSize, for: blackHole)
+        let wasActive = isBlackHoleActive(blackHole)
+        setBlackHoleActive(true, for: blackHole)
         if !wasActive {
             gridSimulation.push(
                 at: blackHole.position,
@@ -5239,8 +5253,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 sprite.colorBlendFactor = 1
             }
             var velocity = projectileVelocity(projectile)
-            let originalSpeed = CGFloat((projectile.userData?["speed"] as? NSNumber)?.doubleValue
-                                        ?? Double(velocity.length))
+            let originalSpeed = projectileLaunchSpeed(projectile, velocity: velocity)
             var shouldRemove = false
 
             for _ in 0..<2 {
@@ -5257,12 +5270,11 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 velocity = boundary.velocity
                 shouldRemove = boundary.shouldRemove
 
-                projectile.userData?["dx"] = velocity.dx
-                projectile.userData?["dy"] = velocity.dy
                 if !shouldRemove {
                     collisionCandidates.refreshIfNeeded(from: enemyLayer)
                     let collided = checkProjectileCollisions(
                         projectile,
+                        velocity: velocity,
                         candidates: collisionCandidates
                     )
                     shouldRemove = ProjectileUpgradeRule.collisionRemovesProjectile(
@@ -5300,8 +5312,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             }
 
             if projectile.parent != nil {
-                projectile.userData?["dx"] = velocity.dx
-                projectile.userData?["dy"] = velocity.dy
+                setProjectileVelocity(velocity, for: projectile)
                 projectile.zRotation = PlayerVisualRule.projectileSceneRotation(
                     forDirection: velocity
                 )
@@ -5335,64 +5346,128 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     private func projectileVelocity(_ projectile: SKNode) -> CGVector {
-        CGVector(
+        if let projectile = projectile as? LiveVelocitySpriteNode {
+            return projectile.liveVelocity
+        }
+        return CGVector(
             dx: CGFloat((projectile.userData?["dx"] as? NSNumber)?.doubleValue ?? 0),
             dy: CGFloat((projectile.userData?["dy"] as? NSNumber)?.doubleValue ?? 0)
         )
     }
 
+    private func projectileLaunchSpeed(_ projectile: SKNode, velocity: CGVector) -> CGFloat {
+        if let launchSpeed = (projectile as? LiveVelocitySpriteNode)?.launchSpeed {
+            return launchSpeed
+        }
+        return CGFloat((projectile.userData?["speed"] as? NSNumber)?.doubleValue
+                       ?? Double(velocity.length))
+    }
+
+    private func setProjectileVelocity(_ velocity: CGVector, for projectile: SKNode) {
+        if let projectile = projectile as? LiveVelocitySpriteNode {
+            projectile.liveVelocity = velocity
+        } else {
+            projectile.userData?["dx"] = velocity.dx
+            projectile.userData?["dy"] = velocity.dy
+        }
+    }
+
+    private func enemyVelocity(_ enemy: SKNode) -> CGVector {
+        if let enemy = enemy as? LiveVelocitySpriteNode {
+            return enemy.liveVelocity
+        }
+        return CGVector(
+            dx: CGFloat((enemy.userData?["dx"] as? NSNumber)?.doubleValue ?? 0),
+            dy: CGFloat((enemy.userData?["dy"] as? NSNumber)?.doubleValue ?? 0)
+        )
+    }
+
+    private func setEnemyVelocity(_ velocity: CGVector, for enemy: SKNode) {
+        if let enemy = enemy as? LiveVelocitySpriteNode {
+            enemy.liveVelocity = velocity
+        } else {
+            enemy.userData?["dx"] = velocity.dx
+            enemy.userData?["dy"] = velocity.dy
+        }
+    }
+
+    private func blackHoleSize(_ blackHole: SKNode) -> CGFloat {
+        if let blackHole = blackHole as? LiveVelocitySpriteNode {
+            return blackHole.liveBlackHoleSize
+        }
+        return CGFloat((blackHole.userData?["blackHoleSize"] as? NSNumber)?.doubleValue ?? 20)
+    }
+
+    private func isBlackHoleActive(_ blackHole: SKNode) -> Bool {
+        if let blackHole = blackHole as? LiveVelocitySpriteNode {
+            return blackHole.isLiveBlackHoleActive
+        }
+        return (blackHole.userData?["blackHoleActive"] as? NSNumber)?.boolValue ?? false
+    }
+
+    private func setBlackHoleSize(_ size: CGFloat, for blackHole: SKNode) {
+        (blackHole as? LiveVelocitySpriteNode)?.liveBlackHoleSize = size
+        blackHole.userData?["blackHoleSize"] = size
+    }
+
+    private func setBlackHoleActive(_ active: Bool, for blackHole: SKNode) {
+        (blackHole as? LiveVelocitySpriteNode)?.isLiveBlackHoleActive = active
+        blackHole.userData?["blackHoleActive"] = active
+    }
+
     private func checkProjectileCollisions(
         _ projectile: SKNode,
+        velocity: CGVector,
         candidates: ProjectileCollisionCandidates
     ) -> Bool {
         let position = projectile.position
 
         for blackHole in candidates.blackHoles where blackHole.parent != nil {
-            let blackHoleSize = CGFloat((blackHole.userData?["blackHoleSize"] as? NSNumber)?.doubleValue ?? 20)
+            let blackHoleSize = blackHoleSize(blackHole)
             if squaredDistance(position, blackHole.position) < pow(12 + blackHoleSize / 2, 2) {
-                damageEnemy(blackHole, projectile: projectile)
+                damageEnemy(blackHole, projectile: projectile, projectileVelocity: velocity)
                 return true
             }
         }
         for square in candidates.greenSquares where square.parent != nil {
             if squaredDistance(position, square.position) < 16 * 16 + 2 * 2 {
-                damageEnemy(square, projectile: projectile)
+                damageEnemy(square, projectile: projectile, projectileVelocity: velocity)
                 return true
             }
-            runGreenSquare(square, awayFrom: projectile)
+            runGreenSquare(square, awayFrom: projectile, projectileVelocity: velocity)
         }
         for pinwheel in candidates.pinwheels where pinwheel.parent != nil
             && squaredDistance(position, pinwheel.position) < 16 * 16 + 2 * 2 {
-            damageEnemy(pinwheel, projectile: projectile)
+            damageEnemy(pinwheel, projectile: projectile, projectileVelocity: velocity)
             return true
         }
         for diamond in candidates.diamonds where diamond.parent != nil
             && squaredDistance(position, diamond.position) < 18 * 18 + 3 * 3 {
-            damageEnemy(diamond, projectile: projectile)
+            damageEnemy(diamond, projectile: projectile, projectileVelocity: velocity)
             return true
         }
         for cube in candidates.cubes where cube.parent != nil {
             let tier = (cube.userData?["cubeTier"] as? NSNumber)?.intValue ?? 0
             if squaredDistance(position, cube.position) < CGFloat(16 * 16 + 3 * 3 - tier * 3) {
-                damageEnemy(cube, projectile: projectile)
+                damageEnemy(cube, projectile: projectile, projectileVelocity: velocity)
                 return true
             }
         }
         for seeker in candidates.seekers where seeker.parent != nil
             && squaredDistance(position, seeker.position) < 12 * 12 + 2 * 2 {
-            damageEnemy(seeker, projectile: projectile)
+            damageEnemy(seeker, projectile: projectile, projectileVelocity: velocity)
             return true
         }
         for triangle in candidates.triangles where triangle.parent != nil
             && squaredDistance(position, triangle.position)
                 < TriangleRule.projectileCollisionThresholdSquared {
-            damageEnemy(triangle, projectile: projectile)
+            damageEnemy(triangle, projectile: projectile, projectileVelocity: velocity)
             return true
         }
         for generator in candidates.generators where generator.parent != nil {
             let generatorSize = CGFloat((generator.userData?["health"] as? NSNumber)?.doubleValue ?? 0)
             if squaredDistance(position, generator.position) < 12 * 12 + generatorSize {
-                damageEnemy(generator, projectile: projectile)
+                damageEnemy(generator, projectile: projectile, projectileVelocity: velocity)
                 return true
             }
         }
@@ -5403,7 +5478,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 : 24
             if squaredDistance(position, snakeNode.position)
                 < SnakeSegmentRule.projectileCollisionThresholdSquared(originalFrame: frame) {
-                damageEnemy(snakeNode, projectile: projectile)
+                damageEnemy(snakeNode, projectile: projectile, projectileVelocity: velocity)
                 return true
             }
         }
@@ -5414,25 +5489,25 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             let turnRemaining = (interceptor.userData?["interceptorTurnRemaining"] as? NSNumber)?.intValue ?? 0
             if !InterceptorRule.shieldIsActive(turnRemaining: turnRemaining) {
                 if distance < InterceptorRule.bodyProjectileThresholdSquared {
-                    damageEnemy(interceptor, projectile: projectile)
+                    damageEnemy(interceptor, projectile: projectile, projectileVelocity: velocity)
                     return true
                 }
             } else {
                 if cachedInterceptorShieldGeometry(interceptor).contains(
                     position,
-                    projectileVelocity: projectileVelocity(projectile)
+                    projectileVelocity: velocity
                 ) {
                     return true
                 }
                 if distance < InterceptorRule.bodyProjectileThresholdSquared {
-                    damageEnemy(interceptor, projectile: projectile)
+                    damageEnemy(interceptor, projectile: projectile, projectileVelocity: velocity)
                     return true
                 }
             }
         }
         for butterfly in candidates.butterflies where butterfly.parent != nil
             && squaredDistance(position, butterfly.position) < 10 * 10 + 2 * 2 {
-            damageEnemy(butterfly, projectile: projectile)
+            damageEnemy(butterfly, projectile: projectile, projectileVelocity: velocity)
             return true
         }
         return false
@@ -5475,22 +5550,28 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         return true
     }
 
-    private func runGreenSquare(_ square: SKNode, awayFrom projectile: SKNode) {
-        let squareVelocity = CGVector(
-            dx: CGFloat((square.userData?["dx"] as? NSNumber)?.doubleValue ?? 0),
-            dy: CGFloat((square.userData?["dy"] as? NSNumber)?.doubleValue ?? 0)
+    private func runGreenSquare(
+        _ square: SKNode,
+        awayFrom projectile: SKNode,
+        projectileVelocity: CGVector
+    ) {
+        let predictedDanger = OriginalGreenSquareRule.predictedDanger(
+            squarePosition: square.position,
+            projectilePosition: projectile.position,
+            projectileVelocity: projectileVelocity
         )
-        let shotVelocity = projectileVelocity(projectile)
+        guard OriginalGreenSquareRule.isInsideAvoidanceRadius(predictedDanger) else { return }
+
+        let squareVelocity = enemyVelocity(square)
         let maximumSpeed = session.enemySpeeds[.greenSquare] * 1.1
         let avoidingVelocity = OriginalGreenSquareRule.velocityAvoidingProjectile(
             squarePosition: square.position,
             squareVelocity: squareVelocity,
             projectilePosition: projectile.position,
-            projectileVelocity: shotVelocity,
+            projectileVelocity: projectileVelocity,
             maximumSpeed: maximumSpeed
         )
-        square.userData?["dx"] = avoidingVelocity.dx
-        square.userData?["dy"] = avoidingVelocity.dy
+        setEnemyVelocity(avoidingVelocity, for: square)
     }
 
     private func applyBlackHoles(
@@ -5499,16 +5580,14 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         candidates: [SKNode]
     ) {
         for blackHole in candidates where blackHole.parent != nil {
-            guard (blackHole.userData?["blackHoleActive"] as? NSNumber)?.boolValue ?? false else { continue }
-            let blackHoleSize = CGFloat((blackHole.userData?["blackHoleSize"] as? NSNumber)?.doubleValue ?? 20)
+            guard isBlackHoleActive(blackHole) else { continue }
+            let blackHoleSize = blackHoleSize(blackHole)
             velocity = BlackHoleRule.deflectProjectile(
                 position: projectile.position,
                 velocity: velocity,
                 blackHolePosition: blackHole.position,
                 blackHoleSize: blackHoleSize
             )
-            projectile.userData?["dx"] = velocity.dx
-            projectile.userData?["dy"] = velocity.dy
         }
     }
 
@@ -5538,7 +5617,11 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         }
     }
 
-    private func damageEnemy(_ enemy: SKNode, projectile: SKNode) {
+    private func damageEnemy(
+        _ enemy: SKNode,
+        projectile: SKNode,
+        projectileVelocity liveProjectileVelocity: CGVector? = nil
+    ) {
         guard enemy.parent != nil else { return }
         if enemy.name == "snakeTail" {
             emitParticles(
@@ -5557,7 +5640,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             if InterceptorRule.shieldIsActive(turnRemaining: turnRemaining),
                cachedInterceptorShieldGeometry(enemy).contains(
                    projectile.position,
-                   projectileVelocity: projectileVelocity(projectile)
+                   projectileVelocity: liveProjectileVelocity ?? projectileVelocity(projectile)
                ) {
                 emitParticles(
                     count: 4,
@@ -5588,7 +5671,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             trianglePreHitParticlesEmitted = true
             if trianglePartner(of: enemy) != nil {
                 var bond = TriangleBondState(strength: strength)
-                let shotVelocity = projectileVelocity(projectile)
+                let shotVelocity = liveProjectileVelocity ?? projectileVelocity(projectile)
                 let impulse = bond.registerProjectileHit(projectileVelocityPerFrame: shotVelocity)
                 var velocity = CGVector(
                     dx: CGFloat((enemy.userData?["dx"] as? NSNumber)?.doubleValue ?? 0),
@@ -5610,9 +5693,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 kind: .random,
                 color: colorPalette[.blackHole]
             )
-            var blackHoleSize = CGFloat((enemy.userData?["blackHoleSize"] as? NSNumber)?.doubleValue ?? 20)
-            let wasActive = (enemy.userData?["blackHoleActive"] as? NSNumber)?.boolValue ?? false
-            enemy.userData?["blackHoleActive"] = true
+            var blackHoleSize = blackHoleSize(enemy)
+            let wasActive = isBlackHoleActive(enemy)
+            setBlackHoleActive(true, for: enemy)
             if !wasActive {
                 gridSimulation.push(
                     at: enemy.position,
@@ -5621,7 +5704,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
                 )
             }
             blackHoleSize = BlackHoleRule.sizeAfterHit(size: blackHoleSize)
-            enemy.userData?["blackHoleSize"] = blackHoleSize
+            setBlackHoleSize(blackHoleSize, for: enemy)
             if let id = enemy.userData?["enemyID"] as? String {
                 audio.startBlackHoleLoop(
                     id: id,

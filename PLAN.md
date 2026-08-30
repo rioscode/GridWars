@@ -253,7 +253,11 @@ commit:
       across all projectile half-steps, preserving source kind and list order
 - [x] Three physical-iPhone current-release Game Performance measurements plus
       a 30-second Allocations trace
-- [ ] Measured Phase-1 before/after CPU and allocation comparison
+- [x] Typed projectile, Green Square, and Black-Hole live state in the dense
+      projectile hot path, with source-equivalent Green avoidance gating
+- [x] Three Phase-2 physical-iPhone Game Performance measurements and focused
+      capture verification
+- [ ] Final post-Black-Hole CPU/allocation trace with the device unlocked
 - [x] Default-off macOS Metal prototype for Grid style 1 and Particle style 1,
       with SpriteKit fallback and an unchanged SpriteKit-only iOS path
 
@@ -352,3 +356,27 @@ The before/after percentage remains open because the immutable baseline
 predates the benchmark harness. Detailed evidence and the revised priority are
 in `docs/iOS-Performance/MEASUREMENTS-2026-08-30.md` and
 `docs/iOS-Performance/PLAN.md`.
+
+## iOS dynamic-performance phase 2 (2026-08-30)
+
+Projectile velocity is now loaded once and carried as typed Swift state
+through both half-steps, collision handling, upgrades, and Black-Hole
+deflection. Green Squares keep live velocity on the typed SpriteKit node and
+skip velocity reads/mutation when the source-equivalent predicted-danger
+vector cannot be inside the original 100-unit avoidance radius. The allocation
+trace then exposed Black-Hole size/active string-key bridging as the next
+projectile hotspot, so those live values now use the same typed boundary while
+`userData` remains synchronized for compatibility and capture fixtures.
+
+Three wired Release traces reduce projectile p50 from 16.2–16.4 ms to
+5.1–5.6 ms (65.7–68.3 percent). Run 1 sustains 59.99 Hz with no 33-ms frames;
+runs 2 and 3 measure 53.25 and 49.69 Hz while projectile CPU remains stable.
+The Green Square allocation path is absent from the Phase-2 trace. A final
+post-Black-Hole trace remains pending because Instruments found the device
+locked during the follow-up attempt.
+
+All 141 macOS tests, macOS Debug/Release builds, the generic iOS Simulator
+Debug build, and the signed physical-iPhone Release build pass. The five
+focused projectile captures remain exactly at their previously accepted
+`0.00339833...0.00385059` differences. Detailed evidence is in
+`docs/iOS-Performance/MEASUREMENTS-PHASE2-2026-08-30.md`.
