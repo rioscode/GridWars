@@ -279,6 +279,10 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private var debugEnabled = false
     private var starStates: [OriginalStarState] = []
     private var starNodes: [SKShapeNode] = []
+    // Star positions are presentation-only state. Keeping their immutable base
+    // positions in Swift avoids an NSDictionary/NSNumber round trip for every
+    // visible star on every display update.
+    private var starBasePositions: [CGPoint] = []
     private var initialStarRandom = BlitzMaxRandomNumberGenerator()
     private var appliedGridColorPosition = 0
     private var appliedGraphicsSetIndex = -1
@@ -3239,6 +3243,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             rebuildArenaBorder()
             for star in starNodes { star.removeFromParent() }
             starNodes.removeAll(keepingCapacity: true)
+            starBasePositions.removeAll(keepingCapacity: true)
             starStates = OriginalStarRule.create(
                 maximumIndex: OriginalRuntimeSettings.maximumStars,
                 playfieldSize: arena,
@@ -3352,11 +3357,11 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             alpha: 1
         )
         star.position = basePosition
-        star.userData = NSMutableDictionary(dictionary: [
-            "baseX": basePosition.x,
-            "baseY": basePosition.y,
-            "depth": state.depth,
-        ])
+        if starBasePositions.indices.contains(index) {
+            starBasePositions[index] = basePosition
+        } else {
+            starBasePositions.append(basePosition)
+        }
     }
 
     private func updateWorldTransformAndStars() {
@@ -3365,15 +3370,18 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     }
 
     private func updateStarPositions(for displayedCameraOffset: CGPoint) {
-        for star in starNodes {
-            guard let data = star.userData else { continue }
-            let baseX = CGFloat((data["baseX"] as? NSNumber)?.doubleValue ?? Double(star.position.x))
-            let baseY = CGFloat((data["baseY"] as? NSNumber)?.doubleValue ?? Double(star.position.y))
-            let depth = max(1, CGFloat((data["depth"] as? NSNumber)?.doubleValue ?? 2))
+        guard menuModel.settings.starCount > 0 else { return }
+        let finalIndex = min(
+            menuModel.settings.starCount,
+            min(starNodes.count - 1, min(starStates.count - 1, starBasePositions.count - 1))
+        )
+        guard finalIndex >= 0 else { return }
+        for index in 0...finalIndex {
+            let star = starNodes[index]
             star.position = OriginalPresentationRule.starLocalPosition(
-                base: CGPoint(x: baseX, y: baseY),
+                base: starBasePositions[index],
                 cameraOffset: displayedCameraOffset,
-                depth: depth
+                depth: starStates[index].depth
             )
         }
     }
@@ -3701,7 +3709,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         speed: CGFloat,
         offset: CGVector = .zero
     ) -> SKSpriteNode? {
-        guard projectileLayer.children.count < 500 else { return nil }
+        guard projectileLayer.children.count < maximumProjectileCount else { return nil }
         let projectile = LiveVelocitySpriteNode(texture: OriginalGraphics.texture(
             named: "yellowshot",
             setIndex: activeGraphicsSetIndex
@@ -3720,6 +3728,13 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         projectile.launchSpeed = speed
         projectileLayer.addChild(projectile)
         return projectile
+    }
+
+    private var maximumProjectileCount: Int {
+        // The source gameplay cap remains 500. Only the opt-in 2× benchmark
+        // raises it, otherwise that fixture silently records the same shot
+        // count as the 1× run.
+        500 * (iosPerformanceBenchmarkProfile?.workloadMultiplier ?? 1)
     }
 
     @discardableResult

@@ -656,9 +656,16 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   original update order intact and defers Triangle stable-ID and Snake-tail
   indexing until a measured follow-up. macOS Debug, generic iOS Simulator
   Debug, and signed iPhone Release builds pass, as do all 143 macOS tests.
-  Active-fixture physical-device traces and full capture verification remain
-  open because the newly installed iPhone app could not launch while the
-  device was locked.
+  The first valid 10-second physical 1x/2x trace pair holds a 16.668-ms
+  display-swap median with no 20-ms gaps or 100-ms hangs, so it does not
+  reproduce the user's crowded-wave hitch. Its measured Enemy-AI median rises
+  from 0.213 ms to 0.625 ms, while projectile collision and Grid/presentation
+  remain more expensive. The initial 2x fixture accidentally retained the
+  normal 500-shot cap despite requesting 1,000; the benchmark-only override
+  is implemented but still requires its corrected trace. The fixture also
+  omits Snake tails and guaranteed Triangle bonds, so a normal-frame replay
+  and full enemy-capture verification remain open. Evidence:
+  `docs/iOS-Performance/MEASUREMENTS-ACTIVE-ENEMY-2026-08-30.md`.
 
 ## Core loop and progression
 

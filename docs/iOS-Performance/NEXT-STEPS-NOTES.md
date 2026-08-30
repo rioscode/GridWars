@@ -1,6 +1,6 @@
 # iOS Performance: Next Steps
 
-Status: 2026-08-30, Phase-3 implementation checkpoint (device traces pending)
+Status: 2026-08-30, Phase-3 first device traces retained; corrected 2x replay pending
 
 This document is the long-form notebook for the next optimization phase. It is
 intentionally more detailed than `PLAN.md` so the reasoning does not have to be
@@ -56,9 +56,35 @@ The blind spot is now executable rather than merely documented.
 
 This is deliberately a first lookup-cost change, not a spatial rewrite. Snake
 tails, Triangle stable-ID lookup, Triangle bond pooling, presentation snapshots,
-and projectile spatial queries remain separate measurable steps. The signed
-Release app was installed on the USB-connected iPhone; the next trace awaits an
-unlocked device.
+and projectile spatial queries remain separate measurable steps.
+
+## First physical active-enemy result
+
+Two valid 10-second wired Release traces are now retained. Both have a
+16.668-ms display-swap median, 60 displayed surfaces in every steady second,
+and no 100-ms Instruments hang. The first conclusion is therefore negative but
+valuable: this fixture does not reproduce the user-visible crowded-wave lag.
+
+| Observation | 1x | Initial 2x | What it means |
+| --- | ---: | ---: | --- |
+| Display Update median | 4.968 ms | 5.079 ms | No display-side overload in this fixture. |
+| Fixed Simulation median | 3.089 ms | 3.316 ms | The full measured subset stays far below 20 ms. |
+| Enemy AI median | 0.213 ms | 0.625 ms | Active enemy work scales, but is not yet dominant. |
+| Projectile median | 2.711 ms | 2.495 ms | Not a valid 2x shot comparison: both traces have 500 actual shots. |
+
+The trace audit caught a benchmark correctness defect before it could become a
+presentation claim: `--ios-active-enemy-benchmark-2x` requested 1,000 shots,
+but the normal source cap in `spawnProjectile` limited it to 500. The cap stays
+500 in real gameplay. Only the explicit synthetic 2x benchmark now raises it;
+the corresponding iPhone trace still needs to be recorded.
+
+The Time Profiler changes the next narrative beat. In this fixture,
+`updateProjectiles`/`checkProjectileCollisions` and Grid/presentation work
+outweigh active enemy AI. That does not disprove an enemy-specific hitch: the
+fixture does not create Snake tail chains, guaranteed Triangle bonds, real
+kills, score/effect churn, or a normal `simulateFrame()` replay. Those are now
+the evidence-based requirements for the next benchmark rather than vague
+future ideas.
 
 ## The benchmark blind spot
 

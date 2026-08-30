@@ -35,7 +35,11 @@ The immutable starting point is commit `aac3d9c`, tagged
 - [x] Frame-local source-ordered `EnemyFrameIndex` for the regular enemy loop,
       same-kind separation peers, and the Black-Hole list. It refreshes at
       observed layer-count mutations and keeps removed-node guards.
-- [ ] Three physical-device Release measurements for the active 1x/2x fixture.
+- [x] First valid physical-device 1x/2x Release trace pair, including a
+      Time-Profiler export and direct display-swap cadence check.
+- [x] Benchmark-only 2x projectile-cap override: the first trace discovered
+      that the requested 1,000 shots were silently limited to 500.
+- [ ] Corrected 2x trace plus three repeatable Release runs per profile.
 
 The three wired iPhone 17 Pro Max runs measure only 13.99–16.79 presentation
 updates per second. Median display spacing is about 66.7 ms, projectile work
@@ -87,6 +91,10 @@ typed but still needs a final unlocked-device trace. Full evidence is in
 9. `ParticleRenderer` pools allocations but still uses one `SKShapeNode` per
    line particle. Pool entries are grow-only and remain in SpriteKit's node
    tree after a burst.
+10. The first active 1x/2x pair sustains 60 Hz, but it is not a replay of the
+    reported hitch: its initial 2x shot cap was clipped to 500, it omits Snake
+    tails, and it does not guarantee Triangle bonds. The full evidence and
+    limits are in `MEASUREMENTS-ACTIVE-ENEMY-2026-08-30.md`.
 
 The existing `--effects-benchmark` is intentionally static and cannot validate
 these simulation costs.
@@ -163,12 +171,18 @@ builds, and the complete capture catalog where available.
 - [x] Use that index for `updateEnemies`, same-kind separation peers,
   Black-Hole influence, and mutual Black-Hole deflection. It changes lookup
   cost only; it does not reorder updates or interactions.
+- [x] Retain the first valid 1x/2x device traces. They show a 16.668-ms
+  display-swap median, zero 100-ms hangs, and 60 displayed surfaces per steady
+  second; the initial 2x trace has only 500 actual projectiles and is not a
+  full double-shot comparison.
+- [x] Keep the source 500-shot cap for gameplay, while allowing the opt-in
+  synthetic 2x benchmark to create 1,000 shots as documented.
 - [ ] Extend only after profiling: Snake-tail lookup and Triangle stable-ID
   lookup remain separate because they have different mutation/lifecycle rules.
 - [ ] Add a deterministic 120-frame state digest before migrating further
   lookup paths or pooling Triangle bonds.
-- [ ] Record the active 1x/2x physical-device Release traces and retain the
-  population counts after the warm-up window.
+- [ ] Record the corrected 2x shot-overload trace, then retain three
+  repeatable Release runs per profile with population counts after warm-up.
 
 Verification: compare deterministic per-frame entity state before/after for at
 least 120 fixed steps, run all enemy/triangle/Black-Hole captures, then repeat

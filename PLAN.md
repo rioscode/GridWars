@@ -262,7 +262,9 @@ commit:
       Triangle-Bond, and Black-Hole-AI signposts
 - [x] Source-ordered, frame-local EnemyFrameIndex for regular enemy updates,
       same-kind separation, and Black-Hole lookups
-- [ ] Physical-iPhone active-enemy 1x/2x Release measurements
+- [x] First physical-iPhone active-enemy 1x/2x Release trace pair, with a
+      60-Hz cadence check and Time-Profiler export
+- [ ] Corrected 2x shot-overload trace and three repeatable runs per profile
 - [x] Default-off macOS Metal prototype for Grid style 1 and Particle style 1,
       with SpriteKit fallback and an unchanged SpriteKit-only iOS path
 
@@ -404,6 +406,16 @@ projectile collision and same-kind separation. Typed enemy state, pooled
 Triangle bonds, and stable presentation snapshots follow in separate measured
 steps. Grid/GPU/particle work remains later until active enemy simulation is
 inside budget.
+
+The first valid paired 10-second Release traces present at 60 Hz with no
+20-ms display-swap gaps or 100-ms hangs. Enemy AI rises from 0.213 ms to
+0.625 ms median between the two fixtures, but projectile collision plus
+Grid/presentation rendering remains more expensive. This does not reproduce
+the user's hitch: the initial 2x profile unintentionally retained the normal
+500-projectile cap despite requesting 1,000 shots, and it excludes Snake-tail
+and guaranteed Triangle-bond churn. The benchmark-only cap correction is
+installed for the follow-up; detailed evidence is in
+`docs/iOS-Performance/MEASUREMENTS-ACTIVE-ENEMY-2026-08-30.md`.
 
 The executable plan is in `docs/iOS-Performance/PLAN.md`. Detailed technical,
 risk, and data-capture notes are in
