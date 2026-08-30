@@ -267,7 +267,12 @@ commit:
 - [ ] Corrected 2x shot-overload trace and three repeatable runs per profile
 - [x] Physical normal-game sustained-fire trace reproducing the reported
       shooting hitch and identifying synchronous one-shot audio setup
-- [ ] Physical A/B trace of the installed reusable one-shot audio pool
+- [x] Physical A/B trace of the PCM-buffered `AVAudioEngine` one-shot player
+      nodes: 16.668-ms median/p95 in the confirmed contiguous sustained-fire
+      window, with no potential hang
+- [x] Final audio edge hardening: all 16 firing-path voices preconnected and
+      Black-Hole loop teardown leaves the shared engine running; signed iPhone
+      build installation and launch smoke pass
 - [x] Default-off macOS Metal prototype for Grid style 1 and Particle style 1,
       with SpriteKit fallback and an unchanged SpriteKit-only iOS path
 
@@ -424,8 +429,14 @@ The subsequent normal-game live-shooting trace does reproduce the user's
 report: its retained firing window has a 150.014-ms display-swap median and a
 333.364-ms maximum. Main-thread samples show `AudioFileOpenURL`,
 `AVAudioPlayer.prepareToPlay`, and AudioQueue XPC work directly below
-projectile-impact and enemy-destruction calls. A prewarmed polyphonic one-shot
-pool is installed for the A/B run; details and presentation notes are in
+projectile-impact and enemy-destruction calls. A first prewarmed
+`AVAudioPlayer` pool removes file opening but still measures a 100.009-ms
+median because playback-queue preparation remains synchronous. The follow-up
+uses PCM-buffered `AVAudioEngine` player nodes and is verified by two physical
+A/B traces: the confirmed contiguous repeat holds 16.668-ms median and p95,
+with no potential hang. The subsequent full-voice/loop-lifecycle hardening
+passes signed-device launch smoke; its attempted third Instruments attach
+timed out and is not counted as frame evidence. Details are in
 `docs/iOS-Performance/MEASUREMENTS-LIVE-SHOOTING-2026-08-30.md`.
 
 The executable plan is in `docs/iOS-Performance/PLAN.md`. Detailed technical,

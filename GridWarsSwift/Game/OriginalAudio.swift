@@ -127,7 +127,8 @@ final class OriginalAudioEngine {
     }
 
     private struct OneShotVoice {
-        let player: AVAudioPlayer
+        let player: AVAudioPlayerNode
+        let rateUnit: AVAudioUnitVarispeed
         var lastStarted: UInt64
     }
 
@@ -140,6 +141,7 @@ final class OriginalAudioEngine {
     private var musicVolume: Float = 0.5
     private var soundSetIndex = 0
     private var oneShotVoices: [OriginalSoundEffect: [OneShotVoice]] = [:]
+    private var oneShotBuffers: [OriginalSoundEffect: AVAudioPCMBuffer] = [:]
     private var cachedSoundURLs: [OriginalSoundEffect: URL] = [:]
     private var oneShotVoiceCount = 0
     private var nextOneShotOrder: UInt64 = 0
@@ -184,21 +186,25 @@ final class OriginalAudioEngine {
         volume: CGFloat = 1
     ) {
         guard soundEffectsVolume > 0,
-              let player = acquireOneShotVoice(for: effect) else { return }
-        player.rate = Float(min(2, max(0.5, rate)))
-        player.pan = Float(min(1, max(-1, pan)))
-        player.volume = soundEffectsVolume * Float(min(1, max(0, volume)))
-        player.currentTime = 0
-        player.play()
+              let buffer = oneShotBuffer(for: effect),
+              let voice = acquireOneShotVoice(for: effect) else { return }
+        voice.rateUnit.rate = Float(min(2, max(0.5, rate)))
+        voice.player.pan = Float(min(1, max(-1, pan)))
+        voice.player.volume = soundEffectsVolume * Float(min(1, max(0, volume)))
+        voice.player.scheduleBuffer(buffer, at: nil, options: [])
+        ensureLoopEngineIsRunning()
+        voice.player.play()
     }
 
     /// Prepares the sounds that occur directly on the player's firing path so
-    /// file I/O and AudioQueue setup cannot happen during a crowded frame.
+    /// file I/O and playback-queue setup cannot happen during a crowded frame.
     func prepareFrequentGameplayEffects() {
-        prewarmOneShotVoices(for: .shotBorn, count: 8)
-        prewarmOneShotVoices(for: .shotWall, count: 8)
-        prewarmOneShotVoices(for: .enemyHit, count: 12)
-        prewarmOneShotVoices(for: .interceptorHit, count: 8)
+        guard soundEffectsVolume > 0 else { return }
+        prewarmOneShotVoices(for: .shotBorn, count: Self.maximumOneShotVoicesPerEffect)
+        prewarmOneShotVoices(for: .shotWall, count: Self.maximumOneShotVoicesPerEffect)
+        prewarmOneShotVoices(for: .enemyHit, count: Self.maximumOneShotVoicesPerEffect)
+        prewarmOneShotVoices(for: .interceptorHit, count: Self.maximumOneShotVoicesPerEffect)
+        ensureLoopEngineIsRunning()
     }
 
     func play(
@@ -288,10 +294,7 @@ final class OriginalAudioEngine {
         mixer.pan = mix.pan
         mixer.volume = soundEffectsVolume * mix.volume
         player.scheduleBuffer(buffer, at: nil, options: .loops)
-        if !loopEngine.isRunning {
-            loopEngine.prepare()
-            try? loopEngine.start()
-        }
+        ensureLoopEngineIsRunning()
         player.play()
         loopChannels[id] = LoopChannel(
             player: player,
@@ -338,18 +341,17 @@ final class OriginalAudioEngine {
         for id in Array(loopChannels.keys) {
             stopBlackHoleLoop(id: id)
         }
-        loopEngine.stop()
     }
 
-    private func acquireOneShotVoice(for effect: OriginalSoundEffect) -> AVAudioPlayer? {
+    private func acquireOneShotVoice(for effect: OriginalSoundEffect) -> OneShotVoice? {
         var voices = oneShotVoices[effect] ?? []
         let voiceIndex: Int
         if let idleIndex = voices.firstIndex(where: { !$0.player.isPlaying }) {
             voiceIndex = idleIndex
         } else if voices.count < Self.maximumOneShotVoicesPerEffect,
                   oneShotVoiceCount < Self.maximumOneShotVoiceCount,
-                  let player = makeOneShotPlayer(for: effect) {
-            voices.append(OneShotVoice(player: player, lastStarted: 0))
+                  let voice = makeOneShotVoice(for: effect) {
+            voices.append(voice)
             oneShotVoiceCount += 1
             voiceIndex = voices.index(before: voices.endIndex)
         } else if let oldestIndex = voices.indices.min(by: {
@@ -363,9 +365,9 @@ final class OriginalAudioEngine {
 
         nextOneShotOrder &+= 1
         voices[voiceIndex].lastStarted = nextOneShotOrder
-        let player = voices[voiceIndex].player
+        let voice = voices[voiceIndex]
         oneShotVoices[effect] = voices
-        return player
+        return voice
     }
 
     private func prewarmOneShotVoices(for effect: OriginalSoundEffect, count: Int) {
@@ -373,29 +375,63 @@ final class OriginalAudioEngine {
         let targetCount = min(count, Self.maximumOneShotVoicesPerEffect)
         while voices.count < targetCount,
               oneShotVoiceCount < Self.maximumOneShotVoiceCount,
-              let player = makeOneShotPlayer(for: effect) {
-            voices.append(OneShotVoice(player: player, lastStarted: 0))
+              let voice = makeOneShotVoice(for: effect) {
+            voices.append(voice)
             oneShotVoiceCount += 1
         }
         oneShotVoices[effect] = voices
     }
 
-    private func makeOneShotPlayer(for effect: OriginalSoundEffect) -> AVAudioPlayer? {
-        guard let url = soundURL(for: effect),
-              let player = try? AVAudioPlayer(contentsOf: url) else { return nil }
-        player.enableRate = true
-        player.prepareToPlay()
-        return player
+    private func makeOneShotVoice(for effect: OriginalSoundEffect) -> OneShotVoice? {
+        guard let buffer = oneShotBuffer(for: effect) else { return nil }
+        let player = AVAudioPlayerNode()
+        let rateUnit = AVAudioUnitVarispeed()
+        loopEngine.attach(player)
+        loopEngine.attach(rateUnit)
+        loopEngine.connect(player, to: rateUnit, format: buffer.format)
+        loopEngine.connect(rateUnit, to: loopEngine.mainMixerNode, format: buffer.format)
+        return OneShotVoice(player: player, rateUnit: rateUnit, lastStarted: 0)
     }
 
     private func stopAllOneShotVoices() {
         for voices in oneShotVoices.values {
-            voices.forEach { $0.player.stop() }
+            for voice in voices {
+                voice.player.stop()
+                loopEngine.disconnectNodeOutput(voice.player)
+                loopEngine.disconnectNodeOutput(voice.rateUnit)
+                loopEngine.detach(voice.player)
+                loopEngine.detach(voice.rateUnit)
+            }
         }
         oneShotVoices.removeAll(keepingCapacity: true)
+        oneShotBuffers.removeAll(keepingCapacity: true)
         cachedSoundURLs.removeAll(keepingCapacity: true)
         oneShotVoiceCount = 0
         nextOneShotOrder = 0
+    }
+
+    private func oneShotBuffer(for effect: OriginalSoundEffect) -> AVAudioPCMBuffer? {
+        if let buffer = oneShotBuffers[effect] { return buffer }
+        guard let url = soundURL(for: effect),
+              let file = try? AVAudioFile(forReading: url),
+              file.length <= AVAudioFramePosition(UInt32.max),
+              let buffer = AVAudioPCMBuffer(
+                  pcmFormat: file.processingFormat,
+                  frameCapacity: AVAudioFrameCount(file.length)
+              ) else { return nil }
+        do {
+            try file.read(into: buffer)
+            oneShotBuffers[effect] = buffer
+            return buffer
+        } catch {
+            return nil
+        }
+    }
+
+    private func ensureLoopEngineIsRunning() {
+        guard !loopEngine.isRunning else { return }
+        loopEngine.prepare()
+        try? loopEngine.start()
     }
 
     private func loadLoopBuffer() -> AVAudioPCMBuffer? {

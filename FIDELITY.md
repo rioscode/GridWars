@@ -668,9 +668,15 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   live-shooting trace does reproduce the user's hitch (150.014-ms display
   interval median; 333.364-ms maximum) and attributes a direct main-thread
   path to per-effect `AVAudioPlayer` URL lookup, file opening, preparation,
-  and AudioQueue setup under projectile impacts. The Swift port now prewarms
-  and reuses bounded polyphonic one-shot voices, preserving per-event audio
-  properties; physical A/B verification remains open. Evidence:
+  and AudioQueue setup under projectile impacts. A first bounded polyphonic
+  `AVAudioPlayer` pool removes file opening but retains playback-queue setup
+  and a 100.009-ms median. The Swift port's firing-path PCM-buffered, bounded
+  `AVAudioEngine` player-node follow-up preserves per-event audio properties
+  and is verified on the same physical iPhone: the confirmed contiguous
+  sustained-fire repeat holds 16.668-ms median/p95 with no potential hang.
+  The follow-up's full-voice prewarm and shared-engine loop-lifecycle hardening
+  pass signed-device launch smoke; its attempted third Instruments attach timed
+  out and is not counted as a trace. Evidence:
   `docs/iOS-Performance/MEASUREMENTS-ACTIVE-ENEMY-2026-08-30.md` and
   `docs/iOS-Performance/MEASUREMENTS-LIVE-SHOOTING-2026-08-30.md`.
 

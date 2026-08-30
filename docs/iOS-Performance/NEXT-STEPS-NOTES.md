@@ -1,6 +1,9 @@
 # iOS Performance: Next Steps
 
-Status: 2026-08-30, real shooting hitch reproduced; audio-pool A/B trace pending
+Status: 2026-08-30, real shooting hitch reproduced and the PCM-player-node
+mechanism fixed it in two physical A/B traces; final edge hardening passed
+device launch smoke, while further enemy/collision work remains conditional on
+a new real-device profile
 
 This document is the long-form notebook for the next optimization phase. It is
 intentionally more detailed than `PLAN.md` so the reasoning does not have to be
@@ -102,13 +105,50 @@ one-shot effect, re-resolved its resource URL, and pruned its player array in
 the same game frame. The original instead loads sound samples in `LoadSounds`
 and uses `CueSound` in `PlaySound2`.
 
-The new audio pool is intentionally constrained and fidelity-oriented: it
-prewarms overlapping voices for shot birth, wall hits, enemy hits, and
-interceptor hits; retains source rate/pan/volume; and uses prepared players
-until a bounded voice pool must recycle its oldest player. It moves I/O and
-queue creation out of gameplay without muting, debouncing, or reordering
-effects. The signed Release build is installed, but the device must be
-unlocked for the direct A/B trace.
+The first audio pool was intentionally constrained and fidelity-oriented: it
+prewarmed overlapping voices for shot birth, wall hits, enemy hits, and
+interceptor hits; retained source rate/pan/volume; and recycled its oldest
+voice only at a bounded limit. Its A/B result was useful precisely because it
+was not good enough: file-opening stacks vanished, but 50 live display
+intervals still had a 100.009-ms median (p95 216.687 ms, maximum 283.359 ms).
+`AVAudioPlayerCpp::prepareToPlayQueue`, AudioQueue allocation, and XPC
+remained below projectile impacts.
+
+The follow-up now uses decoded PCM buffers and preconnected
+`AVAudioEngine`/`AVAudioPlayerNode` voices. That preserves the same polyphony,
+source rate, pan, volume, and oldest-voice policy without muting, debouncing,
+or reordering effects. It removes the remaining `AVAudioPlayer` queue
+mechanism from the hot path. All 16 bounded voices are preconnected for each
+of the four firing-path effects, so a dense salvo cannot mutate the live audio
+graph after exhausting a smaller warm-up pool. Black-hole loop teardown now
+detaches only loop nodes and does not stop this shared one-shot engine. The
+two measured PCM runs precede this final hardening but validate the same
+decoded-buffer/player-node mechanism. The final signed build installed and
+launched successfully on the same wired iPhone; its immediate third Instruments
+attach timed out waiting for the device to boot, so no unusable trace is being
+presented as fresh evidence.
+
+One intentionally deferred audio-fidelity guardrail remains: at the global
+128-voice safety cap, an effect with no existing local voice can be skipped
+instead of borrowing an idle voice from another effect. It was not observed in
+the real firing trace and does not explain the hitch. Treat it as a separate
+mixing/pool-lifecycle test task rather than quietly changing its behavior in
+this performance milestone.
+
+The decisive repeat contains 223 contiguous display intervals with a 16.668-ms
+median, 16.668-ms p95, 33.336-ms maximum, one 33-ms interval, and no 50-ms or
+100-ms interval. The Game Performance template also produces an exact
+4,975.457-ms gap in the retained record; it has no potential-hang event and is
+consistent with its `Windowed (5 seconds)` capture behavior, so it is preserved
+in the raw artifact but excluded from the frame-pacing summary. The first PCM
+run independently reaches a 16.668-ms median and has no potential hang, even
+though its retained interval mix is less steady. The prior 150.014-ms median
+was therefore not merely a warmer-device or fixture effect.
+
+This changes the priority with evidence: do not immediately rewrite collision
+or rendering after a performance win just because those systems look expensive
+in source. Preserve the clean audio A/B. Only a fresh real-device trace that
+shows a dominant residual cost authorizes the next change.
 
 ## The benchmark blind spot
 

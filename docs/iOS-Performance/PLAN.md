@@ -42,10 +42,19 @@ The immutable starting point is commit `aac3d9c`, tagged
 - [ ] Corrected 2x trace plus three repeatable Release runs per profile.
 - [x] Normal-game live-shooting trace reproduces the reported hitch: 150.014-ms
       display-swap median and 333.364-ms maximum in its retained firing window.
-- [x] Replace per-shot/per-impact `AVAudioPlayer` construction with prewarmed,
-      reusable polyphonic voices; the signed Release build is installed.
-- [ ] Repeat the live-shooting trace to verify the audio stacks and frame
-      pacing after the pool fix.
+- [x] First `AVAudioPlayer` voice-pool A/B: URL/file opening disappears, but
+      queue preparation remains and the live median is still 100.009 ms.
+- [x] Replace the insufficient player pool with predecoded PCM buffers and
+      preconnected, polyphonic `AVAudioEngine` player nodes; the signed Release
+      build is installed.
+- [x] Two physical live-shooting PCM-player-node A/B traces: the repeat's
+      223 contiguous intervals have a 16.668-ms median/p95, a 33.336-ms
+      maximum, and no potential hang. One 4,975-ms Windowed-capture
+      discontinuity is excluded and explicitly documented.
+- [x] Harden the post-A/B edge cases: preconnect all 16 firing-path voices and
+      keep the shared one-shot engine alive when Black-Hole loops stop. The
+      final signed build installs and launches on the device; a third
+      Instruments attach timed out and is not counted as performance evidence.
 
 The three wired iPhone 17 Pro Max runs measure only 13.99–16.79 presentation
 updates per second. Median display spacing is about 66.7 ms, projectile work
@@ -101,11 +110,15 @@ typed but still needs a final unlocked-device trace. Full evidence is in
     reported hitch: its initial 2x shot cap was clipped to 500, it omits Snake
     tails, and it does not guarantee Triangle bonds. The full evidence and
     limits are in `MEASUREMENTS-ACTIVE-ENEMY-2026-08-30.md`.
-11. The normal-game live-shooting trace now reproduces the hitch and shows
-    synchronous `AVAudioPlayer` file opening, preparation, and AudioQueue
-    setup on the main thread under projectile impacts. The audio pool must be
-    verified on device before projectile broad-phase work is changed; evidence
-    is in `MEASUREMENTS-LIVE-SHOOTING-2026-08-30.md`.
+11. The normal-game live-shooting trace reproduces the hitch and shows
+    synchronous one-shot audio setup on the main thread under projectile
+    impacts. The first `AVAudioPlayer` pool removes file opening but retains
+    `prepareToPlayQueue`/AudioQueue work and a 100.009-ms live median. The
+    predecoded PCM `AVAudioEngine` player-node replacement is verified on the
+    same physical device: its repeat holds 16.668-ms median and p95 across 223
+    contiguous retained intervals, with no potential hang. Treat collision
+    broad-phase work as a separate, later profile target; evidence is in
+    `MEASUREMENTS-LIVE-SHOOTING-2026-08-30.md`.
 
 The existing `--effects-benchmark` is intentionally static and cannot validate
 these simulation costs.
