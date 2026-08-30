@@ -40,6 +40,12 @@ The immutable starting point is commit `aac3d9c`, tagged
 - [x] Benchmark-only 2x projectile-cap override: the first trace discovered
       that the requested 1,000 shots were silently limited to 500.
 - [ ] Corrected 2x trace plus three repeatable Release runs per profile.
+- [x] Normal-game live-shooting trace reproduces the reported hitch: 150.014-ms
+      display-swap median and 333.364-ms maximum in its retained firing window.
+- [x] Replace per-shot/per-impact `AVAudioPlayer` construction with prewarmed,
+      reusable polyphonic voices; the signed Release build is installed.
+- [ ] Repeat the live-shooting trace to verify the audio stacks and frame
+      pacing after the pool fix.
 
 The three wired iPhone 17 Pro Max runs measure only 13.99–16.79 presentation
 updates per second. Median display spacing is about 66.7 ms, projectile work
@@ -95,6 +101,11 @@ typed but still needs a final unlocked-device trace. Full evidence is in
     reported hitch: its initial 2x shot cap was clipped to 500, it omits Snake
     tails, and it does not guarantee Triangle bonds. The full evidence and
     limits are in `MEASUREMENTS-ACTIVE-ENEMY-2026-08-30.md`.
+11. The normal-game live-shooting trace now reproduces the hitch and shows
+    synchronous `AVAudioPlayer` file opening, preparation, and AudioQueue
+    setup on the main thread under projectile impacts. The audio pool must be
+    verified on device before projectile broad-phase work is changed; evidence
+    is in `MEASUREMENTS-LIVE-SHOOTING-2026-08-30.md`.
 
 The existing `--effects-benchmark` is intentionally static and cannot validate
 these simulation costs.

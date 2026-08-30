@@ -3191,6 +3191,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private func applyRuntimeSettings() {
         configurePlayfieldIfNeeded()
         audio.configure(settings: menuModel.settings)
+        if captureRequest == nil, !effectsBenchmarkEnabled, !iosPerformanceBenchmarkEnabled {
+            audio.prepareFrequentGameplayEffects()
+        }
         applyGraphicsSetIfNeeded()
         for blackHole in enemies(of: .blackHole)
             where (blackHole.userData?["blackHoleActive"] as? NSNumber)?.boolValue ?? false {

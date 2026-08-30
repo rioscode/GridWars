@@ -1,6 +1,6 @@
 # iOS Performance: Next Steps
 
-Status: 2026-08-30, Phase-3 first device traces retained; corrected 2x replay pending
+Status: 2026-08-30, real shooting hitch reproduced; audio-pool A/B trace pending
 
 This document is the long-form notebook for the next optimization phase. It is
 intentionally more detailed than `PLAN.md` so the reasoning does not have to be
@@ -85,6 +85,30 @@ fixture does not create Snake tail chains, guaranteed Triangle bonds, real
 kills, score/effect churn, or a normal `simulateFrame()` replay. Those are now
 the evidence-based requirements for the next benchmark rather than vague
 future ideas.
+
+## Live shooting finally reproduces the user report
+
+The normal game was attached on the same wired iPhone while sustained user
+firing was reproduced. Its retained display-surface window is unambiguously
+bad: 23 intervals have a 150.014-ms median, a 216.687-ms p95, and a
+333.364-ms maximum; all 23 are slower than 33.33 ms and 16 are slower than
+100 ms. This is the first device artifact that matches the reported feeling.
+
+The call stacks change the optimization order. `AudioFileOpenURL`,
+`AVAudioPlayer.init(contentsOf:)`, `prepareToPlay`, AudioQueue allocation, and
+AudioQueue XPC calls all appear on the main thread below real projectile
+impacts and enemy kills. The port had constructed a new player for every
+one-shot effect, re-resolved its resource URL, and pruned its player array in
+the same game frame. The original instead loads sound samples in `LoadSounds`
+and uses `CueSound` in `PlaySound2`.
+
+The new audio pool is intentionally constrained and fidelity-oriented: it
+prewarms overlapping voices for shot birth, wall hits, enemy hits, and
+interceptor hits; retains source rate/pan/volume; and uses prepared players
+until a bounded voice pool must recycle its oldest player. It moves I/O and
+queue creation out of gameplay without muting, debouncing, or reordering
+effects. The signed Release build is installed, but the device must be
+unlocked for the direct A/B trace.
 
 ## The benchmark blind spot
 

@@ -2,7 +2,7 @@ import AVFoundation
 import CoreGraphics
 import Foundation
 
-enum OriginalSoundEffect: CaseIterable {
+enum OriginalSoundEffect: CaseIterable, Hashable {
     case squareBorn
     case pinwheelBorn
     case diamondBorn
@@ -126,12 +126,23 @@ final class OriginalAudioEngine {
         var mix: OriginalAudioMix
     }
 
+    private struct OneShotVoice {
+        let player: AVAudioPlayer
+        var lastStarted: UInt64
+    }
+
+    private static let maximumOneShotVoicesPerEffect = 16
+    private static let maximumOneShotVoiceCount = 128
+
     private let bundle: Bundle
     private let fileManager: FileManager
     private var soundEffectsVolume: Float = 0.5
     private var musicVolume: Float = 0.5
     private var soundSetIndex = 0
-    private var oneShotPlayers: [AVAudioPlayer] = []
+    private var oneShotVoices: [OriginalSoundEffect: [OneShotVoice]] = [:]
+    private var cachedSoundURLs: [OriginalSoundEffect: URL] = [:]
+    private var oneShotVoiceCount = 0
+    private var nextOneShotOrder: UInt64 = 0
     private var musicPlayer: AVAudioPlayer?
     private var musicTrack: OriginalMusicTrack?
     private let loopEngine = AVAudioEngine()
@@ -159,8 +170,7 @@ final class OriginalAudioEngine {
             soundSetIndex = nextSoundSet
             stopAllBlackHoleLoops()
             loopBuffer = nil
-            oneShotPlayers.forEach { $0.stop() }
-            oneShotPlayers.removeAll()
+            stopAllOneShotVoices()
         }
         for channel in loopChannels.values {
             channel.mixer.volume = soundEffectsVolume * channel.mix.volume
@@ -174,16 +184,21 @@ final class OriginalAudioEngine {
         volume: CGFloat = 1
     ) {
         guard soundEffectsVolume > 0,
-              let url = soundURL(for: effect),
-              let player = try? AVAudioPlayer(contentsOf: url) else { return }
-        pruneOneShots()
-        player.enableRate = true
+              let player = acquireOneShotVoice(for: effect) else { return }
         player.rate = Float(min(2, max(0.5, rate)))
         player.pan = Float(min(1, max(-1, pan)))
         player.volume = soundEffectsVolume * Float(min(1, max(0, volume)))
-        player.prepareToPlay()
+        player.currentTime = 0
         player.play()
-        oneShotPlayers.append(player)
+    }
+
+    /// Prepares the sounds that occur directly on the player's firing path so
+    /// file I/O and AudioQueue setup cannot happen during a crowded frame.
+    func prepareFrequentGameplayEffects() {
+        prewarmOneShotVoices(for: .shotBorn, count: 8)
+        prewarmOneShotVoices(for: .shotWall, count: 8)
+        prewarmOneShotVoices(for: .enemyHit, count: 12)
+        prewarmOneShotVoices(for: .interceptorHit, count: 8)
     }
 
     func play(
@@ -326,11 +341,61 @@ final class OriginalAudioEngine {
         loopEngine.stop()
     }
 
-    private func pruneOneShots() {
-        oneShotPlayers.removeAll { !$0.isPlaying }
-        if oneShotPlayers.count >= 128 {
-            oneShotPlayers.removeFirst(oneShotPlayers.count - 127)
+    private func acquireOneShotVoice(for effect: OriginalSoundEffect) -> AVAudioPlayer? {
+        var voices = oneShotVoices[effect] ?? []
+        let voiceIndex: Int
+        if let idleIndex = voices.firstIndex(where: { !$0.player.isPlaying }) {
+            voiceIndex = idleIndex
+        } else if voices.count < Self.maximumOneShotVoicesPerEffect,
+                  oneShotVoiceCount < Self.maximumOneShotVoiceCount,
+                  let player = makeOneShotPlayer(for: effect) {
+            voices.append(OneShotVoice(player: player, lastStarted: 0))
+            oneShotVoiceCount += 1
+            voiceIndex = voices.index(before: voices.endIndex)
+        } else if let oldestIndex = voices.indices.min(by: {
+            voices[$0].lastStarted < voices[$1].lastStarted
+        }) {
+            voices[oldestIndex].player.stop()
+            voiceIndex = oldestIndex
+        } else {
+            return nil
         }
+
+        nextOneShotOrder &+= 1
+        voices[voiceIndex].lastStarted = nextOneShotOrder
+        let player = voices[voiceIndex].player
+        oneShotVoices[effect] = voices
+        return player
+    }
+
+    private func prewarmOneShotVoices(for effect: OriginalSoundEffect, count: Int) {
+        var voices = oneShotVoices[effect] ?? []
+        let targetCount = min(count, Self.maximumOneShotVoicesPerEffect)
+        while voices.count < targetCount,
+              oneShotVoiceCount < Self.maximumOneShotVoiceCount,
+              let player = makeOneShotPlayer(for: effect) {
+            voices.append(OneShotVoice(player: player, lastStarted: 0))
+            oneShotVoiceCount += 1
+        }
+        oneShotVoices[effect] = voices
+    }
+
+    private func makeOneShotPlayer(for effect: OriginalSoundEffect) -> AVAudioPlayer? {
+        guard let url = soundURL(for: effect),
+              let player = try? AVAudioPlayer(contentsOf: url) else { return nil }
+        player.enableRate = true
+        player.prepareToPlay()
+        return player
+    }
+
+    private func stopAllOneShotVoices() {
+        for voices in oneShotVoices.values {
+            voices.forEach { $0.player.stop() }
+        }
+        oneShotVoices.removeAll(keepingCapacity: true)
+        cachedSoundURLs.removeAll(keepingCapacity: true)
+        oneShotVoiceCount = 0
+        nextOneShotOrder = 0
     }
 
     private func loadLoopBuffer() -> AVAudioPCMBuffer? {
@@ -352,27 +417,47 @@ final class OriginalAudioEngine {
     }
 
     private func soundURL(for effect: OriginalSoundEffect) -> URL? {
+        if let cachedURL = cachedSoundURLs[effect] { return cachedURL }
         let name = effect.fileName
-        if soundSetIndex == 1 {
-            if let support = fileManager.urls(
+        let resolvedURL: URL?
+        if soundSetIndex == 1,
+           let support = fileManager.urls(
                 for: .applicationSupportDirectory,
                 in: .userDomainMask
             ).first {
-                let userURL = support
-                    .appendingPathComponent("GridWars/sounds/user", isDirectory: true)
-                    .appendingPathComponent(name)
-                if fileManager.fileExists(atPath: userURL.path) { return userURL }
-            }
-            if let bundledUser = bundle.url(
+            let userURL = support
+                .appendingPathComponent("GridWars/sounds/user", isDirectory: true)
+                .appendingPathComponent(name)
+            if fileManager.fileExists(atPath: userURL.path) {
+                resolvedURL = userURL
+            } else if let bundledUser = bundle.url(
                 forResource: name,
                 withExtension: nil,
                 subdirectory: "sounds/user"
-            ) { return bundledUser }
+            ) {
+                resolvedURL = bundledUser
+            } else {
+                resolvedURL = bundle.url(
+                    forResource: name,
+                    withExtension: nil,
+                    subdirectory: "sounds"
+                ) ?? bundle.url(forResource: name, withExtension: nil)
+            }
+        } else if soundSetIndex == 1,
+                  let bundledUser = bundle.url(
+                    forResource: name,
+                    withExtension: nil,
+                    subdirectory: "sounds/user"
+                  ) {
+            resolvedURL = bundledUser
+        } else {
+            resolvedURL = bundle.url(
+                forResource: name,
+                withExtension: nil,
+                subdirectory: "sounds"
+            ) ?? bundle.url(forResource: name, withExtension: nil)
         }
-        return bundle.url(
-            forResource: name,
-            withExtension: nil,
-            subdirectory: "sounds"
-        ) ?? bundle.url(forResource: name, withExtension: nil)
+        if let resolvedURL { cachedSoundURLs[effect] = resolvedURL }
+        return resolvedURL
     }
 }

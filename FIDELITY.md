@@ -664,8 +664,15 @@ the corresponding Swift implementation, and a test or visual/runtime check.
   normal 500-shot cap despite requesting 1,000; the benchmark-only override
   is implemented but still requires its corrected trace. The fixture also
   omits Snake tails and guaranteed Triangle bonds, so a normal-frame replay
-  and full enemy-capture verification remain open. Evidence:
-  `docs/iOS-Performance/MEASUREMENTS-ACTIVE-ENEMY-2026-08-30.md`.
+  and full enemy-capture verification remain open. A subsequent normal-game
+  live-shooting trace does reproduce the user's hitch (150.014-ms display
+  interval median; 333.364-ms maximum) and attributes a direct main-thread
+  path to per-effect `AVAudioPlayer` URL lookup, file opening, preparation,
+  and AudioQueue setup under projectile impacts. The Swift port now prewarms
+  and reuses bounded polyphonic one-shot voices, preserving per-event audio
+  properties; physical A/B verification remains open. Evidence:
+  `docs/iOS-Performance/MEASUREMENTS-ACTIVE-ENEMY-2026-08-30.md` and
+  `docs/iOS-Performance/MEASUREMENTS-LIVE-SHOOTING-2026-08-30.md`.
 
 ## Core loop and progression
 

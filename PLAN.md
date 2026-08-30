@@ -265,6 +265,9 @@ commit:
 - [x] First physical-iPhone active-enemy 1x/2x Release trace pair, with a
       60-Hz cadence check and Time-Profiler export
 - [ ] Corrected 2x shot-overload trace and three repeatable runs per profile
+- [x] Physical normal-game sustained-fire trace reproducing the reported
+      shooting hitch and identifying synchronous one-shot audio setup
+- [ ] Physical A/B trace of the installed reusable one-shot audio pool
 - [x] Default-off macOS Metal prototype for Grid style 1 and Particle style 1,
       with SpriteKit fallback and an unchanged SpriteKit-only iOS path
 
@@ -416,6 +419,14 @@ the user's hitch: the initial 2x profile unintentionally retained the normal
 and guaranteed Triangle-bond churn. The benchmark-only cap correction is
 installed for the follow-up; detailed evidence is in
 `docs/iOS-Performance/MEASUREMENTS-ACTIVE-ENEMY-2026-08-30.md`.
+
+The subsequent normal-game live-shooting trace does reproduce the user's
+report: its retained firing window has a 150.014-ms display-swap median and a
+333.364-ms maximum. Main-thread samples show `AudioFileOpenURL`,
+`AVAudioPlayer.prepareToPlay`, and AudioQueue XPC work directly below
+projectile-impact and enemy-destruction calls. A prewarmed polyphonic one-shot
+pool is installed for the A/B run; details and presentation notes are in
+`docs/iOS-Performance/MEASUREMENTS-LIVE-SHOOTING-2026-08-30.md`.
 
 The executable plan is in `docs/iOS-Performance/PLAN.md`. Detailed technical,
 risk, and data-capture notes are in
