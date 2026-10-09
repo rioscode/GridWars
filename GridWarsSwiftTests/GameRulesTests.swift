@@ -1593,6 +1593,149 @@ final class GameRulesTests: XCTestCase {
         XCTAssertEqual(preview[47, 35].position, CGPoint(x: 880, y: 672))
     }
 
+    func testGridPushVisitsExactlyTheOriginalSquareNeighbourhood() {
+        var grid = GridSimulation(arenaSize: CGSize(width: 1_024, height: 768), spacing: 16)
+        let centers: [CGPoint] = [
+            CGPoint(x: 512, y: 384),
+            CGPoint(x: 0, y: 0),
+            CGPoint(x: -32, y: -32),
+            CGPoint(x: 16, y: 16),
+            CGPoint(x: 1_024, y: 768),
+            CGPoint(x: 1_040, y: 800),
+            CGPoint(x: 100.5, y: 253.25),
+            CGPoint(x: 48, y: 48),
+            CGPoint(x: 1_008, y: 16),
+        ]
+
+        for pass in 0..<3 {
+            for center in centers {
+                let expected = Self.referencePush(
+                    points: grid.points,
+                    columns: grid.columns,
+                    rows: grid.rows,
+                    spacing: 16,
+                    center: center,
+                    radiusInPoints: 4,
+                    amount: pass == 2 ? 3 : 1
+                )
+                grid.push(at: center, radiusInPoints: 4, amount: pass == 2 ? 3 : 1)
+                XCTAssertEqual(grid.points, expected, "push mismatch at \(center) pass \(pass)")
+            }
+            // Deform the lattice so the displacement gate becomes meaningful.
+            grid.update()
+        }
+    }
+
+    /// Direct transcription of the original square-neighbourhood loop, kept in
+    /// the test so the clamped production loop can be proven equivalent.
+    private static func referencePush(
+        points: [GridPointState],
+        columns: Int,
+        rows: Int,
+        spacing: CGFloat,
+        center: CGPoint,
+        radiusInPoints: Int,
+        amount: CGFloat
+    ) -> [GridPointState] {
+        let centerColumn = Int(center.x / spacing)
+        let centerRow = Int(center.y / spacing)
+        var result = points
+        for columnOffset in -radiusInPoints...radiusInPoints {
+            for rowOffset in -radiusInPoints...radiusInPoints {
+                let column = centerColumn + columnOffset
+                let row = centerRow + rowOffset
+                guard column > 0 && column <= columns && row > 0 && row <= rows else { continue }
+                let pointIndex = column * (rows + 1) + row
+                let point = points[pointIndex]
+                let fromCenter = CGVector(
+                    dx: point.origin.x - center.x,
+                    dy: point.origin.y - center.y
+                )
+                let fromCurrent = CGVector(
+                    dx: point.origin.x - point.position.x,
+                    dy: point.origin.y - point.position.y
+                )
+                let centerDistanceSquared = fromCenter.dx * fromCenter.dx
+                    + fromCenter.dy * fromCenter.dy
+                let displacementSquared = fromCurrent.dx * fromCurrent.dx
+                    + fromCurrent.dy * fromCurrent.dy
+                guard centerDistanceSquared > 1,
+                      displacementSquared < 400,
+                      centerDistanceSquared < 50 * 50 else { continue }
+                result[pointIndex].velocity = point.velocity + fromCenter * amount
+            }
+        }
+        return result
+    }
+
+    func testGridPointQuadPlanMatchesSourceOrderedPointPasses() {
+        let grid = GridSimulation(arenaSize: CGSize(width: 1_024, height: 768))
+        let plan = GridPointQuadPlan(grid: grid)
+
+        var expected: [GridPointQuadPlan.Quad] = []
+        for column in 0..<grid.columns {
+            for row in 0..<grid.rows {
+                expected.append(.init(pointIndex: grid.pointIndex(column: column, row: row), side: 2))
+            }
+        }
+        for column in 1..<grid.columns where column.isMultiple(of: 4) {
+            for row in 0..<grid.rows {
+                expected.append(.init(pointIndex: grid.pointIndex(column: column, row: row), side: 3))
+            }
+        }
+        for row in 1..<grid.rows where row.isMultiple(of: 4) {
+            for column in 0..<grid.columns {
+                expected.append(.init(pointIndex: grid.pointIndex(column: column, row: row), side: 3))
+            }
+        }
+
+        XCTAssertEqual(plan.quads, expected)
+        XCTAssertTrue(plan.quads.allSatisfy { $0.pointIndex >= 0 && $0.pointIndex < grid.points.count })
+    }
+
+    func testGridPointQuadPlanKeepsTheDocumentedDefaultIPhoneRectangleCount() {
+        let grid = GridSimulation(arenaSize: CGSize(width: 1_024, height: 768), spacing: 16)
+        let plan = GridPointQuadPlan(grid: grid)
+
+        // 64 x 48 base points, 15 highlighted columns, 11 highlighted rows.
+        XCTAssertEqual(plan.rectangleCount, 3_072 + 720 + 704)
+        XCTAssertEqual(plan.rectangleCount, 4_496)
+
+        let baseCount = grid.columns * grid.rows
+        XCTAssertEqual(plan.quads[0].side, 2)
+        XCTAssertEqual(plan.quads[baseCount - 1].side, 2)
+        XCTAssertEqual(plan.quads[baseCount].side, 3)
+        XCTAssertEqual(plan.quads[baseCount + 15 * grid.rows].side, 3)
+        XCTAssertEqual(plan.quads[plan.rectangleCount - 1].side, 3)
+    }
+
+    func testGridPointQuadPlanHandlesGridsWithoutHighlightPasses() {
+        let grid = GridSimulation(arenaSize: CGSize(width: 40, height: 40), spacing: 16)
+        let plan = GridPointQuadPlan(grid: grid)
+
+        XCTAssertEqual(grid.columns, 2)
+        XCTAssertEqual(grid.rows, 2)
+        XCTAssertEqual(plan.rectangleCount, 4)
+        XCTAssertTrue(plan.quads.allSatisfy { $0.side == 2 })
+    }
+
+    func testGridInterpolatedPositionMatchesPointSnapshot() {
+        var grid = GridSimulation(arenaSize: CGSize(width: 128, height: 128), spacing: 16)
+        grid.push(at: CGPoint(x: 48, y: 48), radiusInPoints: 2, amount: 3)
+        grid.beginPresentationStep()
+        grid.update()
+
+        let index = grid.pointIndex(column: 3, row: 3)
+        XCTAssertEqual(
+            grid.interpolatedPosition(at: index, interpolationAlpha: 1),
+            grid[3, 3].position
+        )
+        XCTAssertEqual(
+            grid.interpolatedPosition(at: index, interpolationAlpha: 0),
+            grid[3, 3].previousPosition
+        )
+    }
+
     func testGridPullPushAndShockwaveMatchOriginalImpulses() {
         let center = CGPoint(x: 160, y: 160)
         var pulled = GridSimulation(arenaSize: CGSize(width: 320, height: 320))

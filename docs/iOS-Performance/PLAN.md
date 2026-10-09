@@ -55,6 +55,11 @@ The immutable starting point is commit `aac3d9c`, tagged
       keep the shared one-shot engine alive when Black-Hole loops stop. The
       final signed build installs and launches on the device; a third
       Instruments attach timed out and is not counted as performance evidence.
+- [x] Resolve the pending pooled-sprite point Grid experiment. It is a measured
+      4.6x cost regression and is no longer the iOS default. The A/B moved into
+      the deterministic `--ios-performance-benchmark`, which is not platform
+      gated, so it no longer depends on a physical-device Instruments attach.
+      Evidence: `MEASUREMENTS-GRID-SPRITE-2026-10-09.md`.
 
 The three wired iPhone 17 Pro Max runs measure only 13.99–16.79 presentation
 updates per second. Median display spacing is about 66.7 ms, projectile work
@@ -99,10 +104,16 @@ typed but still needs a final unlocked-device trace. Full evidence is in
    effects. The Phase-2 trace already assigns 740.07 MB to presentation.
 7. Each surviving projectile half-step calls `GridSimulation.push()`, which
    visits a 7x7 point neighborhood. Five hundred projectiles can therefore
-   produce about 49,000 Grid-point checks per fixed step.
-8. `GridRenderer` rebuilds paths every displayed frame. Particle Grid styles
-   additionally allocate an arena-sized bitmap, create a `CGImage`, and upload
-   a new `SKTexture` every frame.
+   produce about 49,000 Grid-point checks per fixed step. The 2026-10-09 profile
+   measured `push` at 6.0% of main-thread self time after clamping the square to
+   the 50-unit rejection disc; the remaining cost is the surviving points, not
+   the rejected corners.
+8. `GridRenderer` rebuilds paths every displayed frame, but the identical
+   4,496-rectangle workload costs only 1.0% of main-thread time on macOS. The
+   iPhone trace that attributed 28% + 23% to this path has not been reproduced
+   on a device with the current build. Particle Grid styles additionally
+   allocate an arena-sized bitmap, create a `CGImage`, and upload a new
+   `SKTexture` every frame.
 9. `ParticleRenderer` pools allocations but still uses one `SKShapeNode` per
    line particle. Pool entries are grow-only and remain in SpriteKit's node
    tree after a burst.
@@ -215,11 +226,18 @@ remaining dominant function.
 
 ### Phase 4: source-ordered spatial broad phase
 
+Now the highest-value remaining target. The 2026-10-09 macOS Release profile
+attributes 19.0% of main-thread self time to `checkProjectileCollisions`, which
+tests every projectile against every candidate of every kind.
+
 - If projectile-versus-enemy checks remain dominant, index enemies in uniform
   cells and query only cells intersecting each collision/avoidance radius.
   Return candidates in original child order and retain the existing kind
   priority. Green Square queries use the projected danger point; Black Holes
   remain in their tiny ordered list.
+- Before indexing, prove that `runGreenSquare` has its own distance gate. It
+  currently runs for every non-colliding green square, so a broad phase that
+  skips distant squares changes behaviour until that gate is confirmed.
 - Reuse the spatial index for same-kind separation only if separation remains
   dominant after Phase 3. Update a moved enemy's cell at the same point in the
   source-ordered loop so later enemies observe the same current positions.
@@ -255,15 +273,29 @@ focused capture remains accepted.
 
 ### Phase 7: Grid, GPU, and particles
 
-- Measure `GridSimulation.push()` separately from `GridRenderer` path creation.
-- Add a source-ordered batch API for projectile Grid impulses only if simulation
+- [x] Compare the pooled-sprite point Grid against the `SKShapeNode` path.
+      Result: the sprite path costs 4.6x more Grid time for the default 4,496
+      rectangles and is rejected. It stays available behind
+      `--grid-sprite-points`. Its raster is marginally more faithful, so
+      fidelity was not the reason. Evidence and the unresolved macOS-versus-
+      iPhone attribution difference are in
+      `MEASUREMENTS-GRID-SPRITE-2026-10-09.md`.
+- [x] Clamp the `GridSimulation.push` neighbourhood to the intersection of the
+      source square and the 50-unit rejection disc. Proven equivalent against a
+      transcription of the original loop and byte-identical Grid captures.
+      Self time 766 ms to 685 ms of an 11.4-second run.
+- [ ] Re-measure the Grid renderer on the physical iPhone before doing more Grid
+      work. The 2026-08-30 iPhone trace attributed 28% + 23% to the point Grid;
+      the identical macOS workload attributes 1%.
+- [ ] Measure `GridSimulation.push()` separately from `GridRenderer` path creation.
+- [ ] Add a source-ordered batch API for projectile Grid impulses only if simulation
   is significant.
-- Remove per-frame bitmap allocation and texture creation from Particle Grid
+- [ ] Remove per-frame bitmap allocation and texture creation from Particle Grid
   styles.
-- Compare SpriteKit Grid/particle representations before considering a narrowly
+- [ ] Compare SpriteKit Grid/particle representations before considering a narrowly
   scoped iOS Metal pass. Do not adopt Metal without updating the architecture
   decision and passing the full capture boundary.
-- Retire excessive hidden particle-pool nodes only after node-count evidence
+- [ ] Retire excessive hidden particle-pool nodes only after node-count evidence
   shows they contribute to the remaining device cost.
 
 ## Acceptance criteria
