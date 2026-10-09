@@ -9,6 +9,32 @@ heavy projectile, Grid, enemy, and particle load.
 The immutable starting point is commit `aac3d9c`, tagged
 `pre-ios-performance-optimization`.
 
+## Session decision (2026-10-09)
+
+Work stops after the point-Grid A/B and the `GridSimulation.push` clamp. Both
+are committed in `889fbea` with evidence in
+`MEASUREMENTS-GRID-SPRITE-2026-10-09.md`.
+
+Phase 4, the source-ordered spatial broad phase, is deliberately **not started**.
+It is the largest remaining measured target at 19.0% of main-thread self time in
+`checkProjectileCollisions`, but it is the most fidelity-sensitive change in the
+plan: it must preserve kind priority, per-kind child order, the Green Square
+avoidance side effect, and Snake-tail and Interceptor-shield behaviour. It also
+has a documented prerequisite that is not yet answered — whether `runGreenSquare`
+has its own distance gate. It was therefore left as an explicit open decision
+rather than attempted in this pass.
+
+Two measurements should be taken before any further optimisation work:
+
+1. Re-profile the point Grid on the physical iPhone with the current build. The
+   2026-08-30 device trace attributed 28% + 23% to this path while the identical
+   macOS workload attributes 1.0%. Until that gap is explained, Grid rendering
+   is not a proven target.
+2. Re-run the corrected `--ios-active-enemy-benchmark-2x` trace, which is still
+   outstanding from Phase 3.
+
+No presentation backup was taken for this checkpoint.
+
 ## Current implementation status (2026-08-30)
 
 - [x] Deterministic dynamic benchmark mode and points-of-interest signposts.
