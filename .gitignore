@@ -11,3 +11,17 @@ xcuserdata/
 /gridwars
 /gridwars.exe
 /gridwars.app/
+
+# macOS Finder metadata
+.DS_Store
+
+# Presentations, documents and narration audio stay local
+*.ppt
+*.pptx
+*.potx
+*.key
+*.doc
+*.docx
+*.pdf
+presentation-audio*/
+presentation-backups/
