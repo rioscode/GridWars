@@ -1,6 +1,9 @@
 # GridWars
 
-This repository holds the source code of GridWars, created originally by Mark Incitti in 2006. The goal of this project is to improve compatibility with embedded systems, such as the Raspberry Pi.
+This repository holds the source code of GridWars, created originally by Mark
+Incitti in 2006, together with a native Swift port. The goal of this project is
+a faithful GridWars 5.4 reproduction for **macOS and iOS/iPadOS**; these are the
+only supported targets.
 
 
 ## Native Swift port for macOS and iOS
@@ -109,7 +112,9 @@ texture, blending, timing, and verification lessons are collected in
 
 ## Build instructions
 
-The instructions below apply to the original BlitzMax version.
+The instructions below apply only to the original BlitzMax version. They are
+kept from the upstream fork (https://github.com/mmatyas/GridWars), which
+targeted Linux and the Raspberry Pi. Neither is a target of this project.
 
 This game uses the [BlitzMax game engine](http://www.blitzbasic.com/Products/blitzmax.php), and is written in its BASIC-resembling language. As such, to compile the game, you will need the BMX compiler for your system. There are two main implementations, the [official one](https://github.com/blitz-research/blitzmax) and [BMX-NG](http://www.bmx-ng.com/main/), which has improved ARM and cross compilation support.
 

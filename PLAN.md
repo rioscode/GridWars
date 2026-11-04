@@ -441,4 +441,4 @@ timed out and is not counted as frame evidence. Details are in
 
 The executable plan is in `docs/iOS-Performance/PLAN.md`. Detailed technical,
 risk, and data-capture notes are in
-`docs/iOS-Performance/NEXT-STEPS-NOTES.md`.
+`docs/iOS-Performance/NEXT-STEPS.md`.
