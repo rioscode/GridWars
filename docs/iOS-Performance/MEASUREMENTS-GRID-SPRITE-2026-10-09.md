@@ -33,7 +33,12 @@ exactly the point Grid path. The default 1,024 x 768 arena at 16-point spacing
 produces the documented 4,496 rectangles per displayed frame. Raw artifacts are
 under `.build/grid-sprite-ab/`.
 
-Two renderer-selection switches now exist and neither changes gameplay:
+> **2026-11-04:** the sprite path, the `--grid-sprite-points` switch and
+> `GridPointQuadPlan` were removed from the shipped renderer after review. To
+> repeat this comparison, check out commit `889fbea`.
+
+At measurement time two renderer-selection switches existed, and neither
+changed gameplay:
 
 | Switch | Effect |
 | --- | --- |
@@ -86,9 +91,18 @@ never the reason to reject the sprite path.
 `GridSimulation.push` was 766 ms of 11,385 ms, or 6.7% of main-thread time. The
 original loop walks a full `2 * radiusInPoints + 1` square and then rejects
 every point whose origin is 50 or more scene units from the centre. The clamp
-intersects the square with that open disc before iterating, so it visits the
-identical set of points in the identical order and skips only the rejected
+intersects the square with a conservative bounding box of that open disc
+before iterating and leaves the per-point distance test in place, so it visits
+the identical set of points in the identical order and skips only the rejected
 corners.
+
+> **2026-11-04 correction:** the first version of the clamp assumed every
+> origin was exactly `index * spacing` and used strict `±1` bounds. That
+> dropped boundary points for offset render windows and, through rounding,
+> for spacings other than 16. The clamp now measures from the lattice's first
+> origin and widens each bound by one index.
+> `testGridPushMatchesSourceForNonPowerOfTwoSpacingAndOffsetLattice` fails
+> against the old clamp and passes against the fixed one.
 
 | Function | Before | After |
 | --- | ---: | ---: |
@@ -99,7 +113,7 @@ The self-time drop is 10.6%. The total change is inside run-to-run noise and is
 not claimed as a frame-rate win. It is kept because it is strictly less work and
 is proven equivalent:
 
-* `testGridPushVisitsExactlyTheOriginalNeighbourhood` runs a transcription of
+* `testGridPushVisitsExactlyTheOriginalSquareNeighbourhood` runs a transcription of
   the original square loop in the test target and compares the complete
   `points` array after every push, over nine centres including the origin,
   negative, off-arena and fractional positions, across three passes that deform
@@ -109,17 +123,16 @@ is proven equivalent:
 
 ## New deterministic tests
 
-* `testGridPushVisitsExactlyTheOriginalNeighbourhood`
-* `testGridPointQuadPlanMatchesSourceOrderedPointPasses`
-* `testGridPointQuadPlanKeepsTheDocumentedDefaultIPhoneRectangleCount`
-* `testGridPointQuadPlanHandlesGridsWithoutHighlightPasses`
-* `testGridInterpolatedPositionMatchesPointSnapshot`
+* `testGridPushVisitsExactlyTheOriginalSquareNeighbourhood`
+* `testGridPushMatchesSourceForNonPowerOfTwoSpacingAndOffsetLattice` (added
+  2026-11-04)
 
-`GridPointQuadPlan` is kept as tested platform-neutral infrastructure: it is the
-source-ordered three-pass rectangle plan and it documents the 4,496 count. The
-macOS-only sprite opt-in uses it, so the plan and the renderer cannot drift.
+The `GridPointQuadPlan` and `interpolatedPosition` tests added with this pass
+were removed on 2026-11-04 together with the sprite path, which was their only
+consumer.
 
-Test count went from 143 to 148, all passing. macOS Debug and Release, the iOS
+Test count went from 143 to 148 in this pass and is 145 after the 2026-11-04
+cleanup, all passing. macOS Debug and Release, the iOS
 Simulator Debug build, and a generic iOS device Release build all succeed.
 
 ## Measured hot spots after this pass
@@ -158,8 +171,8 @@ unresolved runtime share is consistent with `SKNode.userData` bridging and
 
 ## Claims now supported
 
-- The pooled-sprite point Grid is a measured cost regression and is not the
-  default on any platform.
+- The pooled-sprite point Grid is a measured cost regression and was removed
+  from the renderer.
 - The pooled-sprite point Grid is marginally more faithful than the shape path.
 - The `push` clamp is behaviour-identical and performs 10.6% less self time.
 - Projectile-versus-enemy collision is the largest measured application cost.

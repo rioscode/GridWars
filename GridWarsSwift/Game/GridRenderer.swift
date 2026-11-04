@@ -41,18 +41,6 @@ final class GridRenderer {
     private var reusableNodes: [SKNode] = []
     private var reusableNodeIndex = 0
     private var presentationInterpolationAlpha: CGFloat = 1
-    private let maximumSpritePointQuadCount = 5_000
-    private var pointTextures: [Int: SKTexture] = [:]
-    private var pointQuadPlan: GridPointQuadPlan?
-    /// Last rectangle written into each pooled point sprite. A pooled slot
-    /// always maps to the same lattice position while the topology is stable,
-    /// so an unchanged rectangle skips every SpriteKit setter.
-    private var pointSlotRects: [CGRect] = []
-    private var pointSlotColor: SIMD4<Double>?
-    private var pointSlotAlpha: CGFloat?
-    private var pointColorChanged = true
-    private var pointAlphaChanged = true
-    private var hiddenSlotStart: Int?
 
     func advanceAnimation() {
         animationFrame = (animationFrame + 1) % 7_200
@@ -142,21 +130,15 @@ final class GridRenderer {
             node.removeAllChildren()
             reusableNodes.removeAll(keepingCapacity: true)
             renderedStyle = style
-            resetPointSpriteCache()
         }
-        hiddenSlotStart = nil
         reusableNodeIndex = 0
     }
 
     private func finishFrame() {
-        guard reusableNodeIndex < reusableNodes.count else {
-            hiddenSlotStart = nil
-            return
-        }
+        guard reusableNodeIndex < reusableNodes.count else { return }
         for index in reusableNodeIndex..<reusableNodes.count {
             reusableNodes[index].isHidden = true
         }
-        hiddenSlotStart = reusableNodeIndex
     }
 
     private func addPointGrid(
@@ -169,11 +151,6 @@ final class GridRenderer {
             addParticleImageGrid(grid, color: color, alpha: alpha)
             return
         }
-
-        if shouldUseSpritePointGrid(grid), addSpritePointGrid(grid, color: color, alpha: alpha) {
-            return
-        }
-        resetPointSpriteCache()
 
         let base = CGMutablePath()
         let columnHighlights = CGMutablePath()
@@ -197,199 +174,6 @@ final class GridRenderer {
         addShape(path: base, fill: color, alpha: alpha)
         addShape(path: columnHighlights, fill: color, alpha: alpha)
         addShape(path: rowHighlights, fill: color, alpha: alpha)
-    }
-
-    /// Opt-in pooled-sprite representation of the point grid.
-    ///
-    /// Rebuilding one large CGPath every display frame makes SpriteKit
-    /// retessellate every rectangle, so this path reuses one nearest-filtered
-    /// pixel texture and the same node pool across the original three additive
-    /// passes. Measured against the `SKShapeNode` path it is 4.6x more expensive
-    /// because SpriteKit still traverses and sorts thousands of nodes per frame.
-    /// It is therefore reachable only through `--grid-sprite-points` and is kept
-    /// only so the comparison can be repeated on a device.
-    ///
-    /// Returns `false` when the required textures could not be created so the
-    /// caller can fall back to the original `SKShapeNode` representation.
-    @discardableResult
-    private func addSpritePointGrid(_ grid: GridSimulation, color: SKColor, alpha: CGFloat) -> Bool {
-        let plan = cachedPointQuadPlan(for: grid)
-        let baseTexture = pointTexture(side: 2)
-        let highlightTexture = pointTexture(side: 3)
-        guard let baseTexture, let highlightTexture else {
-            resetPointSpriteCache()
-            return false
-        }
-
-        let clampedAlpha = max(0, min(1, alpha))
-        let frameColor = Self.rgba(of: color)
-        pointColorChanged = frameColor == nil || pointSlotColor != frameColor
-        pointAlphaChanged = pointSlotAlpha != clampedAlpha
-        pointSlotColor = frameColor
-        pointSlotAlpha = clampedAlpha
-
-        let points = grid.points
-        let interpolationAlpha = presentationInterpolationAlpha
-        for quad in plan.quads {
-            let position = points[quad.pointIndex].presentationPosition(
-                interpolationAlpha: interpolationAlpha
-            )
-            addPointSprite(
-                rect: OriginalDrawRectRule.sceneRect(
-                    at: position,
-                    width: quad.side,
-                    height: quad.side
-                ),
-                texture: quad.side == 2 ? baseTexture : highlightTexture,
-                color: color,
-                alpha: clampedAlpha
-            )
-        }
-        return true
-    }
-
-    private func addPointSprite(
-        rect: CGRect,
-        texture: SKTexture,
-        color: SKColor,
-        alpha: CGFloat
-    ) {
-        let slot = reusableNodeIndex
-        let previousRect: CGRect?
-        if slot < reusableNodes.count, let sprite = reusableNodes[slot] as? SKSpriteNode {
-            reusableNodeIndex += 1
-            if let hiddenSlotStart, slot >= hiddenSlotStart {
-                sprite.isHidden = false
-            }
-            if sprite.texture !== texture {
-                sprite.texture = texture
-                sprite.size = texture.size()
-            }
-            previousRect = slot < pointSlotRects.count ? pointSlotRects[slot] : nil
-            if previousRect == rect, !pointColorChanged, !pointAlphaChanged {
-                return
-            }
-            if previousRect != rect {
-                sprite.position = rect.origin
-            }
-            growPointSlotRects(to: slot, rect: rect)
-            if pointColorChanged {
-                sprite.color = color
-            }
-            if pointAlphaChanged {
-                sprite.alpha = alpha
-            }
-            return
-        }
-
-        let sprite = SKSpriteNode(texture: texture)
-        sprite.anchorPoint = .zero
-        sprite.blendMode = .add
-        sprite.colorBlendFactor = 1
-        sprite.zPosition = 0
-        sprite.size = texture.size()
-        sprite.position = rect.origin
-        sprite.color = color
-        sprite.alpha = alpha
-        insertReusableNode(sprite)
-        growPointSlotRects(to: slot, rect: rect)
-    }
-
-    private func growPointSlotRects(to slot: Int, rect: CGRect) {
-        if slot < pointSlotRects.count {
-            pointSlotRects[slot] = rect
-        } else {
-            pointSlotRects.append(rect)
-        }
-    }
-
-    private func cachedPointQuadPlan(for grid: GridSimulation) -> GridPointQuadPlan {
-        if let pointQuadPlan, pointQuadPlan.columns == grid.columns, pointQuadPlan.rows == grid.rows {
-            return pointQuadPlan
-        }
-        let plan = GridPointQuadPlan(grid: grid)
-        pointQuadPlan = plan
-        resetPointSpriteCache()
-        return plan
-    }
-
-    private func resetPointSpriteCache() {
-        pointSlotRects.removeAll(keepingCapacity: true)
-        pointSlotColor = nil
-        pointSlotAlpha = nil
-        pointColorChanged = true
-        pointAlphaChanged = true
-    }
-
-    private func shouldUseSpritePointGrid(_ grid: GridSimulation) -> Bool {
-        // Measured on the deterministic projectile benchmark with the default
-        // 4,496-rectangle grid: the pooled-sprite representation cost 514 ms of
-        // main-thread time per 11 s against 111 ms for the original SKShapeNode
-        // path. It is therefore never the default and stays an explicit opt-in so
-        // the comparison can be repeated on a device without rewriting it.
-        // See docs/iOS-Performance/MEASUREMENTS-GRID-SPRITE-2026-10-09.md.
-        guard ProcessInfo.processInfo.arguments.contains(Self.spritePointGridArgument) else {
-            return false
-        }
-        return pointGridQuadCount(grid) <= maximumSpritePointQuadCount
-    }
-
-    private static let spritePointGridArgument = "--grid-sprite-points"
-
-    private func pointGridQuadCount(_ grid: GridSimulation) -> Int {
-        let base = grid.columns * grid.rows
-        let highlightedColumns = max(0, (grid.columns - 1) / 4) * grid.rows
-        let highlightedRows = max(0, (grid.rows - 1) / 4) * grid.columns
-        return base + highlightedColumns + highlightedRows
-    }
-
-    private func pointTexture(side: Int) -> SKTexture? {
-        if let cached = pointTextures[side] {
-            return cached
-        }
-        guard let texture = Self.makePointTexture(side: side) else { return nil }
-        pointTextures[side] = texture
-        return texture
-    }
-
-    private static func rgba(of color: SKColor) -> SIMD4<Double>? {
-        var red: CGFloat = 0
-        var green: CGFloat = 0
-        var blue: CGFloat = 0
-        var alpha: CGFloat = 0
-        #if canImport(UIKit)
-        guard color.getRed(&red, green: &green, blue: &blue, alpha: &alpha) else {
-            return nil
-        }
-        #else
-        guard let rgb = color.usingColorSpace(.sRGB) else { return nil }
-        rgb.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
-        #endif
-        return SIMD4(Double(red), Double(green), Double(blue), Double(alpha))
-    }
-
-    private static func makePointTexture(side: Int) -> SKTexture? {
-        let side = max(1, side)
-        let pixels = [UInt8](repeating: 255, count: side * side * 4)
-        guard let provider = CGDataProvider(data: Data(pixels) as CFData),
-              let image = CGImage(
-                width: side,
-                height: side,
-                bitsPerComponent: 8,
-                bitsPerPixel: 32,
-                bytesPerRow: side * 4,
-                space: CGColorSpaceCreateDeviceRGB(),
-                bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue),
-                provider: provider,
-                decode: nil,
-                shouldInterpolate: false,
-                intent: .defaultIntent
-              ) else {
-            return nil
-        }
-        let texture = SKTexture(cgImage: image)
-        texture.filteringMode = .nearest
-        return texture
     }
 
     private func addParticleImageGrid(

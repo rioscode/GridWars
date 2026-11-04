@@ -301,14 +301,17 @@ focused capture remains accepted.
 
 - [x] Compare the pooled-sprite point Grid against the `SKShapeNode` path.
       Result: the sprite path costs 4.6x more Grid time for the default 4,496
-      rectangles and is rejected. It stays available behind
-      `--grid-sprite-points`. Its raster is marginally more faithful, so
-      fidelity was not the reason. Evidence and the unresolved macOS-versus-
+      rectangles and is rejected. The experiment was removed from the renderer
+      on 2026-11-04 and lives only in commit `889fbea`. Its raster is
+      marginally more faithful, so fidelity was not the reason. Evidence and the unresolved macOS-versus-
       iPhone attribution difference are in
       `MEASUREMENTS-GRID-SPRITE-2026-10-09.md`.
 - [x] Clamp the `GridSimulation.push` neighbourhood to the intersection of the
-      source square and the 50-unit rejection disc. Proven equivalent against a
-      transcription of the original loop and byte-identical Grid captures.
+      source square and a conservative bounding box of the 50-unit rejection
+      disc, measured from the lattice's first origin. The per-point distance
+      test still decides, so the result is proven equivalent against a
+      transcription of the original loop, including spacings other than 16
+      and offset render windows, and byte-identical Grid captures.
       Self time 766 ms to 685 ms of an 11.4-second run.
 - [ ] Re-measure the Grid renderer on the physical iPhone before doing more Grid
       work. The 2026-08-30 iPhone trace attributed 28% + 23% to the point Grid;

@@ -1626,6 +1626,45 @@ final class GameRulesTests: XCTestCase {
         }
     }
 
+    func testGridPushMatchesSourceForNonPowerOfTwoSpacingAndOffsetLattice() {
+        let spacings: [CGFloat] = [10, 12, 7.3]
+        for spacing in spacings {
+            var grid = GridSimulation(arenaSize: CGSize(width: 400, height: 300), spacing: spacing)
+            // Centres where (center ± 50) / spacing lands on, or next to, an
+            // integer exercise the rounding edge of the axis clamp.
+            var centers: [CGPoint] = [CGPoint(x: 200, y: 150), CGPoint(x: 100.5, y: 77.25)]
+            for index in 3...12 {
+                let edge = CGFloat(index) * spacing - 50
+                centers.append(CGPoint(x: edge, y: 150))
+                centers.append(CGPoint(x: edge.nextUp, y: edge.nextDown + 100))
+            }
+            for center in centers {
+                let expected = Self.referencePush(
+                    points: grid.points, columns: grid.columns, rows: grid.rows,
+                    spacing: spacing, center: center, radiusInPoints: 6, amount: 1
+                )
+                grid.push(at: center, radiusInPoints: 6, amount: 1)
+                XCTAssertEqual(grid.points, expected, "spacing \(spacing) centre \(center)")
+            }
+        }
+
+        let source = GridSimulation(arenaSize: CGSize(width: 1_024, height: 768))
+        var window = source.renderWindow(
+            canvasSize: CGSize(width: 1_024, height: 768),
+            columns: 48,
+            rows: 36,
+            offset: CGPoint(x: 128, y: 112)
+        )
+        for center in [CGPoint(x: 300, y: 250), CGPoint(x: 140, y: 120), CGPoint(x: 64, y: 64)] {
+            let expected = Self.referencePush(
+                points: window.points, columns: window.columns, rows: window.rows,
+                spacing: 16, center: center, radiusInPoints: 6, amount: 1
+            )
+            window.push(at: center, radiusInPoints: 6, amount: 1)
+            XCTAssertEqual(window.points, expected, "offset window centre \(center)")
+        }
+    }
+
     /// Direct transcription of the original square-neighbourhood loop, kept in
     /// the test so the clamped production loop can be proven equivalent.
     private static func referencePush(
@@ -1666,74 +1705,6 @@ final class GameRulesTests: XCTestCase {
             }
         }
         return result
-    }
-
-    func testGridPointQuadPlanMatchesSourceOrderedPointPasses() {
-        let grid = GridSimulation(arenaSize: CGSize(width: 1_024, height: 768))
-        let plan = GridPointQuadPlan(grid: grid)
-
-        var expected: [GridPointQuadPlan.Quad] = []
-        for column in 0..<grid.columns {
-            for row in 0..<grid.rows {
-                expected.append(.init(pointIndex: grid.pointIndex(column: column, row: row), side: 2))
-            }
-        }
-        for column in 1..<grid.columns where column.isMultiple(of: 4) {
-            for row in 0..<grid.rows {
-                expected.append(.init(pointIndex: grid.pointIndex(column: column, row: row), side: 3))
-            }
-        }
-        for row in 1..<grid.rows where row.isMultiple(of: 4) {
-            for column in 0..<grid.columns {
-                expected.append(.init(pointIndex: grid.pointIndex(column: column, row: row), side: 3))
-            }
-        }
-
-        XCTAssertEqual(plan.quads, expected)
-        XCTAssertTrue(plan.quads.allSatisfy { $0.pointIndex >= 0 && $0.pointIndex < grid.points.count })
-    }
-
-    func testGridPointQuadPlanKeepsTheDocumentedDefaultIPhoneRectangleCount() {
-        let grid = GridSimulation(arenaSize: CGSize(width: 1_024, height: 768), spacing: 16)
-        let plan = GridPointQuadPlan(grid: grid)
-
-        // 64 x 48 base points, 15 highlighted columns, 11 highlighted rows.
-        XCTAssertEqual(plan.rectangleCount, 3_072 + 720 + 704)
-        XCTAssertEqual(plan.rectangleCount, 4_496)
-
-        let baseCount = grid.columns * grid.rows
-        XCTAssertEqual(plan.quads[0].side, 2)
-        XCTAssertEqual(plan.quads[baseCount - 1].side, 2)
-        XCTAssertEqual(plan.quads[baseCount].side, 3)
-        XCTAssertEqual(plan.quads[baseCount + 15 * grid.rows].side, 3)
-        XCTAssertEqual(plan.quads[plan.rectangleCount - 1].side, 3)
-    }
-
-    func testGridPointQuadPlanHandlesGridsWithoutHighlightPasses() {
-        let grid = GridSimulation(arenaSize: CGSize(width: 40, height: 40), spacing: 16)
-        let plan = GridPointQuadPlan(grid: grid)
-
-        XCTAssertEqual(grid.columns, 2)
-        XCTAssertEqual(grid.rows, 2)
-        XCTAssertEqual(plan.rectangleCount, 4)
-        XCTAssertTrue(plan.quads.allSatisfy { $0.side == 2 })
-    }
-
-    func testGridInterpolatedPositionMatchesPointSnapshot() {
-        var grid = GridSimulation(arenaSize: CGSize(width: 128, height: 128), spacing: 16)
-        grid.push(at: CGPoint(x: 48, y: 48), radiusInPoints: 2, amount: 3)
-        grid.beginPresentationStep()
-        grid.update()
-
-        let index = grid.pointIndex(column: 3, row: 3)
-        XCTAssertEqual(
-            grid.interpolatedPosition(at: index, interpolationAlpha: 1),
-            grid[3, 3].position
-        )
-        XCTAssertEqual(
-            grid.interpolatedPosition(at: index, interpolationAlpha: 0),
-            grid[3, 3].previousPosition
-        )
     }
 
     func testGridPullPushAndShockwaveMatchOriginalImpulses() {

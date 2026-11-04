@@ -109,18 +109,6 @@ struct GridSimulation: Equatable {
         points[index(column: column, row: row)]
     }
 
-    /// Flattened storage offset for a lattice coordinate. Renderers use this to
-    /// walk `points` directly instead of copying a whole `GridPointState`.
-    func pointIndex(column: Int, row: Int) -> Int {
-        index(column: column, row: row)
-    }
-
-    /// Display-space position of one stored point without copying its velocity
-    /// or origin alongside it.
-    func interpolatedPosition(at index: Int, interpolationAlpha: CGFloat) -> CGPoint {
-        points[index].presentationPosition(interpolationAlpha: interpolationAlpha)
-    }
-
     mutating func reset() {
         for index in points.indices {
             points[index].position = points[index].origin
@@ -185,12 +173,23 @@ struct GridSimulation: Equatable {
         let centerColumn = Int(center.x / spacing)
         let centerRow = Int(center.y / spacing)
         // The source visits the whole square neighbourhood and then rejects every
-        // point whose origin is 50 or more scene units from the centre. Clamping
-        // the loops to the intersection of the square and that open disc visits
-        // the identical set of points, in the identical order, while skipping the
-        // rejected corners.
-        guard let columnRange = pushedColumnRange(center: center.x, centerIndex: centerColumn, radiusInPoints: radiusInPoints, lastIndex: columns),
-              let rowRange = pushedColumnRange(center: center.y, centerIndex: centerRow, radiusInPoints: radiusInPoints, lastIndex: rows) else {
+        // point whose origin is 50 or more scene units from the centre. The loops
+        // are clamped to a conservative superset of that disc's bounding box, so
+        // the per-point distance test below still makes the final decision and
+        // the visited set and order match the source exactly.
+        let latticeOrigin = points.first?.origin ?? .zero
+        guard let columnRange = pushedAxisRange(
+                center: center.x - latticeOrigin.x,
+                centerIndex: centerColumn,
+                radiusInPoints: radiusInPoints,
+                lastIndex: columns
+              ),
+              let rowRange = pushedAxisRange(
+                center: center.y - latticeOrigin.y,
+                centerIndex: centerRow,
+                radiusInPoints: radiusInPoints,
+                lastIndex: rows
+              ) else {
             return
         }
         let stride = rows + 1
@@ -219,10 +218,13 @@ struct GridSimulation: Equatable {
         }
     }
 
-    /// Integer lattice indices whose origin lies within the push reach of one
-    /// axis, intersected with the source square neighbourhood and the arena.
-    /// Returns `nil` when the intersection is empty.
-    private func pushedColumnRange(
+    /// Lattice indices along one axis that can lie within the push reach,
+    /// intersected with the source square neighbourhood and the arena.
+    /// `center` is relative to the lattice's first origin. The reach bounds are
+    /// widened by one index so floating-point rounding can never exclude a
+    /// point the per-point distance test would accept. Returns `nil` when the
+    /// intersection is empty.
+    private func pushedAxisRange(
         center: CGFloat,
         centerIndex: Int,
         radiusInPoints: Int,
@@ -231,8 +233,8 @@ struct GridSimulation: Equatable {
         let reach: CGFloat = 50
         var low = max(1, centerIndex - radiusInPoints)
         var high = min(lastIndex, centerIndex + radiusInPoints)
-        low = max(low, Int(floor((center - reach) / spacing)) + 1)
-        high = min(high, Int(ceil((center + reach) / spacing)) - 1)
+        low = max(low, Int(floor((center - reach) / spacing)))
+        high = min(high, Int(ceil((center + reach) / spacing)))
         guard low <= high else { return nil }
         return low...high
     }
@@ -331,57 +333,5 @@ struct GridSimulation: Equatable {
         if value < 0 { return -1 }
         if value > 0 { return 1 }
         return 0
-    }
-}
-
-/// Source-ordered rectangle plan for the point Grid styles.
-///
-/// The original draws three additive passes in a fixed order: every base
-/// point, then every fourth non-zero column, then every fourth non-zero row.
-/// The plan stores the resulting lattice offsets once per topology so a
-/// renderer can replay the passes without recomputing the loop bounds and the
-/// `isMultiple(of: 4)` predicates for every displayed frame.
-struct GridPointQuadPlan: Equatable {
-    struct Quad: Equatable {
-        /// Offset into `GridSimulation.points`.
-        let pointIndex: Int
-        /// Square side length in scene points.
-        let side: CGFloat
-    }
-
-    let columns: Int
-    let rows: Int
-    let quads: [Quad]
-
-    var rectangleCount: Int { quads.count }
-
-    init(grid: GridSimulation) {
-        self.init(columns: grid.columns, rows: grid.rows, pointStride: grid.rows + 1)
-    }
-
-    init(columns: Int, rows: Int, pointStride: Int) {
-        self.columns = columns
-        self.rows = rows
-
-        var quads: [Quad] = []
-        quads.reserveCapacity((columns + (columns / 4)) * (rows + (rows / 4)))
-
-        for column in 0..<max(0, columns) {
-            for row in 0..<max(0, rows) {
-                quads.append(Quad(pointIndex: column * pointStride + row, side: 2))
-            }
-        }
-        for column in 1..<max(1, columns) where column.isMultiple(of: 4) {
-            for row in 0..<max(0, rows) {
-                quads.append(Quad(pointIndex: column * pointStride + row, side: 3))
-            }
-        }
-        for row in 1..<max(1, rows) where row.isMultiple(of: 4) {
-            for column in 0..<max(0, columns) {
-                quads.append(Quad(pointIndex: column * pointStride + row, side: 3))
-            }
-        }
-
-        self.quads = quads
     }
 }

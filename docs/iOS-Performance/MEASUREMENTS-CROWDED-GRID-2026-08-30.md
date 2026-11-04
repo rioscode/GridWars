@@ -5,8 +5,8 @@
 > **Resolved 2026-08-30 by `MEASUREMENTS-GRID-SPRITE-2026-10-09.md`.** The
 > pooled-sprite point Grid was measured against the `SKShapeNode` path in the
 > deterministic benchmark and is a 4.6x cost regression. It is not the default
-> on any platform and is only reachable with `--grid-sprite-points`. The shape
-> path stays the default. Read that file before spending more effort on Grid
+> on any platform; the experiment was removed from the renderer on 2026-11-04
+> and survives only in commit `889fbea`. The shape path is the only path. Read that file before spending more effort on Grid
 > rendering.
 
 The normal live-shooting audio stall has already been removed by the PCM
