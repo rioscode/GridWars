@@ -6,6 +6,17 @@ a faithful GridWars 5.4 reproduction for **macOS and iOS/iPadOS**; these are the
 only supported targets.
 
 
+## Screenshots
+
+Captured from the native Swift port running on macOS.
+
+| | |
+| :---: | :---: |
+| ![A swarm of Pinwheels closing in on the player](docs/screenshots/gameplay-swarm.png) | ![A bomb clearing the screen](docs/screenshots/gameplay-bomb.png) |
+| Pinwheel swarm | Bomb |
+| ![The grid bending under a shockwave](docs/screenshots/gameplay-grid-shockwave.png) | ![A crowded field with Black Holes, Triangles, Diamonds, Pinwheels and Green Squares](docs/screenshots/gameplay-crowded.png) |
+| Grid shockwave | Crowded wave (performance stress scene) |
+
 ## Native Swift port for macOS and iOS
 
 The repository contains a native Swift 6/SpriteKit port shared by macOS and
